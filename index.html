@@ -1296,34 +1296,6 @@
             enemies.push(enemy);
         }
         
-        // Spawn level boss serpent
-        function spawnLevelBoss() {
-            if (bossActive || bossDefeated) return;
-            
-            const currentLevelData = LEVELS[level - 1];
-            bossActive = true;
-            
-            enemies.push({
-                type: 'levelboss',
-                x: canvas.width + 50,
-                y: canvas.height / 2,
-                vx: -2,
-                vy: 0,
-                width: 120,
-                height: 60,
-                health: 50, // Boss takes 50 shots
-                maxHealth: 50,
-                points: 2000, // Massive reward
-                shootCooldown: 0,
-                shootInterval: 9999,
-                segments: [],
-                segmentPhase: 0,
-                hitFlash: 0,
-                bossName: currentLevelData.bossName,
-                bossColor: currentLevelData.bossColor
-            });
-        }
-        
         // Update game speed based on kills (gets faster with each kill!)
         function updateGameSpeed() {
             // Speed increases every 10 kills
@@ -1343,18 +1315,46 @@
             }
         }
         
+        // Boss movement patterns by level group
+        const BOSS_PATTERNS = {
+            // Levels 1-5: Basic patterns
+            serpentine: { amplitude: 3, frequency: 0.08, rushChance: 0 },
+            // Levels 6-10: Add rushing
+            aggressive: { amplitude: 4, frequency: 0.1, rushChance: 0.02, rushSpeed: 5 },
+            // Levels 11-15: Erratic movement
+            erratic: { amplitude: 5, frequency: 0.15, rushChance: 0.03, rushSpeed: 6, erratic: true },
+            // Levels 16-20: Teleport dashes
+            phantom: { amplitude: 4, frequency: 0.12, rushChance: 0.04, rushSpeed: 7, teleport: true },
+            // Levels 21-25: All abilities combined
+            ultimate: { amplitude: 6, frequency: 0.18, rushChance: 0.05, rushSpeed: 8, erratic: true, teleport: true, shoots: true }
+        };
+
+        function getBossPattern(lvl) {
+            if (lvl <= 5) return BOSS_PATTERNS.serpentine;
+            if (lvl <= 10) return BOSS_PATTERNS.aggressive;
+            if (lvl <= 15) return BOSS_PATTERNS.erratic;
+            if (lvl <= 20) return BOSS_PATTERNS.phantom;
+            return BOSS_PATTERNS.ultimate;
+        }
+
         // Spawn level boss serpent after 200 kills
         function spawnLevelBoss() {
             if (bossActive || bossDefeated) {
-                console.log('Boss spawn blocked - bossActive:', bossActive, 'bossDefeated:', bossDefeated);
                 return;
             }
-            
+
             const levelData = LEVELS[level - 1];
+            const pattern = getBossPattern(level);
             bossActive = true;
-            
-            console.log('BOSS SPAWNING:', levelData.bossName, 'at level', level);
-            
+
+            // Scale boss stats with level
+            const baseHealth = 75;
+            const healthScaling = Math.floor(level / 5) * 15; // +15 HP every 5 levels
+            const bossHealth = baseHealth + healthScaling;
+
+            const basePoints = 5000;
+            const pointsScaling = level * 500; // More points for harder bosses
+
             const boss = {
                 type: 'levelboss',
                 name: levelData.bossName,
@@ -1362,22 +1362,27 @@
                 y: canvas.height / 2,
                 vx: -1.5,
                 vy: 0,
-                width: 120,
-                height: 60,
-                health: 75, // Boss has 3 heads x 25 HP each = 75 HP total
-                maxHealth: 75,
-                points: 5000,
+                width: 120 + Math.floor(level / 5) * 10, // Slightly larger bosses
+                height: 60 + Math.floor(level / 5) * 5,
+                health: bossHealth,
+                maxHealth: bossHealth,
+                points: basePoints + pointsScaling,
                 shootCooldown: 0,
-                shootInterval: 9999,
+                shootInterval: pattern.shoots ? 120 - level * 2 : 9999,
                 segments: [],
                 segmentPhase: 0,
                 hitFlash: 0,
                 bossColor: levelData.bossColor,
-                bossHeads: 3 // Three-headed hydra
+                bossHeads: 3,
+                // Movement pattern properties
+                pattern: pattern,
+                bossState: 'entering',
+                rushTarget: null,
+                teleportCooldown: 0,
+                originalX: 0
             };
-            
+
             enemies.push(boss);
-            console.log('Boss added to enemies array. Total enemies:', enemies.length);
         }
         function trySpawnSpaceSnake() {
             // Don't spawn space snakes during boss fight
@@ -1445,10 +1450,91 @@
                     enemy.y += Math.sin(enemy.segmentPhase) * 2;
                 }
                 
-                // Level boss serpentine movement (slower, more menacing)
+                // Level boss advanced movement patterns
                 if (enemy.type === 'levelboss') {
-                    enemy.segmentPhase += 0.08;
-                    enemy.y += Math.sin(enemy.segmentPhase) * 3;
+                    const pattern = enemy.pattern || BOSS_PATTERNS.serpentine;
+                    enemy.segmentPhase += pattern.frequency;
+
+                    // State machine for boss behavior
+                    if (enemy.bossState === 'entering') {
+                        // Move into arena
+                        if (enemy.x <= canvas.width - 150) {
+                            enemy.bossState = 'fighting';
+                            enemy.originalX = enemy.x;
+                            enemy.vx = 0;
+                        }
+                    } else if (enemy.bossState === 'fighting') {
+                        // Base serpentine movement
+                        enemy.y += Math.sin(enemy.segmentPhase) * pattern.amplitude;
+
+                        // Erratic jitter for higher levels
+                        if (pattern.erratic) {
+                            enemy.x += (Math.random() - 0.5) * 2;
+                            enemy.y += (Math.random() - 0.5) * 1.5;
+                        }
+
+                        // Rush attack toward player
+                        if (pattern.rushChance && Math.random() < pattern.rushChance && !enemy.rushTarget) {
+                            enemy.bossState = 'rushing';
+                            enemy.rushTarget = { x: player.x + 80, y: player.y };
+                        }
+
+                        // Teleport dash for phantom+ patterns
+                        if (pattern.teleport && enemy.teleportCooldown <= 0 && Math.random() < 0.01) {
+                            enemy.teleportCooldown = 180; // 3 second cooldown
+                            enemy.y = 50 + Math.random() * (canvas.height - 100);
+                            // Teleport particles
+                            for (let i = 0; i < 15; i++) {
+                                particles.push({
+                                    x: enemy.x, y: enemy.y,
+                                    vx: (Math.random() - 0.5) * 6,
+                                    vy: (Math.random() - 0.5) * 6,
+                                    size: 3 + Math.random() * 4,
+                                    life: 25,
+                                    color: enemy.bossColor
+                                });
+                            }
+                        }
+                        if (enemy.teleportCooldown > 0) enemy.teleportCooldown--;
+
+                        // Boss shooting for ultimate pattern
+                        if (pattern.shoots && enemy.shootCooldown <= 0) {
+                            const dx = player.x - enemy.x;
+                            const dy = player.y - enemy.y;
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+                            enemyBullets.push({
+                                x: enemy.x - 30,
+                                y: enemy.y,
+                                vx: (dx / dist) * 6,
+                                vy: (dy / dist) * 6,
+                                width: 15,
+                                height: 6
+                            });
+                            enemy.shootCooldown = enemy.shootInterval;
+                        }
+
+                    } else if (enemy.bossState === 'rushing') {
+                        // Rush toward player position
+                        const dx = enemy.rushTarget.x - enemy.x;
+                        const dy = enemy.rushTarget.y - enemy.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+
+                        if (dist > 10) {
+                            enemy.x += (dx / dist) * pattern.rushSpeed;
+                            enemy.y += (dy / dist) * pattern.rushSpeed;
+                        } else {
+                            enemy.bossState = 'retreating';
+                        }
+                    } else if (enemy.bossState === 'retreating') {
+                        // Return to fighting position
+                        const targetX = enemy.originalX || (canvas.width - 150);
+                        if (enemy.x < targetX) {
+                            enemy.x += 2;
+                        } else {
+                            enemy.bossState = 'fighting';
+                            enemy.rushTarget = null;
+                        }
+                    }
                 }
                 
                 // Bounds
