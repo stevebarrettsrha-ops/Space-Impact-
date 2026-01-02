@@ -704,7 +704,6 @@
         // Platform selection function
         function selectPlatform(choice) {
             platform = choice;
-            console.log('Platform selected:', platform);
             
             // Hide platform screen
             document.getElementById('platformScreen').style.display = 'none';
@@ -1165,50 +1164,54 @@
         
         // Draw bullets
         function drawBullets() {
-            bullets.forEach((bullet, index) => {
+            // Iterate in reverse to safely remove elements
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
                 bullet.x += bullet.vx;
-                
+
                 // Remove off-screen bullets
                 if (bullet.x > canvas.width) {
-                    bullets.splice(index, 1);
-                    return;
+                    bullets.splice(i, 1);
+                    continue;
                 }
-                
+
                 // Bullet glow
                 const gradient = ctx.createLinearGradient(bullet.x, bullet.y, bullet.x + bullet.width, bullet.y);
                 gradient.addColorStop(0, 'rgba(0, 255, 0, 0.3)');
                 gradient.addColorStop(0.5, '#00ff00');
                 gradient.addColorStop(1, '#00ff00');
-                
+
                 ctx.fillStyle = gradient;
                 ctx.fillRect(bullet.x, bullet.y - bullet.height / 2, bullet.width, bullet.height);
-                
+
                 // Bullet trail
                 ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
                 ctx.fillRect(bullet.x - 10, bullet.y - bullet.height / 2, 10, bullet.height);
-            });
+            }
         }
         
         // Draw enemy bullets
         function drawEnemyBullets() {
-            enemyBullets.forEach((bullet, index) => {
+            // Iterate in reverse to safely remove elements
+            for (let i = enemyBullets.length - 1; i >= 0; i--) {
+                const bullet = enemyBullets[i];
                 bullet.x += bullet.vx;
                 bullet.y += bullet.vy;
-                
+
                 // Remove off-screen bullets
-                if (bullet.x < -50 || bullet.x > canvas.width + 50 || 
+                if (bullet.x < -50 || bullet.x > canvas.width + 50 ||
                     bullet.y < -50 || bullet.y > canvas.height + 50) {
-                    enemyBullets.splice(index, 1);
-                    return;
+                    enemyBullets.splice(i, 1);
+                    continue;
                 }
-                
+
                 // Missile body with glow
                 const angle = Math.atan2(bullet.vy, bullet.vx);
-                
+
                 ctx.save();
                 ctx.translate(bullet.x, bullet.y);
                 ctx.rotate(angle);
-                
+
                 // Glow effect
                 const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 8);
                 gradient.addColorStop(0, 'rgba(255, 0, 0, 0.8)');
@@ -1216,11 +1219,11 @@
                 gradient.addColorStop(1, 'rgba(255, 100, 0, 0)');
                 ctx.fillStyle = gradient;
                 ctx.fillRect(-15, -8, 30, 16);
-                
+
                 // Missile body
                 ctx.fillStyle = '#ff3333';
                 ctx.fillRect(-6, -3, 12, 6);
-                
+
                 // Missile tip
                 ctx.fillStyle = '#ff6666';
                 ctx.beginPath();
@@ -1229,13 +1232,13 @@
                 ctx.lineTo(10, 3);
                 ctx.closePath();
                 ctx.fill();
-                
+
                 // Exhaust trail
                 ctx.fillStyle = 'rgba(255, 150, 0, 0.6)';
                 ctx.fillRect(-10, -2, 4, 4);
-                
+
                 ctx.restore();
-                
+
                 // Trail particles
                 if (animationFrame % 2 === 0) {
                     particles.push({
@@ -1248,7 +1251,7 @@
                         color: '#ff6600'
                     });
                 }
-            });
+            }
         }
         
         // Spawn enemy
@@ -1296,34 +1299,6 @@
             enemies.push(enemy);
         }
         
-        // Spawn level boss serpent
-        function spawnLevelBoss() {
-            if (bossActive || bossDefeated) return;
-            
-            const currentLevelData = LEVELS[level - 1];
-            bossActive = true;
-            
-            enemies.push({
-                type: 'levelboss',
-                x: canvas.width + 50,
-                y: canvas.height / 2,
-                vx: -2,
-                vy: 0,
-                width: 120,
-                height: 60,
-                health: 50, // Boss takes 50 shots
-                maxHealth: 50,
-                points: 2000, // Massive reward
-                shootCooldown: 0,
-                shootInterval: 9999,
-                segments: [],
-                segmentPhase: 0,
-                hitFlash: 0,
-                bossName: currentLevelData.bossName,
-                bossColor: currentLevelData.bossColor
-            });
-        }
-        
         // Update game speed based on kills (gets faster with each kill!)
         function updateGameSpeed() {
             // Speed increases every 10 kills
@@ -1345,15 +1320,10 @@
         
         // Spawn level boss serpent after 200 kills
         function spawnLevelBoss() {
-            if (bossActive || bossDefeated) {
-                console.log('Boss spawn blocked - bossActive:', bossActive, 'bossDefeated:', bossDefeated);
-                return;
-            }
+            if (bossActive || bossDefeated) return;
             
             const levelData = LEVELS[level - 1];
             bossActive = true;
-            
-            console.log('BOSS SPAWNING:', levelData.bossName, 'at level', level);
             
             const boss = {
                 type: 'levelboss',
@@ -1377,7 +1347,6 @@
             };
             
             enemies.push(boss);
-            console.log('Boss added to enemies array. Total enemies:', enemies.length);
         }
         function trySpawnSpaceSnake() {
             // Don't spawn space snakes during boss fight
@@ -1430,35 +1399,37 @@
         
         // Draw enemies
         function drawEnemies() {
-            enemies.forEach((enemy, index) => {
+            // Iterate in reverse to safely remove elements
+            for (let index = enemies.length - 1; index >= 0; index--) {
+                const enemy = enemies[index];
                 enemy.x += enemy.vx;
                 enemy.y += enemy.vy;
-                
+
                 // Scout pattern
                 if (enemy.type === 'scout') {
                     enemy.y += Math.sin(animationFrame * 0.05 + index) * 0.5;
                 }
-                
+
                 // Space snake serpentine movement
                 if (enemy.type === 'spacesnake') {
                     enemy.segmentPhase += 0.1;
                     enemy.y += Math.sin(enemy.segmentPhase) * 2;
                 }
-                
+
                 // Level boss serpentine movement (slower, more menacing)
                 if (enemy.type === 'levelboss') {
                     enemy.segmentPhase += 0.08;
                     enemy.y += Math.sin(enemy.segmentPhase) * 3;
                 }
-                
+
                 // Bounds
                 if (enemy.y < 20) enemy.y = 20;
                 if (enemy.y > canvas.height - 20) enemy.y = canvas.height - 20;
-                
+
                 // Remove off-screen
                 if (enemy.x < -100) {
                     enemies.splice(index, 1);
-                    return;
+                    continue;
                 }
                 
                 // Enemy shooting logic - only shoot if player is in front or to the side
@@ -1880,9 +1851,9 @@
                     ctx.fillStyle = glow;
                     ctx.fillRect(ex + 20, ey - 12, 12, 24);
                 }
-            });
+            }
         }
-        
+
         // Spawn power-up
         function spawnPowerUp() {
             const types = ['health', 'shield', 'supershield', 'rapidfire', 'doubleshot', 'tripleshot', 'speedboost', 'invincible'];
@@ -1913,15 +1884,17 @@
         
         // Draw power-ups
         function drawPowerUps() {
-            powerUps.forEach((powerUp, index) => {
+            // Iterate in reverse to safely remove elements
+            for (let i = powerUps.length - 1; i >= 0; i--) {
+                const powerUp = powerUps[i];
                 powerUp.x += powerUp.vx;
                 powerUp.rotation += 0.05;
-                
+
                 if (powerUp.x < -50) {
-                    powerUps.splice(index, 1);
-                    return;
+                    powerUps.splice(i, 1);
+                    continue;
                 }
-                
+
                 ctx.save();
                 ctx.translate(powerUp.x, powerUp.y);
                 ctx.rotate(powerUp.rotation);
@@ -2056,11 +2029,11 @@
                     ctx.closePath();
                     ctx.fill();
                 }
-                
+
                 ctx.restore();
-            });
+            }
         }
-        
+
         // Create explosion
         function createExplosion(x, y, size = 20) {
             for (let i = 0; i < 15; i++) {
@@ -2080,39 +2053,49 @@
         
         // Draw particles
         function drawParticles() {
-            particles.forEach((particle, index) => {
+            // Iterate in reverse to safely remove elements
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const particle = particles[i];
                 particle.x += particle.vx;
                 particle.y += particle.vy;
                 particle.life--;
-                
+
                 if (particle.life <= 0) {
-                    particles.splice(index, 1);
-                    return;
+                    particles.splice(i, 1);
+                    continue;
                 }
-                
+
                 ctx.globalAlpha = particle.life / 30;
                 ctx.fillStyle = particle.color;
                 ctx.beginPath();
                 ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.globalAlpha = 1;
-            });
+            }
         }
         
         // Collision detection
         function checkCollisions() {
+            // Use Sets to track items to remove (avoids array mutation during iteration)
+            const bulletsToRemove = new Set();
+            const enemyBulletsToRemove = new Set();
+            const enemiesToRemove = new Set();
+            const powerUpsToRemove = new Set();
+
             // Player Bullets vs Enemy Bullets
             bullets.forEach((bullet, bIndex) => {
+                if (bulletsToRemove.has(bIndex)) return;
                 enemyBullets.forEach((eBullet, eIndex) => {
+                    if (enemyBulletsToRemove.has(eIndex)) return;
                     const dist = Math.sqrt(
-                        Math.pow(bullet.x - eBullet.x, 2) + 
+                        Math.pow(bullet.x - eBullet.x, 2) +
                         Math.pow(bullet.y - eBullet.y, 2)
                     );
-                    
+
                     if (dist < 10) {
-                        bullets.splice(bIndex, 1);
-                        enemyBullets.splice(eIndex, 1);
-                        
+                        bulletsToRemove.add(bIndex);
+                        enemyBulletsToRemove.add(eIndex);
+
                         // Explosion effect
                         for (let i = 0; i < 8; i++) {
                             const angle = Math.random() * Math.PI * 2;
@@ -2130,74 +2113,73 @@
                     }
                 });
             });
-            
+
             // Bullets vs Enemies
             bullets.forEach((bullet, bIndex) => {
+                if (bulletsToRemove.has(bIndex)) return;
                 enemies.forEach((enemy, eIndex) => {
+                    if (enemiesToRemove.has(eIndex)) return;
                     const hitboxWidth = (enemy.type === 'spacesnake' || enemy.type === 'levelboss') ? enemy.width * 1.5 : enemy.width;
                     const hitboxHeight = (enemy.type === 'spacesnake' || enemy.type === 'levelboss') ? enemy.height * 1.2 : enemy.height / 2;
-                    
+
                     if (bullet.x < enemy.x + hitboxWidth &&
                         bullet.x + bullet.width > enemy.x &&
                         bullet.y < enemy.y + hitboxHeight &&
                         bullet.y > enemy.y - hitboxHeight) {
-                        
-                        bullets.splice(bIndex, 1);
+
+                        bulletsToRemove.add(bIndex);
                         enemy.health--;
-                        
+
                         // Hit flash for space snake and boss
                         if (enemy.type === 'spacesnake' || enemy.type === 'levelboss') {
-                            enemy.hitFlash = 10; // Flash for 10 frames
+                            enemy.hitFlash = 10;
                         }
-                        
+
                         if (enemy.health <= 0) {
                             createExplosion(enemy.x, enemy.y);
                             score += enemy.points;
                             enemiesKilled++;
-                            
+
                             // Track ship kills for boss spawn (not including space snakes or boss)
                             if (enemy.type !== 'spacesnake' && enemy.type !== 'levelboss') {
                                 shipsKilledThisLevel++;
-                                console.log('Ship killed! Total:', shipsKilledThisLevel, '/ 200, bossActive:', bossActive, 'bossDefeated:', bossDefeated);
-                                updateGameSpeed(); // Speed intensifies with each kill!
+                                updateGameSpeed();
                             }
-                            
+
                             // Boss defeated - advance to next level
                             if (enemy.type === 'levelboss') {
-                                console.log('Boss defeated! Advancing from level', level);
                                 bossDefeated = true;
                                 bossActive = false;
-                                
-                                // Check if there are more levels
+
                                 if (level < LEVELS.length) {
                                     setTimeout(() => {
                                         advanceLevel();
-                                    }, 2000); // 2 second delay before advancing
+                                    }, 2000);
                                 } else {
-                                    // Victory - completed all 25 levels!
                                     setTimeout(() => {
                                         gameVictory();
                                     }, 2000);
                                 }
                             }
-                            
-                            enemies.splice(eIndex, 1);
+
+                            enemiesToRemove.add(eIndex);
                             updateScore();
                         }
                     }
                 });
             });
-            
+
             // Enemy Bullets vs Player
             enemyBullets.forEach((bullet, index) => {
+                if (enemyBulletsToRemove.has(index)) return;
                 const dist = Math.sqrt(
-                    Math.pow(player.x - bullet.x, 2) + 
+                    Math.pow(player.x - bullet.x, 2) +
                     Math.pow(player.y - bullet.y, 2)
                 );
-                
+
                 if (dist < 25) {
-                    enemyBullets.splice(index, 1);
-                    
+                    enemyBulletsToRemove.add(index);
+
                     if (player.invincible > 0) {
                         // Invincible - no damage, golden particles
                         for (let i = 0; i < 8; i++) {
@@ -2214,8 +2196,7 @@
                             });
                         }
                     } else if (player.shield > 0) {
-                        // Shield absorbs all damage - no health reduction, shield continues for full duration
-                        // Blue/cyan particles to show shield blocked it
+                        // Shield absorbs all damage
                         for (let i = 0; i < 6; i++) {
                             const angle = Math.random() * Math.PI * 2;
                             const speed = 1 + Math.random() * 2;
@@ -2233,8 +2214,7 @@
                         // No protection - take damage
                         player.health -= 10;
                         updateHealth();
-                        
-                        // Red impact effect
+
                         for (let i = 0; i < 5; i++) {
                             const angle = Math.random() * Math.PI * 2;
                             const speed = 1 + Math.random() * 2;
@@ -2248,48 +2228,45 @@
                                 color: '#ff6600'
                             });
                         }
-                        
+
                         if (player.health <= 0) {
                             gameOver();
                         }
                     }
                 }
             });
-            
+
             // Player vs Enemies
             enemies.forEach((enemy, index) => {
+                if (enemiesToRemove.has(index)) return;
                 const hitboxWidth = (enemy.type === 'spacesnake' || enemy.type === 'levelboss') ? enemy.width * 1.5 : enemy.width;
                 const hitboxHeight = (enemy.type === 'spacesnake' || enemy.type === 'levelboss') ? enemy.height * 1.2 : enemy.height / 2;
-                
+
                 if (player.x < enemy.x + hitboxWidth &&
                     player.x + player.width > enemy.x &&
                     player.y - 15 < enemy.y + hitboxHeight &&
                     player.y + 15 > enemy.y - hitboxHeight) {
-                    
+
                     if (player.invincible > 0) {
-                        // Invincible - destroy enemy without taking damage, gain points
-                        // But can't destroy bosses with invincibility!
+                        // Invincible - destroy enemy (except bosses)
                         if (enemy.type !== 'levelboss') {
                             createExplosion(enemy.x, enemy.y);
                             score += enemy.points;
                             enemiesKilled++;
                             if (enemy.type !== 'spacesnake' && enemy.type !== 'levelboss') {
                                 shipsKilledThisLevel++;
-                                updateGameSpeed(); // Speed intensifies with each kill!
+                                updateGameSpeed();
                             }
-                            enemies.splice(index, 1);
+                            enemiesToRemove.add(index);
                             updateScore();
                         }
                     } else if (enemy.type === 'spacesnake' || enemy.type === 'levelboss') {
                         // Space snake or boss - Destroys shields and damages health!
                         if (player.shield > 0) {
-                            player.shield = 0; // Shield destroyed!
-                            
-                            // Reset trackers when shield is destroyed
+                            player.shield = 0;
                             spaceSnakeSpawned10s = false;
                             spaceSnakeSpawned15s = false;
-                            
-                            // Massive shield break effect
+
                             for (let i = 0; i < 30; i++) {
                                 const angle = Math.random() * Math.PI * 2;
                                 const speed = 3 + Math.random() * 5;
@@ -2304,23 +2281,20 @@
                                 });
                             }
                         }
-                        
-                        // Also damages health
+
                         player.health -= (enemy.type === 'levelboss' ? 40 : 30);
                         updateHealth();
-                        
                         createExplosion(enemy.x, enemy.y);
-                        enemies.splice(index, 1);
-                        
+                        enemiesToRemove.add(index);
+
                         if (player.health <= 0) {
                             gameOver();
                         }
                     } else if (player.shield > 0) {
-                        // Shield blocks all damage - no health reduction, shield continues for full duration
+                        // Shield blocks all damage
                         createExplosion(enemy.x, enemy.y);
-                        enemies.splice(index, 1);
-                        
-                        // Shield impact particles (cyan/blue)
+                        enemiesToRemove.add(index);
+
                         for (let i = 0; i < 10; i++) {
                             const angle = Math.random() * Math.PI * 2;
                             const speed = 2 + Math.random() * 3;
@@ -2339,59 +2313,63 @@
                         player.health -= 20;
                         updateHealth();
                         createExplosion(enemy.x, enemy.y);
-                        enemies.splice(index, 1);
-                        
+                        enemiesToRemove.add(index);
+
                         if (player.health <= 0) {
                             gameOver();
                         }
                     }
                 }
             });
-            
+
             // Player vs PowerUps
             powerUps.forEach((powerUp, index) => {
+                if (powerUpsToRemove.has(index)) return;
                 const dist = Math.sqrt(
-                    Math.pow(player.x - powerUp.x, 2) + 
+                    Math.pow(player.x - powerUp.x, 2) +
                     Math.pow(player.y - powerUp.y, 2)
                 );
-                
+
                 if (dist < 35) {
                     if (powerUp.type === 'health') {
                         player.health = Math.min(player.maxHealth, player.health + 30);
                         updateHealth();
                     } else if (powerUp.type === 'shield') {
-                        player.shield = Math.min(player.maxShield, player.shield + 3000); // Add 50 seconds, cap at max
-                        // Reset space snake spawn trackers when shield is refreshed/collected
-                        if (player.shield >= 2900) { // If near full, reset trackers
+                        player.shield = Math.min(player.maxShield, player.shield + 3000);
+                        if (player.shield >= 2900) {
                             spaceSnakeSpawned10s = false;
                             spaceSnakeSpawned15s = false;
                         }
                     } else if (powerUp.type === 'supershield') {
-                        player.shield = player.maxShield; // Instantly max out shield (50s)
-                        // Reset space snake spawn trackers for new shield cycle
+                        player.shield = player.maxShield;
                         spaceSnakeSpawned10s = false;
                         spaceSnakeSpawned15s = false;
                     } else if (powerUp.type === 'rapidfire') {
                         player.rapidFire = 400;
                     } else if (powerUp.type === 'doubleshot') {
                         player.doubleShot = 400;
-                        player.tripleShot = 0; // Disable triple if active
+                        player.tripleShot = 0;
                     } else if (powerUp.type === 'tripleshot') {
-                        player.tripleShot = 1800; // 30 seconds at 60 FPS
-                        player.doubleShot = 0; // Disable double if active
+                        player.tripleShot = 1800;
+                        player.doubleShot = 0;
                     } else if (powerUp.type === 'speedboost') {
                         player.speedBoost = 400;
                     } else if (powerUp.type === 'invincible') {
                         player.invincible = 300;
                     }
-                    
-                    powerUps.splice(index, 1);
+
+                    powerUpsToRemove.add(index);
                 }
             });
+
+            // Remove marked items (filter in reverse order to maintain correct indices)
+            bullets = bullets.filter((_, i) => !bulletsToRemove.has(i));
+            enemyBullets = enemyBullets.filter((_, i) => !enemyBulletsToRemove.has(i));
+            enemies = enemies.filter((_, i) => !enemiesToRemove.has(i));
+            powerUps = powerUps.filter((_, i) => !powerUpsToRemove.has(i));
         }
         
         function advanceLevel() {
-            console.log('advanceLevel called - current level:', level, 'bossDefeated:', bossDefeated);
             level++;
             
             // Check if game is complete (all 25 levels done)
@@ -2418,28 +2396,6 @@
             
             // Level up message
             createLevelUpEffect();
-        }
-        
-        function gameVictory() {
-            gameState = 'victory';
-            clearInterval(gameLoop);
-            
-            // Show victory message
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            ctx.fillStyle = '#ffdd00';
-            ctx.font = 'bold 50px Courier New';
-            ctx.textAlign = 'center';
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-            ctx.shadowBlur = 15;
-            ctx.fillText('🎉 VICTORY! 🎉', canvas.width / 2, canvas.height / 2 - 50);
-            
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 24px Courier New';
-            ctx.fillText('ALL 25 LEVELS CONQUERED!', canvas.width / 2, canvas.height / 2);
-            ctx.fillText(`Final Score: ${score}`, canvas.width / 2, canvas.height / 2 + 40);
-            ctx.fillText('You are a TRUE SPACE WARRIOR!', canvas.width / 2, canvas.height / 2 + 80);
         }
         
         function createLevelUpEffect() {
@@ -2493,7 +2449,6 @@
             
             // Check for boss spawn
             if (shipsKilledThisLevel >= LEVELS[level - 1].shipsToKill && !bossActive && !bossDefeated) {
-                console.log('Spawning boss at', shipsKilledThisLevel, 'kills');
                 spawnLevelBoss();
             }
             
@@ -2716,9 +2671,7 @@
             spaceSnakeSpawned10s = false;
             spaceSnakeSpawned15s = false;
             currentGameSpeed = LEVELS[0].speed;
-            
-            console.log('Game started - Level:', level, 'bossActive:', bossActive, 'bossDefeated:', bossDefeated);
-            
+
             bullets = [];
             enemyBullets = [];
             enemies = [];
@@ -2776,7 +2729,11 @@
             
             document.getElementById('startScreen').style.display = 'block';
             document.getElementById('gameOverScreen').style.display = 'none';
-            
+
+            // Reset game over screen header (in case it was changed to victory)
+            document.querySelector('#gameOverScreen h2').textContent = 'MISSION FAILED';
+            document.querySelector('#gameOverScreen h2').style.color = '';
+
             bullets = [];
             enemyBullets = [];
             enemies = [];
@@ -2787,9 +2744,7 @@
             updateLevel();
             updateHealth();
             document.getElementById('gameSpeed').textContent = currentGameSpeed + 'ms';
-            
-            console.log('Game reset - Level:', level);
-            
+
             draw();
         }
         
@@ -2806,7 +2761,7 @@
         function gameVictory() {
             gameState = 'victory';
             clearInterval(gameLoop);
-            
+
             // Show victory on game over screen with special message
             document.getElementById('finalScore').textContent = score;
             document.getElementById('finalLevel').textContent = '25 (ALL!)';
@@ -2814,17 +2769,21 @@
             document.querySelector('#gameOverScreen h2').textContent = '🎉 VICTORY! 🎉';
             document.querySelector('#gameOverScreen h2').style.color = '#00ff00';
             document.getElementById('gameOverScreen').style.display = 'block';
-            
-            // Add victory message
-            const victoryMsg = document.createElement('p');
-            victoryMsg.textContent = 'You conquered all 25 levels!';
-            victoryMsg.style.color = '#ffaa00';
-            victoryMsg.style.fontSize = '18px';
-            victoryMsg.style.fontWeight = 'bold';
-            document.getElementById('gameOverScreen').insertBefore(
-                victoryMsg, 
-                document.getElementById('gameOverScreen').lastElementChild
-            );
+
+            // Add victory message (only if it doesn't already exist)
+            let victoryMsg = document.getElementById('victoryMessage');
+            if (!victoryMsg) {
+                victoryMsg = document.createElement('p');
+                victoryMsg.id = 'victoryMessage';
+                victoryMsg.textContent = 'You conquered all 25 levels!';
+                victoryMsg.style.color = '#ffaa00';
+                victoryMsg.style.fontSize = '18px';
+                victoryMsg.style.fontWeight = 'bold';
+                document.getElementById('gameOverScreen').insertBefore(
+                    victoryMsg,
+                    document.getElementById('gameOverScreen').lastElementChild
+                );
+            }
         }
         
         // Initialize
