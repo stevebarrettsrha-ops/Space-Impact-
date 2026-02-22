@@ -551,7 +551,7 @@
                     <div class="instruction-card">
                         <h4>OBJECTIVE</h4>
                         <p>
-                            Destroy <span class="highlight">200 ships</span> per level to summon the boss.<br>
+                            Destroy enough ships per level to summon the boss.<br>
                             Defeat the boss to advance.<br>
                             Survive all <span class="highlight">25 levels</span>!
                         </p>
@@ -639,7 +639,6 @@
         const SHIELD_DURATION_FRAMES = 3000;  // 50 seconds at 60 FPS
         const TRIPLE_SHOT_DURATION = 1800;    // 30 seconds at 60 FPS
         const INVINCIBLE_DURATION = 300;      // 5 seconds at 60 FPS
-        const BOSS_KILL_THRESHOLD = 200;
         const BOSS_HP = 75;
         const SNAKE_HP = 25;
         const TARGET_FPS = 60;
@@ -657,7 +656,7 @@
         
         // 25 Unique Levels
         const LEVELS = [
-            { level: 1, speed: 20, shipsToKill: 200, theme: 'nebula', name: 'Nebula Genesis',
+            { level: 1, speed: 20, shipsToKill: 50, theme: 'nebula', name: 'Nebula Genesis',
               colors: { bg: ['#1a0033', '#330066', '#4d0099'], accent: '#9966ff', particle: '#cc99ff' },
               playerShip: 'striker', enemyTypes: ['drone', 'scout'], 
               bossName: 'Nebula Hydra', bossColor: '#9966ff', bossHeads: 3 },
@@ -1320,14 +1319,14 @@
             enemies.push(enemy);
         }
         
-        // Update game speed based on kills (gets faster with each kill!)
+        // Update game speed based on kills (gradually intensifies)
         function updateGameSpeed() {
-            // Speed increases every 10 kills
-            const speedBoost = Math.floor(shipsKilledThisLevel / 10);
+            // Speed increases every 25 kills (was 10 — less aggressive)
+            const speedBoost = Math.floor(shipsKilledThisLevel / 25);
             const baseSpeed = LEVELS[level - 1].speed;
-            
-            // Reduce interval by 1ms for every 10 kills (minimum 1ms)
-            currentGameSpeed = Math.max(1, baseSpeed - speedBoost);
+
+            // Reduce interval by 1ms for every 25 kills (minimum 5ms)
+            currentGameSpeed = Math.max(5, baseSpeed - speedBoost);
             
             // Update the speed display (rAF loop reads currentGameSpeed automatically)
             document.getElementById('gameSpeed').textContent = currentGameSpeed + 'ms';
@@ -2403,7 +2402,7 @@
             if (keys[' '] || mobileButtons.fire || (autoFire && platform === 'mobile')) shootBullet();
 
             // Spawn enemies (not during boss fight)
-            const spawnRate = Math.max(20, 60 - level * 2);
+            const spawnRate = Math.max(30, 90 - level * 2);
             if (animationFrame % spawnRate === 0 && !bossActive && !bossDefeated) spawnEnemy();
 
             // Boss spawn check
@@ -2526,7 +2525,8 @@
 
             ctx.font = 'bold 12px Courier New';
             ctx.fillStyle = '#ffffff';
-            const killProgress = bossDefeated ? '200/200' : `${shipsKilledThisLevel}/200`;
+            const killTarget = LEVELS[level - 1].shipsToKill;
+            const killProgress = bossDefeated ? `${killTarget}/${killTarget}` : `${shipsKilledThisLevel}/${killTarget}`;
             ctx.fillText(`Ships: ${killProgress}`, 10, 40);
 
             if (bossActive) {
