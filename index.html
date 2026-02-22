@@ -32,13 +32,15 @@
         }
 
         .screen-frame {
+            position: relative;
             background: linear-gradient(135deg, #0a1929 0%, #1a2937 100%);
             border: 10px solid #0a0a0a;
             border-radius: 15px;
             padding: 8px;
-            box-shadow: 
+            box-shadow:
                 inset 0 0 40px rgba(0, 0, 0, 0.8),
                 0 10px 30px rgba(0, 0, 0, 0.7);
+            overflow: hidden;
         }
 
         .info-bar {
@@ -152,63 +154,7 @@
             transform: translateY(-1px) scale(1.02);
         }
 
-        .overlay {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(10, 10, 30, 0.95));
-            padding: 40px 50px;
-            border-radius: 20px;
-            text-align: center;
-            color: #fff;
-            display: none;
-            border: 3px solid #00ff00;
-            box-shadow: 
-                0 20px 60px rgba(0, 0, 0, 0.9),
-                inset 0 2px 0 rgba(0, 255, 0, 0.2);
-            backdrop-filter: blur(10px);
-            min-width: 400px;
-        }
-
-        .overlay h2 {
-            margin-bottom: 20px;
-            font-size: 38px;
-            text-shadow: 
-                2px 2px 4px rgba(0, 0, 0, 0.8),
-                0 0 20px rgba(0, 255, 0, 0.6);
-            color: #00ff00;
-        }
-
-        .overlay p {
-            margin: 12px 0;
-            font-size: 16px;
-            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
-        }
-
-        .legend {
-            margin-top: 20px;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 15px;
-            border-radius: 10px;
-            font-size: 13px;
-            border: 2px solid rgba(0, 255, 0, 0.3);
-            text-align: left;
-        }
-
-        .legend-item {
-            margin: 6px 0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .legend-icon {
-            width: 20px;
-            height: 20px;
-            border-radius: 3px;
-            display: inline-block;
-        }
+        /* (old overlay styles removed - replaced by menu-screen and game-over-overlay) */
 
         @keyframes pulse {
             0%, 100% { opacity: 1; }
@@ -231,41 +177,241 @@
             opacity: 0.7;
         }
 
-        /* Platform selection buttons */
-        .platform-btn {
-            padding: 40px 60px;
-            border-radius: 20px;
-            color: #000;
-            font-family: 'Segoe UI', sans-serif;
+        /* ===== NEW MENU SYSTEM ===== */
+        .menu-screen {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(ellipse at center, rgba(10,10,40,0.97) 0%, rgba(0,0,0,0.99) 100%);
+            z-index: 10;
+            padding: 20px;
+            overflow-y: auto;
+            transition: opacity 0.3s ease;
+        }
+        .menu-screen.hidden { display: none; }
+
+        .menu-title {
+            font-size: 42px;
             font-weight: bold;
+            color: #00ff00;
+            text-shadow: 0 0 20px rgba(0,255,0,0.6), 0 0 40px rgba(0,255,0,0.3);
+            margin-bottom: 6px;
+            letter-spacing: 4px;
+            text-align: center;
+        }
+        .menu-subtitle {
+            font-size: 14px;
+            color: #64b5f6;
+            opacity: 0.8;
+            margin-bottom: 40px;
+            letter-spacing: 2px;
+            text-align: center;
+        }
+
+        .menu-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            width: 100%;
+            max-width: 320px;
+        }
+
+        .menu-btn {
+            padding: 16px 32px;
+            border: 2px solid;
+            border-radius: 12px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 18px;
             cursor: pointer;
+            transition: all 0.25s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-align: center;
+        }
+        .menu-btn-start {
+            background: linear-gradient(135deg, #00ff00, #00cc00);
+            border-color: #00ff00;
+            color: #000;
+            box-shadow: 0 6px 20px rgba(0,255,0,0.4);
+        }
+        .menu-btn-start:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0,255,0,0.6);
+        }
+        .menu-btn-howto {
+            background: transparent;
+            border-color: #64b5f6;
+            color: #64b5f6;
+            box-shadow: 0 4px 15px rgba(100,181,246,0.2);
+        }
+        .menu-btn-howto:hover {
+            background: rgba(100,181,246,0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(100,181,246,0.3);
+        }
+
+        .menu-footer {
+            margin-top: 40px;
+            font-size: 12px;
+            color: #64b5f6;
+            opacity: 0.5;
+            text-align: center;
+        }
+
+        /* Instructions page */
+        .instructions-screen {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: radial-gradient(ellipse at center, rgba(10,10,40,0.98) 0%, rgba(0,0,0,0.99) 100%);
+            z-index: 11;
+            padding: 20px;
+            overflow-y: auto;
+            transition: opacity 0.3s ease;
+        }
+        .instructions-screen.hidden { display: none; }
+
+        .instructions-header {
             font-size: 28px;
-            min-width: 250px;
-            transition: all 0.3s ease;
-            border: 4px solid;
-        }
-        .platform-btn-icon { font-size: 48px; margin-bottom: 10px; }
-        .platform-btn-sub { font-size: 14px; margin-top: 10px; opacity: 0.8; }
-
-        .platform-btn-pc {
-            background: linear-gradient(135deg, #00ccff, #0088cc);
-            border-color: #00ffff;
-            box-shadow: 0 10px 30px rgba(0, 204, 255, 0.4);
-        }
-        .platform-btn-pc:hover {
-            transform: translateY(-5px) scale(1.05);
-            box-shadow: 0 15px 40px rgba(0, 204, 255, 0.6);
+            font-weight: bold;
+            color: #00ff00;
+            text-shadow: 0 0 15px rgba(0,255,0,0.5);
+            margin-bottom: 20px;
+            letter-spacing: 3px;
+            text-align: center;
         }
 
-        .platform-btn-mobile {
-            background: linear-gradient(135deg, #ff00ff, #cc00cc);
-            border-color: #ff66ff;
-            box-shadow: 0 10px 30px rgba(255, 0, 255, 0.4);
+        .instructions-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            width: 100%;
+            max-width: 700px;
+            margin-bottom: 20px;
         }
-        .platform-btn-mobile:hover {
-            transform: translateY(-5px) scale(1.05);
-            box-shadow: 0 15px 40px rgba(255, 0, 255, 0.6);
+
+        .instruction-card {
+            background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(0,255,0,0.2);
+            border-radius: 10px;
+            padding: 14px;
         }
+        .instruction-card h4 {
+            color: #00ff00;
+            font-size: 13px;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+        .instruction-card p {
+            color: #ccc;
+            font-size: 12px;
+            line-height: 1.6;
+            margin: 0;
+        }
+        .instruction-card .highlight {
+            color: #00ff00;
+            font-weight: bold;
+        }
+        .instruction-card .warn {
+            color: #ff6666;
+            font-weight: bold;
+        }
+        .instruction-card .info {
+            color: #00ccff;
+            font-weight: bold;
+        }
+        .instruction-card .gold {
+            color: #ffd700;
+            font-weight: bold;
+        }
+
+        .instruction-card-full {
+            grid-column: 1 / -1;
+        }
+
+        .back-btn {
+            padding: 12px 40px;
+            background: transparent;
+            border: 2px solid #64b5f6;
+            border-radius: 10px;
+            color: #64b5f6;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 10px;
+        }
+        .back-btn:hover {
+            background: rgba(100,181,246,0.15);
+            transform: translateY(-2px);
+        }
+
+        /* Game over overlay (reuse .overlay for this only) */
+        .game-over-overlay {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: radial-gradient(ellipse at center, rgba(10,10,40,0.97) 0%, rgba(0,0,0,0.98) 100%);
+            padding: 35px 45px;
+            border-radius: 20px;
+            text-align: center;
+            color: #fff;
+            display: none;
+            border: 3px solid #00ff00;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.9), inset 0 2px 0 rgba(0,255,0,0.2);
+            backdrop-filter: blur(10px);
+            min-width: 350px;
+            z-index: 10;
+        }
+        .game-over-overlay h2 {
+            margin-bottom: 16px;
+            font-size: 32px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8), 0 0 20px rgba(0,255,0,0.6);
+            color: #00ff00;
+        }
+        .game-over-overlay p {
+            margin: 10px 0;
+            font-size: 15px;
+        }
+        .game-over-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .game-over-btn {
+            padding: 10px 24px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .game-over-btn-play {
+            background: linear-gradient(135deg, #00ff00, #00cc00);
+            border: none;
+            color: #000;
+            box-shadow: 0 4px 15px rgba(0,255,0,0.3);
+        }
+        .game-over-btn-play:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,255,0,0.5); }
+        .game-over-btn-menu {
+            background: transparent;
+            border: 2px solid #64b5f6;
+            color: #64b5f6;
+        }
+        .game-over-btn-menu:hover { background: rgba(100,181,246,0.1); transform: translateY(-2px); }
 
         /* Mobile D-pad buttons */
         .dpad-btn {
@@ -318,83 +464,35 @@
         
         /* Mobile Responsive Styles */
         @media (max-width: 768px) {
-            .game-container {
-                padding: 10px;
-            }
-            
-            .screen-frame {
-                padding: 10px;
-            }
-            
-            .info-bar {
-                padding: 8px 10px;
-                font-size: 12px;
-            }
-            
-            .stat-label {
-                font-size: 9px;
-            }
-            
-            .stat-value {
-                font-size: 14px;
-            }
-            
-            #gameCanvas {
-                width: 100%;
-                height: auto;
-                max-width: 800px;
-            }
-            
-            .overlay {
-                padding: 20px;
-                max-width: 90%;
-            }
-            
-            .overlay h2 {
-                font-size: 32px;
-            }
-            
-            .legend {
-                font-size: 11px;
-            }
-            
-            /* Platform selection buttons responsive */
-            #platformScreen button {
-                min-width: 200px !important;
-                padding: 30px 40px !important;
-                font-size: 20px !important;
-            }
-            
-            #platformScreen button div:first-child {
-                font-size: 36px !important;
-            }
+            .game-container { padding: 8px; border-width: 2px; }
+            .screen-frame { padding: 5px; border-width: 6px; }
+            .info-bar { padding: 6px 8px; gap: 8px; grid-template-columns: repeat(4, 1fr); }
+            .stat-label { font-size: 8px; }
+            .stat-value { font-size: 13px; }
+            #gameCanvas { width: 100%; height: auto; max-width: 800px; }
+            .menu-title { font-size: 30px; }
+            .menu-subtitle { font-size: 12px; margin-bottom: 30px; }
+            .menu-btn { font-size: 16px; padding: 14px 24px; }
+            .instructions-grid { grid-template-columns: 1fr; }
+            .instructions-header { font-size: 22px; }
+            .game-over-overlay { min-width: auto; width: 90%; padding: 25px 20px; }
+            .game-over-overlay h2 { font-size: 26px; }
         }
-        
+
         @media (max-width: 480px) {
-            .info-bar {
-                flex-wrap: wrap;
-                gap: 5px;
-            }
-            
-            .stat {
-                flex: 1 1 45%;
-                min-width: 45%;
-            }
-            
-            .overlay h2 {
-                font-size: 24px;
-            }
-            
-            .legend {
-                font-size: 10px;
-            }
-            
-            /* Smaller platform buttons for very small screens */
-            #platformScreen button {
-                min-width: 150px !important;
-                padding: 20px 30px !important;
-                font-size: 16px !important;
-            }
+            .game-container { padding: 5px; }
+            .info-bar { grid-template-columns: repeat(2, 1fr); gap: 4px; padding: 5px 6px; }
+            .stat-label { font-size: 7px; }
+            .stat-value { font-size: 11px; }
+            .menu-title { font-size: 24px; letter-spacing: 2px; }
+            .menu-buttons { max-width: 260px; }
+            .menu-btn { font-size: 14px; padding: 12px 20px; }
+            .instructions-header { font-size: 18px; }
+            .instruction-card { padding: 10px; }
+            .instruction-card h4 { font-size: 12px; }
+            .instruction-card p { font-size: 11px; }
+            .game-over-overlay h2 { font-size: 22px; }
+            .game-over-buttons { flex-direction: column; gap: 8px; }
         }
     </style>
 </head>
@@ -426,65 +524,77 @@
                 </div>
             </div>
             <canvas id="gameCanvas" width="800" height="500"></canvas>
-            
-            <!-- PLATFORM SELECTION SCREEN -->
-            <div class="overlay" id="platformScreen" style="display: block;">
-                <h2 style="font-size: 48px; margin-bottom: 10px;">🚀 SPACE IMPACT 🚀</h2>
-                <p style="font-size: 16px; opacity: 0.8; margin-bottom: 40px;">Classic Nokia Side-Scrolling Shooter</p>
-                
-                <h3 style="color: #00ff00; margin-bottom: 30px; font-size: 24px;">SELECT YOUR PLATFORM</h3>
-                
-                <div style="display: flex; gap: 30px; justify-content: center; flex-wrap: wrap; max-width: 600px; margin: 0 auto;">
-                    <button class="platform-btn platform-btn-pc" onclick="selectPlatform('pc')">
-                        <div class="platform-btn-icon">🖥️</div>
-                        <div>PC / DESKTOP</div>
-                        <div class="platform-btn-sub">Keyboard Controls</div>
-                    </button>
 
-                    <button class="platform-btn platform-btn-mobile" onclick="selectPlatform('mobile')">
-                        <div class="platform-btn-icon">📱</div>
-                        <div>MOBILE / TABLET</div>
-                        <div class="platform-btn-sub">Touch Controls</div>
-                    </button>
+            <!-- MAIN MENU -->
+            <div class="menu-screen" id="menuScreen">
+                <div class="menu-title">SPACE IMPACT</div>
+                <div class="menu-subtitle">Classic Side-Scrolling Shooter</div>
+                <div class="menu-buttons">
+                    <button class="menu-btn menu-btn-start" onclick="startGame()">START GAME</button>
+                    <button class="menu-btn menu-btn-howto" onclick="showInstructions()">HOW TO PLAY</button>
                 </div>
-                
-                <p style="margin-top: 40px; font-size: 13px; opacity: 0.6;">Choose your platform for optimized controls</p>
+                <div class="menu-footer">Inspired by Nokia 3310 Classic</div>
             </div>
-            
-            <div class="overlay" id="startScreen" style="display: none;">
-                <p style="margin-top: 20px; font-size: 18px; font-weight: bold;" id="startInstructions">Press SPACE or FIRE to begin</p>
-                <div class="legend">
-                    <div class="legend-item" id="controlsInfo">
-                        <span style="color: #00ff00;">↑↓←→</span> Move Ship | <span style="color: #00ff00;">SPACE</span> Fire
+
+            <!-- INSTRUCTIONS -->
+            <div class="instructions-screen hidden" id="instructionsScreen">
+                <div class="instructions-header">HOW TO PLAY</div>
+                <div class="instructions-grid">
+                    <div class="instruction-card">
+                        <h4>CONTROLS</h4>
+                        <p id="controlsText">
+                            <span class="highlight">Arrow Keys</span> - Move ship<br>
+                            <span class="highlight">SPACE</span> - Fire weapon<br>
+                            <span class="highlight">P</span> - Pause game
+                        </p>
                     </div>
-                    <div class="legend-item">
-                        <strong style="color: #ffaa00;">25 UNIQUE LEVELS</strong> - Defeat 200 ships per level
+                    <div class="instruction-card">
+                        <h4>OBJECTIVE</h4>
+                        <p>
+                            Destroy <span class="highlight">200 ships</span> per level to summon the boss.<br>
+                            Defeat the boss to advance.<br>
+                            Survive all <span class="highlight">25 levels</span>!
+                        </p>
                     </div>
-                    <div class="legend-item">
-                        <strong style="color: #00ffff;">SPEED INTENSIFIES</strong> - Starts at 20ms, gets 1ms faster every 10 kills!
+                    <div class="instruction-card">
+                        <h4>POWER-UPS</h4>
+                        <p>
+                            <span class="highlight">+</span> Health restore<br>
+                            <span class="info">Shield</span> - Absorbs damage (50s)<br>
+                            <span style="color:#ff00ff;font-weight:bold;">Triple Shot</span> - 3x bullets (30s)<br>
+                            <span class="gold">Star</span> - Invincible (5s)
+                        </p>
                     </div>
-                    <div class="legend-item">
-                        <strong style="color: #ff6600;">THREE-HEADED HYDRA BOSS</strong> after 200 kills (75 HP, 5000 pts)
+                    <div class="instruction-card">
+                        <h4>ENEMIES</h4>
+                        <p>
+                            <span style="color:#ff4444;font-weight:bold;">Fighters</span> - Fast, low HP<br>
+                            <span style="color:#9c27b0;font-weight:bold;">Bombers</span> - Tanky, shoots often<br>
+                            <span style="color:#ff9800;font-weight:bold;">Scouts</span> - Zigzag movement
+                        </p>
                     </div>
-                    <div class="legend-item">
-                        <span style="color: #00ff00;">+</span> Health | <span style="color: #00ccff;">⚪</span> Shield (50s) | <span style="color: #ff00ff;">⚡⚡⚡</span> Triple Shot (30s)
-                    </div>
-                    <div class="legend-item" style="color: #ff0080;">
-                        <strong>⚠️ SPACE SNAKE destroys shields! (25 shots, appears at 10s & 15s)</strong>
-                    </div>
-                    <div class="legend-item">
-                        <span style="color: #ffd700;">★</span> Invincibility (5s) - Immune to all except bosses!
+                    <div class="instruction-card instruction-card-full">
+                        <h4>BOSS & DANGERS</h4>
+                        <p>
+                            <span class="warn">Three-Headed Hydra Boss</span> appears after 200 kills (75 HP, 5000 pts).<br>
+                            <span style="color:#ff0080;font-weight:bold;">Space Snake</span> destroys your shield! Takes 25 shots. Appears when you have a shield active.<br>
+                            <span class="info">Speed intensifies</span> - Game gets 1ms faster every 10 kills!
+                        </p>
                     </div>
                 </div>
-                <p class="nokia-text">Inspired by Nokia 3310 Classic</p>
+                <button class="back-btn" onclick="hideInstructions()">BACK TO MENU</button>
             </div>
-            
-            <div class="overlay" id="gameOverScreen">
-                <h2>MISSION FAILED</h2>
-                <p>Final Score: <span id="finalScore" style="color: #00ff00; font-weight: bold;">0</span></p>
-                <p>Level Reached: <span id="finalLevel" style="color: #00ff00; font-weight: bold;">1</span></p>
-                <p>Enemies Destroyed: <span id="enemiesKilled" style="color: #00ff00; font-weight: bold;">0</span></p>
-                <p style="margin-top: 25px;" class="pulsing">Press SPACE or RESTART</p>
+
+            <!-- GAME OVER -->
+            <div class="game-over-overlay" id="gameOverScreen">
+                <h2 id="gameOverTitle">MISSION FAILED</h2>
+                <p>Score: <span id="finalScore" style="color: #00ff00; font-weight: bold;">0</span></p>
+                <p>Level: <span id="finalLevel" style="color: #00ff00; font-weight: bold;">1</span></p>
+                <p>Enemies: <span id="enemiesKilled" style="color: #00ff00; font-weight: bold;">0</span></p>
+                <div class="game-over-buttons">
+                    <button class="game-over-btn game-over-btn-play" onclick="startGame()">PLAY AGAIN</button>
+                    <button class="game-over-btn game-over-btn-menu" onclick="showMenu()">MENU</button>
+                </div>
             </div>
         </div>
         
@@ -512,15 +622,10 @@
             </div>
         </div>
         
-        <div class="controls" id="pcControls">
-            <h3>CONTROLS</h3>
-            <p>↑ ↓ ← → Arrow Keys - Move Ship (All Directions)</p>
-            <p>SPACE - Fire Weapon</p>
-            <p>P - Pause Game</p>
+        <div class="controls" id="pcControls" style="display:none;">
             <div class="button-container">
-                <button onclick="startGame()">FIRE</button>
                 <button onclick="togglePause()">PAUSE</button>
-                <button onclick="resetGame()">RESTART</button>
+                <button onclick="showMenu()">MENU</button>
             </div>
         </div>
     </div>
@@ -679,41 +784,51 @@
         ];
         
         // Game state
-        let gameState = 'start';
+        let gameState = 'menu';
         let gameLoop = null;
         let animationFrame = 0;
-        
-        // Platform selection function
-        function selectPlatform(choice) {
-            platform = choice;
-            console.log('Platform selected:', platform);
-            
-            // Hide platform screen
-            document.getElementById('platformScreen').style.display = 'none';
-            
+
+        // Auto-detect platform
+        function detectPlatform() {
+            const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+            const isSmallScreen = window.innerWidth <= 768;
+            return (isTouchDevice && isSmallScreen) ? 'mobile' : 'pc';
+        }
+
+        function initPlatform() {
+            platform = detectPlatform();
             if (platform === 'mobile') {
-                // Mobile setup
                 document.getElementById('mobileControls').style.display = 'block';
                 document.getElementById('pcControls').style.display = 'none';
                 setupMobileControls();
-                
-                // Update instructions for mobile
-                document.getElementById('startInstructions').textContent = 'Tap FIRE button to begin';
-                document.getElementById('controlsInfo').innerHTML = 
-                    '<span style="color: #00ff00;">D-PAD</span> Move | <span style="color: #ff6600;">🔥 FIRE</span> Shoot | <span style="color: #ffffff;">AUTO-FIRE</span> Available';
+                // Update instructions text for mobile
+                document.getElementById('controlsText').innerHTML =
+                    '<span class="highlight">D-PAD</span> - Move ship<br>' +
+                    '<span class="highlight">FIRE</span> - Shoot<br>' +
+                    '<span class="highlight">AUTO-FIRE</span> - Toggle continuous fire';
             } else {
-                // PC setup
                 document.getElementById('mobileControls').style.display = 'none';
                 document.getElementById('pcControls').style.display = 'block';
-                
-                // Update instructions for PC
-                document.getElementById('startInstructions').textContent = 'Press SPACE or FIRE to begin';
-                document.getElementById('controlsInfo').innerHTML = 
-                    '<span style="color: #00ff00;">↑↓←→</span> Move Ship | <span style="color: #00ff00;">SPACE</span> Fire';
             }
-            
-            // Show start screen
-            document.getElementById('startScreen').style.display = 'block';
+        }
+
+        // Menu navigation
+        function showMenu() {
+            stopGameLoop();
+            gameState = 'menu';
+            document.getElementById('menuScreen').classList.remove('hidden');
+            document.getElementById('instructionsScreen').classList.add('hidden');
+            document.getElementById('gameOverScreen').style.display = 'none';
+        }
+
+        function showInstructions() {
+            document.getElementById('menuScreen').classList.add('hidden');
+            document.getElementById('instructionsScreen').classList.remove('hidden');
+        }
+
+        function hideInstructions() {
+            document.getElementById('instructionsScreen').classList.add('hidden');
+            document.getElementById('menuScreen').classList.remove('hidden');
         }
         
         // Toggle auto-fire for mobile
@@ -754,7 +869,7 @@
                 e.preventDefault();
                 mobileButtons.fire = true;
                 btnFire.style.background = fireActive;
-                if (gameState === 'start' || gameState === 'gameover') startGame();
+                if (gameState === 'menu' || gameState === 'gameover') startGame();
             }
             function fireRelease(e) {
                 e.preventDefault();
@@ -830,7 +945,6 @@
         
         // Initialize
         document.getElementById('highScore').textContent = highScore;
-        document.getElementById('startScreen').style.display = 'block';
         
         function hexToRgb(hex) {
             const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -2509,21 +2623,23 @@
         document.addEventListener('keydown', e => {
             if (e.code === 'Space') {
                 e.preventDefault();
-                if (gameState === 'start' || gameState === 'gameover') {
-                    startGame();
-                }
+                if (gameState === 'gameover') startGame();
             }
-            
+            if (e.code === 'Enter') {
+                e.preventDefault();
+                if (gameState === 'menu') startGame();
+            }
             if (e.key === 'p' || e.key === 'P') {
                 e.preventDefault();
-                if (gameState === 'playing' || gameState === 'paused') {
-                    togglePause();
-                }
+                if (gameState === 'playing' || gameState === 'paused') togglePause();
             }
-            
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                if (gameState === 'playing' || gameState === 'paused') showMenu();
+            }
             keys[e.key] = true;
         });
-        
+
         document.addEventListener('keyup', e => {
             keys[e.key] = false;
         });
@@ -2562,13 +2678,19 @@
             gameState = 'playing';
             animationFrame = 0;
 
-            // Reset game over screen state
-            document.getElementById('startScreen').style.display = 'none';
+            // Hide all screens
+            document.getElementById('menuScreen').classList.add('hidden');
+            document.getElementById('instructionsScreen').classList.add('hidden');
             document.getElementById('gameOverScreen').style.display = 'none';
-            document.querySelector('#gameOverScreen h2').textContent = 'MISSION FAILED';
-            document.querySelector('#gameOverScreen h2').style.color = '';
+            document.getElementById('gameOverTitle').textContent = 'MISSION FAILED';
+            document.getElementById('gameOverTitle').style.color = '';
             const vm = document.getElementById('victoryMessage');
             if (vm) vm.style.display = 'none';
+
+            // Show in-game controls
+            if (platform === 'pc') {
+                document.getElementById('pcControls').style.display = 'block';
+            }
             
             updateScore();
             updateLevel();
@@ -2591,9 +2713,8 @@
 
         function resetGame() {
             stopGameLoop();
-            gameState = 'start';
-            
-            // Reset all game state
+            gameState = 'menu';
+
             level = 1;
             score = 0;
             enemiesKilled = 0;
@@ -2603,8 +2724,7 @@
             spaceSnakeSpawned10s = false;
             spaceSnakeSpawned15s = false;
             currentGameSpeed = LEVELS[0].speed;
-            
-            // Reset player
+
             player.health = 100;
             player.shield = 0;
             player.rapidFire = 0;
@@ -2612,16 +2732,16 @@
             player.tripleShot = 0;
             player.speedBoost = 0;
             player.invincible = 0;
-            
-            document.getElementById('startScreen').style.display = 'block';
+
+            document.getElementById('menuScreen').classList.remove('hidden');
             document.getElementById('gameOverScreen').style.display = 'none';
-            
+
             bullets = [];
             enemyBullets = [];
             enemies = [];
             powerUps = [];
             particles = [];
-            
+
             updateScore();
             updateLevel();
             updateHealth();
@@ -2649,28 +2769,26 @@
             document.getElementById('finalScore').textContent = score;
             document.getElementById('finalLevel').textContent = '25 (ALL!)';
             document.getElementById('enemiesKilled').textContent = enemiesKilled;
-            document.querySelector('#gameOverScreen h2').textContent = 'VICTORY!';
-            document.querySelector('#gameOverScreen h2').style.color = '#00ff00';
+            document.getElementById('gameOverTitle').textContent = 'VICTORY!';
+            document.getElementById('gameOverTitle').style.color = '#ffd700';
             document.getElementById('gameOverScreen').style.display = 'block';
 
-            // Reuse or create victory message (prevents DOM leak)
             let victoryMsg = document.getElementById('victoryMessage');
             if (!victoryMsg) {
                 victoryMsg = document.createElement('p');
                 victoryMsg.id = 'victoryMessage';
                 victoryMsg.style.color = '#ffaa00';
-                victoryMsg.style.fontSize = '18px';
+                victoryMsg.style.fontSize = '16px';
                 victoryMsg.style.fontWeight = 'bold';
-                document.getElementById('gameOverScreen').insertBefore(
-                    victoryMsg,
-                    document.getElementById('gameOverScreen').lastElementChild
-                );
+                const btns = document.querySelector('.game-over-buttons');
+                btns.parentNode.insertBefore(victoryMsg, btns);
             }
             victoryMsg.textContent = 'You conquered all 25 levels!';
             victoryMsg.style.display = 'block';
         }
         
         // Initialize
+        initPlatform();
         initStars();
         draw();
         
