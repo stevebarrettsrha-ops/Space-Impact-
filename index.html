@@ -685,6 +685,15 @@
                 <button class="back-btn" onclick="hideInstructions()">BACK TO MENU</button>
             </div>
 
+            <!-- PAUSE OVERLAY -->
+            <div class="game-over-overlay" id="pauseScreen" style="display:none;">
+                <h2 style="color:#00ff00;">PAUSED</h2>
+                <div class="game-over-buttons">
+                    <button class="game-over-btn game-over-btn-play" onclick="togglePause()">RESUME</button>
+                    <button class="game-over-btn game-over-btn-menu" onclick="showMenu()">QUIT TO MENU</button>
+                </div>
+            </div>
+
             <!-- GAME OVER -->
             <div class="game-over-overlay" id="gameOverScreen">
                 <h2 id="gameOverTitle">MISSION FAILED</h2>
@@ -719,6 +728,9 @@
                 <button id="btnAutoFire" class="autofire-btn" onclick="toggleAutoFire()">
                     <div id="autoFireText">AUTO-FIRE: OFF</div>
                 </button>
+            </div>
+            <div style="position: absolute; left: 50%; transform: translateX(-50%); top: -170px; pointer-events: auto;">
+                <button onclick="togglePause()" style="background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); color: #fff; padding: 10px 24px; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 14px; font-weight: bold; letter-spacing: 2px; cursor: pointer;">⏸ PAUSE</button>
             </div>
         </div>
         
@@ -942,6 +954,7 @@
             document.getElementById('menuScreen').classList.remove('hidden');
             document.getElementById('instructionsScreen').classList.add('hidden');
             document.getElementById('gameOverScreen').style.display = 'none';
+            document.getElementById('pauseScreen').style.display = 'none';
         }
 
         function showInstructions() {
@@ -5465,17 +5478,11 @@
 
             ctx.restore();
 
-            // Paused overlay
+            // Paused dim overlay (buttons are in HTML)
             if (gameState === 'paused') {
                 ctx.save();
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#00ff00';
-                ctx.font = 'bold 50px Courier New';
-                ctx.textAlign = 'center';
-                ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-                ctx.shadowBlur = 15;
-                ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2);
                 ctx.restore();
             }
         }
@@ -5599,9 +5606,11 @@
             if (gameState === 'playing') {
                 gameState = 'paused';
                 stopGameLoop();
-                draw(); // Draw paused overlay
+                document.getElementById('pauseScreen').style.display = 'block';
+                draw(); // Draw dimmed background
             } else if (gameState === 'paused') {
                 gameState = 'playing';
+                document.getElementById('pauseScreen').style.display = 'none';
                 startGameLoop();
             }
         }
