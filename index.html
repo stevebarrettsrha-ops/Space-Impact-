@@ -619,6 +619,14 @@
                     </div>
                     <span id="speedModeLabel" style="color:#888;font-size:11px;min-width:30px;">OFF</span>
                 </div>
+                <div class="speed-toggle">
+                    <label for="controlsModeToggle">TOUCH CONTROLS</label>
+                    <div class="speed-toggle-switch">
+                        <input type="checkbox" id="controlsModeToggle">
+                        <span class="speed-toggle-slider"></span>
+                    </div>
+                    <span id="controlsModeLabel" style="color:#888;font-size:11px;min-width:30px;">OFF</span>
+                </div>
                 <div class="admin-panel" id="adminPanel">
                     <label>LEVEL SELECT</label><br>
                     <select id="adminLevelSelect"></select>
@@ -890,13 +898,17 @@
             return (isTouchDevice && isSmallScreen) ? 'mobile' : 'pc';
         }
 
-        function initPlatform() {
-            platform = detectPlatform();
-            if (platform === 'mobile') {
+        let mobileControlsInitialized = false;
+
+        function applyPlatform(mode) {
+            platform = mode;
+            if (mode === 'mobile') {
                 document.getElementById('mobileControls').style.display = 'block';
                 document.getElementById('pcControls').style.display = 'none';
-                setupMobileControls();
-                // Update instructions text for mobile
+                if (!mobileControlsInitialized) {
+                    setupMobileControls();
+                    mobileControlsInitialized = true;
+                }
                 document.getElementById('controlsText').innerHTML =
                     '<span class="highlight">D-PAD</span> - Move ship<br>' +
                     '<span class="highlight">FIRE</span> - Shoot<br>' +
@@ -904,7 +916,23 @@
             } else {
                 document.getElementById('mobileControls').style.display = 'none';
                 document.getElementById('pcControls').style.display = 'block';
+                document.getElementById('controlsText').innerHTML =
+                    '<span class="highlight">Arrow Keys</span> - Move ship<br>' +
+                    '<span class="highlight">SPACE</span> - Fire weapon<br>' +
+                    '<span class="highlight">P</span> - Pause game';
             }
+            // Sync toggle state
+            const toggle = document.getElementById('controlsModeToggle');
+            const label = document.getElementById('controlsModeLabel');
+            if (toggle) {
+                toggle.checked = mode === 'mobile';
+                label.textContent = mode === 'mobile' ? 'ON' : 'OFF';
+                label.style.color = mode === 'mobile' ? '#00ff00' : '#888';
+            }
+        }
+
+        function initPlatform() {
+            applyPlatform(detectPlatform());
         }
 
         // Menu navigation
@@ -5663,6 +5691,11 @@
             speedRampEnabled = this.checked;
             document.getElementById('speedModeLabel').textContent = this.checked ? 'ON' : 'OFF';
             document.getElementById('speedModeLabel').style.color = this.checked ? '#00ff00' : '#888';
+        });
+
+        // Touch controls toggle
+        document.getElementById('controlsModeToggle').addEventListener('change', function() {
+            applyPlatform(this.checked ? 'mobile' : 'pc');
         });
 
         initStars();
