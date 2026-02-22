@@ -262,6 +262,54 @@
             text-align: center;
         }
 
+        /* Speed mode toggle */
+        .speed-toggle {
+            margin-top: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+        .speed-toggle label {
+            color: #aaa;
+            font-size: 13px;
+            letter-spacing: 1px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .speed-toggle-switch {
+            position: relative;
+            width: 48px;
+            height: 26px;
+            cursor: pointer;
+        }
+        .speed-toggle-switch input { display: none; }
+        .speed-toggle-slider {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #333;
+            border-radius: 13px;
+            border: 1px solid #555;
+            transition: background 0.3s;
+        }
+        .speed-toggle-slider::before {
+            content: '';
+            position: absolute;
+            width: 20px; height: 20px;
+            left: 2px; bottom: 2px;
+            background: #888;
+            border-radius: 50%;
+            transition: transform 0.3s, background 0.3s;
+        }
+        .speed-toggle-switch input:checked + .speed-toggle-slider {
+            background: #004400;
+            border-color: #00ff00;
+        }
+        .speed-toggle-switch input:checked + .speed-toggle-slider::before {
+            transform: translateX(22px);
+            background: #00ff00;
+        }
+
         /* Hidden admin level select */
         .admin-panel {
             display: none;
@@ -563,6 +611,14 @@
                     <button class="menu-btn menu-btn-start" onclick="startGame()">START GAME</button>
                     <button class="menu-btn menu-btn-howto" onclick="showInstructions()">HOW TO PLAY</button>
                 </div>
+                <div class="speed-toggle">
+                    <label for="speedModeToggle">SPEED RAMP</label>
+                    <div class="speed-toggle-switch">
+                        <input type="checkbox" id="speedModeToggle">
+                        <span class="speed-toggle-slider"></span>
+                    </div>
+                    <span id="speedModeLabel" style="color:#888;font-size:11px;min-width:30px;">OFF</span>
+                </div>
                 <div class="admin-panel" id="adminPanel">
                     <label>LEVEL SELECT</label><br>
                     <select id="adminLevelSelect"></select>
@@ -614,7 +670,7 @@
                             <span class="gold">Head Lunge</span> - Stretches a head to bite you. Watch for the glow!<br>
                             <span class="warn">Charge</span> - Rushes at you with a red aura, then retreats.<br>
                             <span style="color:#ff0080;font-weight:bold;">Snake Summon</span> - Spawns shield-breaking snakes!<br>
-                            <span class="info">Speed intensifies</span> - Game gets faster as you destroy more ships.
+                            <span class="info">Speed Ramp</span> - Enable in menu for increasing speed as you kill.
                         </p>
                     </div>
                 </div>
@@ -692,17 +748,17 @@
         
         // 25 Unique Levels
         const LEVELS = [
-            { level: 1, speed: 20, shipsToKill: 50, theme: 'nebula', name: 'Nebula Genesis',
+            { level: 1, speed: 16, shipsToKill: 100, theme: 'nebula', name: 'Nebula Genesis',
               colors: { bg: ['#1a0033', '#330066', '#4d0099'], accent: '#9966ff', particle: '#cc99ff' },
               playerShip: 'striker', enemyTypes: ['drone', 'scout'],
               bossName: 'Nebula Hydra', bossColor: '#9966ff', bossHeads: 3, bossType: 'hydra' },
 
-            { level: 2, speed: 18, shipsToKill: 75, theme: 'crimson', name: 'Crimson Garden',
+            { level: 2, speed: 16, shipsToKill: 100, theme: 'crimson', name: 'Crimson Garden',
               colors: { bg: ['#330011', '#550022', '#880033'], accent: '#ff3366', particle: '#ff6699' },
               playerShip: 'viper', enemyTypes: ['moth', 'wasp', 'hornet'],
               bossName: 'Crimson Monarch', bossColor: '#ff1155', bossHeads: 3, bossType: 'butterfly' },
 
-            { level: 3, speed: 17, shipsToKill: 100, theme: 'emerald', name: 'Emerald Colony',
+            { level: 3, speed: 16, shipsToKill: 100, theme: 'emerald', name: 'Emerald Colony',
               colors: { bg: ['#001a00', '#003300', '#005500'], accent: '#33ff33', particle: '#66ff66' },
               playerShip: 'wasp', enemyTypes: ['ant', 'mantis', 'beetle'],
               bossName: 'Emerald Titan', bossColor: '#00cc00', bossHeads: 3, bossType: 'beetle' },
@@ -712,111 +768,111 @@
               playerShip: 'frost', enemyTypes: ['ice_spider', 'frost_moth', 'snowfly'],
               bossName: 'Frost Widow', bossColor: '#00eeff', bossHeads: 3, bossType: 'spider' },
 
-            { level: 5, speed: 15, shipsToKill: 125, theme: 'solar', name: 'Solar Forge',
+            { level: 5, speed: 16, shipsToKill: 100, theme: 'solar', name: 'Solar Forge',
               colors: { bg: ['#331a00', '#663300', '#994d00'], accent: '#ffaa00', particle: '#ffcc66' },
               playerShip: 'phoenix', enemyTypes: ['ember', 'flame_hawk', 'fire_beetle'],
               bossName: 'Solar Phoenix', bossColor: '#ff8800', bossHeads: 3, bossType: 'phoenix' },
             
             // --- TIER 2: LEVELS 6-10 ---
-            { level: 6, speed: 16, shipsToKill: 75, theme: 'venom', name: 'Venom Depths',
+            { level: 6, speed: 16, shipsToKill: 100, theme: 'venom', name: 'Venom Depths',
               colors: { bg: ['#1a0022', '#33004d', '#4d0066'], accent: '#cc00ff', particle: '#e666ff' },
               playerShip: 'phantom', enemyTypes: ['venom_fly', 'acid_crawler', 'stinger'],
               bossName: 'Venom Scorpion', bossColor: '#aa00ee', bossHeads: 3, bossType: 'scorpion' },
 
-            { level: 7, speed: 15, shipsToKill: 80, theme: 'abyss', name: 'Abyssal Trench',
+            { level: 7, speed: 16, shipsToKill: 100, theme: 'abyss', name: 'Abyssal Trench',
               colors: { bg: ['#000011', '#000022', '#000044'], accent: '#0066ff', particle: '#6699ff' },
               playerShip: 'nautilus', enemyTypes: ['angler', 'eel', 'abyss_drone'],
               bossName: 'Abyssal Jelly', bossColor: '#3388ff', bossHeads: 3, bossType: 'jellyfish' },
 
-            { level: 8, speed: 15, shipsToKill: 85, theme: 'hive', name: 'Royal Hive',
+            { level: 8, speed: 16, shipsToKill: 100, theme: 'hive', name: 'Royal Hive',
               colors: { bg: ['#332200', '#554400', '#776600'], accent: '#ffcc00', particle: '#ffe666' },
               playerShip: 'hornet', enemyTypes: ['worker_bee', 'soldier_bee', 'royal_guard'],
               bossName: 'Hive Queen', bossColor: '#ffaa00', bossHeads: 3, bossType: 'wasp_queen' },
 
-            { level: 9, speed: 14, shipsToKill: 90, theme: 'shadow', name: 'Shadow Lair',
+            { level: 9, speed: 16, shipsToKill: 100, theme: 'shadow', name: 'Shadow Lair',
               colors: { bg: ['#0a0008', '#140010', '#1e0018'], accent: '#cc0044', particle: '#ff3366' },
               playerShip: 'shadow', enemyTypes: ['shadow_bat', 'dark_wisp', 'night_stalker'],
               bossName: 'Shadow Dragon', bossColor: '#cc0033', bossHeads: 3, bossType: 'dragon' },
 
-            { level: 10, speed: 14, shipsToKill: 100, theme: 'ocean', name: 'Kraken Domain',
+            { level: 10, speed: 16, shipsToKill: 100, theme: 'ocean', name: 'Kraken Domain',
               colors: { bg: ['#001122', '#002244', '#003366'], accent: '#00aaff', particle: '#66ccff' },
               playerShip: 'trident', enemyTypes: ['squid_jet', 'barnacle', 'tentacle_drone'],
               bossName: 'Deep Kraken', bossColor: '#0088dd', bossHeads: 3, bossType: 'kraken' },
 
             // --- TIER 3: LEVELS 11-15 ---
-            { level: 11, speed: 13, shipsToKill: 100, theme: 'toxic', name: 'Toxic Swamp',
+            { level: 11, speed: 16, shipsToKill: 100, theme: 'toxic', name: 'Toxic Swamp',
               colors: { bg: ['#0a1a00', '#1a3300', '#2a4d00'], accent: '#99ff00', particle: '#ccff66' },
               playerShip: 'venom_ship', enemyTypes: ['mosquito', 'swamp_fly', 'leech'],
               bossName: 'Swamp Centipede', bossColor: '#77dd00', bossHeads: 3, bossType: 'centipede' },
 
-            { level: 12, speed: 13, shipsToKill: 110, theme: 'crystal', name: 'Crystal Cavern',
+            { level: 12, speed: 16, shipsToKill: 100, theme: 'crystal', name: 'Crystal Cavern',
               colors: { bg: ['#110022', '#220044', '#330066'], accent: '#ff00ff', particle: '#ff66ff' },
               playerShip: 'prism', enemyTypes: ['crystal_shard', 'gem_fly', 'prism_bat'],
               bossName: 'Crystal Golem', bossColor: '#dd00ff', bossHeads: 3, bossType: 'golem' },
 
-            { level: 13, speed: 12, shipsToKill: 110, theme: 'desert', name: 'Amber Desert',
+            { level: 13, speed: 16, shipsToKill: 100, theme: 'desert', name: 'Amber Desert',
               colors: { bg: ['#2a1a00', '#553300', '#805000'], accent: '#ff9933', particle: '#ffcc99' },
               playerShip: 'sandstorm', enemyTypes: ['scarab', 'dust_devil', 'sand_hopper'],
               bossName: 'Great Sandworm', bossColor: '#dd7700', bossHeads: 3, bossType: 'sandworm' },
 
-            { level: 14, speed: 12, shipsToKill: 120, theme: 'lunar', name: 'Lunar Tides',
+            { level: 14, speed: 16, shipsToKill: 100, theme: 'lunar', name: 'Lunar Tides',
               colors: { bg: ['#111122', '#222244', '#333366'], accent: '#aaccff', particle: '#ddeeff' },
               playerShip: 'luna', enemyTypes: ['luna_moth', 'crater_bug', 'moonfly'],
               bossName: 'Moth King', bossColor: '#8899cc', bossHeads: 3, bossType: 'moth_king' },
 
-            { level: 15, speed: 11, shipsToKill: 125, theme: 'coral', name: 'Coral Reef',
+            { level: 15, speed: 16, shipsToKill: 100, theme: 'coral', name: 'Coral Reef',
               colors: { bg: ['#002233', '#004466', '#006699'], accent: '#00ffcc', particle: '#66ffe6' },
               playerShip: 'reef', enemyTypes: ['puffer', 'seahorse', 'coral_crab'],
               bossName: 'Reef Shark', bossColor: '#00bbaa', bossHeads: 3, bossType: 'shark' },
 
             // --- TIER 4: LEVELS 16-20 ---
-            { level: 16, speed: 11, shipsToKill: 130, theme: 'magma', name: 'Magma Core',
+            { level: 16, speed: 16, shipsToKill: 100, theme: 'magma', name: 'Magma Core',
               colors: { bg: ['#220000', '#440000', '#660000'], accent: '#ff4400', particle: '#ff8833' },
               playerShip: 'lava', enemyTypes: ['magma_slug', 'fire_imp', 'ash_bat'],
               bossName: 'Lava Golem', bossColor: '#ff3300', bossHeads: 3, bossType: 'lava_golem' },
 
-            { level: 17, speed: 10, shipsToKill: 135, theme: 'prism', name: 'Prism Dimension',
+            { level: 17, speed: 16, shipsToKill: 100, theme: 'prism', name: 'Prism Dimension',
               colors: { bg: ['#220022', '#440044', '#660066'], accent: '#ff44ff', particle: '#ff99ff' },
               playerShip: 'spectrum', enemyTypes: ['spectrum_fly', 'color_shift', 'holo_drone'],
               bossName: 'Chromatic Beast', bossColor: '#ff44ff', bossHeads: 3, bossType: 'chameleon' },
 
-            { level: 18, speed: 10, shipsToKill: 140, theme: 'midnight', name: 'Midnight Abyss',
+            { level: 18, speed: 16, shipsToKill: 100, theme: 'midnight', name: 'Midnight Abyss',
               colors: { bg: ['#050005', '#0a000a', '#140014'], accent: '#8800cc', particle: '#aa33ff' },
               playerShip: 'nightfall', enemyTypes: ['shadow_wisp', 'night_crawler', 'gloom_moth'],
               bossName: 'Vampire Lord', bossColor: '#7700aa', bossHeads: 3, bossType: 'vampire' },
 
-            { level: 19, speed: 9, shipsToKill: 145, theme: 'clockwork', name: 'Clockwork Forge',
+            { level: 19, speed: 16, shipsToKill: 100, theme: 'clockwork', name: 'Clockwork Forge',
               colors: { bg: ['#1a1000', '#332200', '#4d3300'], accent: '#cc8800', particle: '#ffaa33' },
               playerShip: 'forge', enemyTypes: ['gear_drone', 'steam_bot', 'copper_wasp'],
               bossName: 'Iron Colossus', bossColor: '#bb7700', bossHeads: 3, bossType: 'mech' },
 
-            { level: 20, speed: 9, shipsToKill: 150, theme: 'neon', name: 'Neon Grid',
+            { level: 20, speed: 16, shipsToKill: 100, theme: 'neon', name: 'Neon Grid',
               colors: { bg: ['#000a0a', '#001a1a', '#002a2a'], accent: '#00ff88', particle: '#66ffbb' },
               playerShip: 'cyber', enemyTypes: ['pixel_drone', 'data_bit', 'neon_racer'],
               bossName: 'Cyber Wyrm', bossColor: '#00ff66', bossHeads: 3, bossType: 'cyber_wyrm' },
 
             // --- TIER 5: LEVELS 21-25 (FINAL) ---
-            { level: 21, speed: 8, shipsToKill: 150, theme: 'jungle', name: 'Alien Jungle',
+            { level: 21, speed: 16, shipsToKill: 100, theme: 'jungle', name: 'Alien Jungle',
               colors: { bg: ['#001a00', '#003300', '#004400'], accent: '#33ff33', particle: '#88ff88' },
               playerShip: 'predator', enemyTypes: ['spore', 'vine_whip', 'thorn_fly'],
               bossName: 'Ancient Treant', bossColor: '#22cc22', bossHeads: 3, bossType: 'treant' },
 
-            { level: 22, speed: 8, shipsToKill: 160, theme: 'cosmic', name: 'Cosmic Vortex',
+            { level: 22, speed: 16, shipsToKill: 100, theme: 'cosmic', name: 'Cosmic Vortex',
               colors: { bg: ['#0a0011', '#140022', '#1e0033'], accent: '#aa44ff', particle: '#cc88ff' },
               playerShip: 'astral', enemyTypes: ['astro_dust', 'star_shard', 'nebula_wisp'],
               bossName: 'Burning Comet', bossColor: '#9933ff', bossHeads: 3, bossType: 'comet' },
 
-            { level: 23, speed: 7, shipsToKill: 165, theme: 'dawn', name: 'Radiant Dawn',
+            { level: 23, speed: 16, shipsToKill: 100, theme: 'dawn', name: 'Radiant Dawn',
               colors: { bg: ['#221100', '#443300', '#665500'], accent: '#ffbb44', particle: '#ffdd88' },
               playerShip: 'radiant', enemyTypes: ['sun_hawk', 'dawn_sprite', 'light_lance'],
               bossName: 'Golden Griffin', bossColor: '#ffaa22', bossHeads: 3, bossType: 'griffin' },
 
-            { level: 24, speed: 7, shipsToKill: 175, theme: 'void', name: 'Void Rift',
+            { level: 24, speed: 16, shipsToKill: 100, theme: 'void', name: 'Void Rift',
               colors: { bg: ['#000000', '#050005', '#0a000a'], accent: '#ff0066', particle: '#ff4488' },
               playerShip: 'void', enemyTypes: ['void_tendril', 'dark_pulse', 'null_drone'],
               bossName: 'Void Eye', bossColor: '#ee0055', bossHeads: 3, bossType: 'void_eye' },
 
-            { level: 25, speed: 6, shipsToKill: 200, theme: 'celestial', name: 'Celestial Throne',
+            { level: 25, speed: 16, shipsToKill: 100, theme: 'celestial', name: 'Celestial Throne',
               colors: { bg: ['#111122', '#222244', '#333366'], accent: '#ffdd00', particle: '#ffee66' },
               playerShip: 'divine', enemyTypes: ['seraph', 'divine_lance', 'arch_light'],
               bossName: 'Celestial Dragon', bossColor: '#ffcc00', bossHeads: 3, bossType: 'celestial_dragon' }
@@ -988,6 +1044,7 @@
         // Platform and mobile controls
         let platform = null; // 'pc' or 'mobile'
         let autoFire = false; // Auto-fire for mobile
+        let speedRampEnabled = false; // Whether speed increases with kills
         let mobileButtons = {
             up: false,
             down: false,
@@ -2029,13 +2086,17 @@
         
         // Update game speed based on kills (gradually intensifies)
         function updateGameSpeed() {
-            // Speed increases every 25 kills (was 10 — less aggressive)
-            const speedBoost = Math.floor(shipsKilledThisLevel / 25);
             const baseSpeed = LEVELS[level - 1].speed;
 
-            // Reduce interval by 1ms for every 25 kills (minimum 5ms)
-            currentGameSpeed = Math.max(5, baseSpeed - speedBoost);
-            
+            if (speedRampEnabled) {
+                // Speed increases every 25 kills (reduce interval by 1ms, minimum 5ms)
+                const speedBoost = Math.floor(shipsKilledThisLevel / 25);
+                currentGameSpeed = Math.max(5, baseSpeed - speedBoost);
+            } else {
+                // Constant moderate speed — no ramp
+                currentGameSpeed = baseSpeed;
+            }
+
             // Update the speed display (rAF loop reads currentGameSpeed automatically)
             document.getElementById('gameSpeed').textContent = currentGameSpeed + 'ms';
         }
@@ -5596,6 +5657,14 @@
         // Initialize
         initPlatform();
         initAdminSecret();
+
+        // Speed ramp toggle
+        document.getElementById('speedModeToggle').addEventListener('change', function() {
+            speedRampEnabled = this.checked;
+            document.getElementById('speedModeLabel').textContent = this.checked ? 'ON' : 'OFF';
+            document.getElementById('speedModeLabel').style.color = this.checked ? '#00ff00' : '#888';
+        });
+
         initStars();
         draw();
         
