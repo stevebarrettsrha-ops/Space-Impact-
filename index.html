@@ -660,12 +660,12 @@
         const LEVELS = [
             { level: 1, speed: 20, shipsToKill: 50, theme: 'nebula', name: 'Nebula Genesis',
               colors: { bg: ['#1a0033', '#330066', '#4d0099'], accent: '#9966ff', particle: '#cc99ff' },
-              playerShip: 'striker', enemyTypes: ['drone', 'scout'], 
+              playerShip: 'striker', enemyTypes: ['fighter', 'bomber', 'scout'],
               bossName: 'Nebula Hydra', bossColor: '#9966ff', bossHeads: 3 },
             
-            { level: 2, speed: 20, shipsToKill: 200, theme: 'crimson', name: 'Crimson Void',
+            { level: 2, speed: 18, shipsToKill: 75, theme: 'crimson', name: 'Crimson Void',
               colors: { bg: ['#330000', '#660000', '#990000'], accent: '#ff3333', particle: '#ff6666' },
-              playerShip: 'viper', enemyTypes: ['fighter', 'gunner'],
+              playerShip: 'viper', enemyTypes: ['fighter', 'gunner', 'flanker'],
               bossName: 'Blood Hydra', bossColor: '#ff0000', bossHeads: 3 },
             
             { level: 3, speed: 20, shipsToKill: 200, theme: 'emerald', name: 'Emerald Garden',
@@ -1276,11 +1276,12 @@
             }
         }
         
-        // Spawn enemy
+        // Spawn enemy based on current level's enemy types
         function spawnEnemy() {
-            const types = ['fighter', 'bomber', 'scout'];
+            const levelData = LEVELS[level - 1];
+            const types = levelData.enemyTypes;
             const type = types[Math.floor(Math.random() * types.length)];
-            
+
             let enemy = {
                 type: type,
                 x: canvas.width + 50,
@@ -1294,20 +1295,20 @@
                 shootCooldown: 0,
                 shootInterval: 60
             };
-            
+
             // Type-specific properties
-            if (type === 'fighter') {
+            if (type === 'drone' || type === 'fighter') {
                 enemy.health = 1;
                 enemy.points = 100;
                 enemy.vx = -4 - Math.random() * 3;
-                enemy.shootInterval = 80; // Shoots occasionally
+                enemy.shootInterval = 80;
             } else if (type === 'bomber') {
                 enemy.health = 3;
                 enemy.points = 300;
                 enemy.vx = -2.5 - Math.random() * 1.5;
                 enemy.width = 55;
                 enemy.height = 40;
-                enemy.shootInterval = 40; // Shoots frequently
+                enemy.shootInterval = 40;
             } else if (type === 'scout') {
                 enemy.health = 1;
                 enemy.points = 150;
@@ -1315,9 +1316,35 @@
                 enemy.vy = (Math.random() - 0.5) * 2;
                 enemy.width = 35;
                 enemy.height = 25;
-                enemy.shootInterval = 100; // Shoots rarely
+                enemy.shootInterval = 100;
+            } else if (type === 'gunner') {
+                // Gunner: stops mid-screen, fires aimed burst shots
+                enemy.health = 3;
+                enemy.points = 250;
+                enemy.vx = -3;
+                enemy.width = 50;
+                enemy.height = 35;
+                enemy.shootInterval = 9999; // Burst fire handled by state
+                enemy.gunnerState = 'entering';  // entering, positioned, firing, repositioning
+                enemy.stopX = canvas.width * (0.55 + Math.random() * 0.25); // where to stop
+                enemy.burstCount = 0;
+                enemy.burstTimer = 0;
+                enemy.repositionTarget = 0;
+            } else if (type === 'flanker') {
+                // Flanker: enters from top or bottom, flies diagonally across
+                const fromTop = Math.random() > 0.5;
+                enemy.health = 1;
+                enemy.points = 200;
+                enemy.x = canvas.width + 50;
+                enemy.y = fromTop ? -20 : canvas.height + 20;
+                enemy.vx = -4 - Math.random() * 2;
+                enemy.vy = fromTop ? 2.5 + Math.random() * 1.5 : -(2.5 + Math.random() * 1.5);
+                enemy.width = 35;
+                enemy.height = 30;
+                enemy.shootInterval = 60;
+                enemy.flankerPhase = Math.random() * Math.PI * 2;
             }
-            
+
             enemies.push(enemy);
         }
         
@@ -1366,7 +1393,7 @@
                 bossColor: levelData.bossColor,
                 bossHeads: 3,
                 // Attack state machine
-                attackState: 'idle',        // idle, head_stretch, charging, retreating, summoning
+                attackState: 'idle',        // idle, head_stretch, charging, retreating, summoning, bullet_fan
                 attackTimer: 120,           // frames until next attack
                 attackCooldown: 0,          // cooldown between attacks
                 // Home position (where boss parks after entering)
@@ -1383,7 +1410,10 @@
                 chargeSpeed: 0,
                 // Summon attack
                 summonCount: 0,
-                totalSummons: 0             // track how many times boss has summoned
+                totalSummons: 0,            // track how many times boss has summoned
+                // Bullet fan attack (level 2+)
+                fanWaves: 0,
+                fanMaxWaves: 3
             };
             
             enemies.push(boss);
@@ -1465,17 +1495,24 @@
 
                 boss.attackTimer--;
                 if (boss.attackTimer <= 0) {
-                    // Choose random attack
+                    // Choose random attack — level 2+ has bullet_fan
                     const healthPercent = boss.health / boss.maxHealth;
                     const roll = Math.random();
+                    const hasBulletFan = level >= 2;
 
-                    if (roll < 0.35) {
+                    if (hasBulletFan && roll < 0.25) {
+                        // Bullet fan attack (level 2+)
+                        boss.attackState = 'bullet_fan';
+                        boss.attackCooldown = 40; // wind-up
+                        boss.fanWaves = 0;
+                        boss.fanMaxWaves = healthPercent < 0.4 ? 4 : 3;
+                    } else if (roll < (hasBulletFan ? 0.5 : 0.35)) {
                         // Head stretch attack
                         boss.attackState = 'head_stretch';
                         boss.headStretchProgress = 0;
                         boss.headStretchTarget = Math.floor(Math.random() * 3);
                         boss.headStretchTargetY = player.y;
-                    } else if (roll < 0.65) {
+                    } else if (roll < (hasBulletFan ? 0.75 : 0.65)) {
                         // Charge attack
                         boss.attackState = 'charging';
                         boss.chargeTargetX = player.x + 60;
@@ -1502,6 +1539,57 @@
                 }
                 // Boss stays in place but bobs gently
                 boss.y += Math.sin(boss.segmentPhase) * 1;
+                return;
+            }
+
+            // BULLET FAN ATTACK: Heads fire spread shots (level 2+)
+            if (boss.attackState === 'bullet_fan') {
+                boss.y += Math.sin(boss.segmentPhase) * 2;
+                boss.attackCooldown--;
+
+                if (boss.attackCooldown <= 0 && boss.fanWaves < boss.fanMaxWaves) {
+                    // Fire a fan of 5 bullets from a random head
+                    const headSpacing = 40;
+                    const headIdx = boss.fanWaves % 3;
+                    const headY = boss.y + (headIdx - 1) * headSpacing;
+                    const headX = boss.x - 20;
+                    const spreadAngles = [-0.4, -0.2, 0, 0.2, 0.4];
+
+                    for (let a = 0; a < spreadAngles.length; a++) {
+                        const angle = Math.PI + spreadAngles[a];
+                        const speed = 6;
+                        enemyBullets.push({
+                            x: headX - 15,
+                            y: headY,
+                            vx: Math.cos(angle) * speed,
+                            vy: Math.sin(angle) * speed,
+                            width: 10,
+                            height: 4
+                        });
+                    }
+
+                    boss.fanWaves++;
+                    boss.attackCooldown = 20; // delay between fan waves
+
+                    // Spawn muzzle flash particles
+                    if (particles.length < MAX_PARTICLES) {
+                        for (let p = 0; p < 5; p++) {
+                            particles.push({
+                                x: headX - 15, y: headY,
+                                vx: -2 - Math.random() * 3,
+                                vy: (Math.random() - 0.5) * 4,
+                                size: 3 + Math.random() * 3,
+                                life: 12,
+                                color: boss.bossColor
+                            });
+                        }
+                    }
+                }
+
+                if (boss.fanWaves >= boss.fanMaxWaves && boss.attackCooldown <= 0) {
+                    boss.attackState = 'idle';
+                    boss.attackTimer = 80 + Math.floor(Math.random() * 40);
+                }
                 return;
             }
 
@@ -1619,18 +1707,85 @@
                     enemy.segmentPhase += 0.1;
                     enemy.y += Math.sin(enemy.segmentPhase) * 2;
                 }
+                if (enemy.type === 'flanker') {
+                    enemy.flankerPhase += 0.08;
+                    // Slight sinusoidal weave along flight path
+                    enemy.x += Math.sin(enemy.flankerPhase) * 0.5;
+                    // Bounce off top/bottom edges
+                    if (enemy.y < 30 || enemy.y > canvas.height - 30) {
+                        enemy.vy *= -1;
+                    }
+                }
+                if (enemy.type === 'gunner') {
+                    // Gunner state machine
+                    if (enemy.gunnerState === 'entering') {
+                        if (enemy.x <= enemy.stopX) {
+                            enemy.vx = 0;
+                            enemy.vy = 0;
+                            enemy.gunnerState = 'positioned';
+                            enemy.burstTimer = 30; // pause before first burst
+                        }
+                    } else if (enemy.gunnerState === 'positioned') {
+                        enemy.burstTimer--;
+                        if (enemy.burstTimer <= 0) {
+                            enemy.gunnerState = 'firing';
+                            enemy.burstCount = 0;
+                            enemy.burstTimer = 0;
+                        }
+                    } else if (enemy.gunnerState === 'firing') {
+                        enemy.burstTimer--;
+                        if (enemy.burstTimer <= 0 && enemy.burstCount < 3) {
+                            // Fire aimed shot at player
+                            const dx = player.x - enemy.x;
+                            const dy = player.y - enemy.y;
+                            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                            const speed = 7;
+                            enemyBullets.push({
+                                x: enemy.x - 25,
+                                y: enemy.y,
+                                vx: (dx / dist) * speed,
+                                vy: (dy / dist) * speed,
+                                width: 12,
+                                height: 4
+                            });
+                            enemy.burstCount++;
+                            enemy.burstTimer = 8; // delay between burst shots
+                        }
+                        if (enemy.burstCount >= 3) {
+                            enemy.gunnerState = 'repositioning';
+                            enemy.repositionTarget = 50 + Math.random() * (canvas.height - 100);
+                            enemy.burstTimer = 60; // time to reposition
+                        }
+                    } else if (enemy.gunnerState === 'repositioning') {
+                        // Drift to new Y position
+                        const dy = enemy.repositionTarget - enemy.y;
+                        enemy.y += dy * 0.05;
+                        enemy.burstTimer--;
+                        if (enemy.burstTimer <= 0 || Math.abs(dy) < 5) {
+                            enemy.gunnerState = 'positioned';
+                            enemy.burstTimer = 40 + Math.floor(Math.random() * 30);
+                        }
+                    }
+                }
 
-                if (enemy.y < 20) enemy.y = 20;
-                if (enemy.y > canvas.height - 20) enemy.y = canvas.height - 20;
+                if (enemy.type !== 'flanker') {
+                    if (enemy.y < 20) enemy.y = 20;
+                    if (enemy.y > canvas.height - 20) enemy.y = canvas.height - 20;
+                }
 
                 if (enemy.x < -100 && enemy.type !== 'levelboss') {
+                    enemies.splice(i, 1);
+                    continue;
+                }
+                // Remove flankers that exit the screen vertically
+                if (enemy.type === 'flanker' && (enemy.y < -50 || enemy.y > canvas.height + 50)) {
                     enemies.splice(i, 1);
                     continue;
                 }
 
                 // Enemy shooting
                 enemy.shootCooldown--;
-                if (enemy.type !== 'spacesnake' && enemy.type !== 'levelboss' && enemy.shootCooldown <= 0 && enemy.x < canvas.width - 50 && enemy.x > 100) {
+                if (enemy.type !== 'spacesnake' && enemy.type !== 'levelboss' && enemy.type !== 'gunner' && enemy.shootCooldown <= 0 && enemy.x < canvas.width - 50 && enemy.x > 100) {
                     const dx = player.x - enemy.x;
                     const dy = player.y - enemy.y;
 
@@ -1869,6 +2024,94 @@
                     ctx.lineTo(ex + 15, ey + 10);
                     ctx.closePath();
                     ctx.fill();
+                } else if (enemy.type === 'gunner') {
+                    // Gunner ship - Turret-style, crimson themed
+                    const levelColors = LEVELS[level - 1].colors;
+                    const accent = levelColors.accent;
+
+                    // Base body (wider, armored look)
+                    ctx.fillStyle = accent;
+                    ctx.beginPath();
+                    ctx.moveTo(ex - 25, ey - 15);
+                    ctx.lineTo(ex + 15, ey - 12);
+                    ctx.lineTo(ex + 20, ey);
+                    ctx.lineTo(ex + 15, ey + 12);
+                    ctx.lineTo(ex - 25, ey + 15);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Armor plating
+                    ctx.fillStyle = shadeColor(accent, -30);
+                    ctx.fillRect(ex - 20, ey - 10, 25, 20);
+
+                    // Cannon barrel
+                    ctx.fillStyle = '#cccccc';
+                    ctx.fillRect(ex - 35, ey - 3, 18, 6);
+                    // Muzzle flash when firing
+                    if (enemy.gunnerState === 'firing' && enemy.burstTimer >= 5) {
+                        ctx.fillStyle = '#ffaa00';
+                        ctx.beginPath();
+                        ctx.arc(ex - 37, ey, 5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    // Engine glow
+                    ctx.fillStyle = `${accent}88`;
+                    ctx.beginPath();
+                    ctx.arc(ex + 22, ey, 4, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // State indicator glow when positioned
+                    if (enemy.gunnerState === 'positioned' || enemy.gunnerState === 'firing') {
+                        const scanGlow = ctx.createRadialGradient(ex, ey, 0, ex, ey, 35);
+                        scanGlow.addColorStop(0, `${accent}33`);
+                        scanGlow.addColorStop(1, `${accent}00`);
+                        ctx.fillStyle = scanGlow;
+                        ctx.fillRect(ex - 35, ey - 35, 70, 70);
+                    }
+
+                } else if (enemy.type === 'flanker') {
+                    // Flanker ship - Sleek, angled, diagonal attacker
+                    const levelColors = LEVELS[level - 1].colors;
+                    const accent = levelColors.accent;
+                    const movingDown = enemy.vy > 0;
+
+                    // Angled body (tilted based on direction)
+                    ctx.save();
+                    ctx.translate(ex, ey);
+                    ctx.rotate(movingDown ? 0.3 : -0.3);
+
+                    // Main body
+                    ctx.fillStyle = accent;
+                    ctx.beginPath();
+                    ctx.moveTo(-18, 0);
+                    ctx.lineTo(8, -10);
+                    ctx.lineTo(15, 0);
+                    ctx.lineTo(8, 10);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Wing stripe
+                    ctx.fillStyle = shadeColor(accent, -40);
+                    ctx.beginPath();
+                    ctx.moveTo(-10, -2);
+                    ctx.lineTo(12, -8);
+                    ctx.lineTo(12, 8);
+                    ctx.lineTo(-10, 2);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Thruster trail
+                    ctx.fillStyle = `${accent}66`;
+                    ctx.beginPath();
+                    ctx.moveTo(15, -3);
+                    ctx.lineTo(22 + Math.random() * 5, 0);
+                    ctx.lineTo(15, 3);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    ctx.restore();
+
                 } else if (enemy.type === 'levelboss') {
                     // LEVEL BOSS SERPENT - Larger, more impressive
                     if (enemy.hitFlash) {
@@ -1890,6 +2133,9 @@
                     } else if (enemy.attackState === 'summoning') {
                         auraColor = '#ff0080';
                         pulseIntensity = 0.5 + Math.sin(animationFrame * 0.3) * 0.4;
+                    } else if (enemy.attackState === 'bullet_fan') {
+                        auraColor = '#ffaa00';
+                        pulseIntensity = 0.5 + Math.sin(animationFrame * 0.35) * 0.4;
                     } else if (enemy.attackState === 'head_stretch') {
                         pulseIntensity = 0.5 + Math.sin(animationFrame * 0.2) * 0.3;
                     }
@@ -1924,6 +2170,23 @@
                             ctx.beginPath();
                             ctx.arc(ex, ey, radius, animationFrame * 0.05 + ring, animationFrame * 0.05 + ring + Math.PI * 1.2);
                             ctx.stroke();
+                        }
+                        ctx.restore();
+                    }
+
+                    // Bullet fan charge-up glow on heads
+                    if (enemy.attackState === 'bullet_fan') {
+                        ctx.save();
+                        const headSpacing = 40;
+                        for (let h = 0; h < 3; h++) {
+                            const headY = ey + (h - 1) * headSpacing;
+                            const headX = ex - 20;
+                            const glowSize = 20 + Math.sin(animationFrame * 0.3 + h) * 8;
+                            const fanGlow = ctx.createRadialGradient(headX, headY, 0, headX, headY, glowSize);
+                            fanGlow.addColorStop(0, 'rgba(255, 170, 0, 0.6)');
+                            fanGlow.addColorStop(1, 'rgba(255, 170, 0, 0)');
+                            ctx.fillStyle = fanGlow;
+                            ctx.fillRect(headX - glowSize, headY - glowSize, glowSize * 2, glowSize * 2);
                         }
                         ctx.restore();
                     }
