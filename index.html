@@ -230,6 +230,91 @@
             margin-top: 15px;
             opacity: 0.7;
         }
+
+        /* Platform selection buttons */
+        .platform-btn {
+            padding: 40px 60px;
+            border-radius: 20px;
+            color: #000;
+            font-family: 'Segoe UI', sans-serif;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 28px;
+            min-width: 250px;
+            transition: all 0.3s ease;
+            border: 4px solid;
+        }
+        .platform-btn-icon { font-size: 48px; margin-bottom: 10px; }
+        .platform-btn-sub { font-size: 14px; margin-top: 10px; opacity: 0.8; }
+
+        .platform-btn-pc {
+            background: linear-gradient(135deg, #00ccff, #0088cc);
+            border-color: #00ffff;
+            box-shadow: 0 10px 30px rgba(0, 204, 255, 0.4);
+        }
+        .platform-btn-pc:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 15px 40px rgba(0, 204, 255, 0.6);
+        }
+
+        .platform-btn-mobile {
+            background: linear-gradient(135deg, #ff00ff, #cc00cc);
+            border-color: #ff66ff;
+            box-shadow: 0 10px 30px rgba(255, 0, 255, 0.4);
+        }
+        .platform-btn-mobile:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 15px 40px rgba(255, 0, 255, 0.6);
+        }
+
+        /* Mobile D-pad buttons */
+        .dpad-btn {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 255, 255, 0.3);
+            border: 3px solid rgba(0, 255, 255, 0.8);
+            border-radius: 10px;
+            color: #00ffff;
+            font-size: 28px;
+            font-weight: bold;
+            backdrop-filter: blur(5px);
+            touch-action: none;
+        }
+        .dpad-btn:active { background: rgba(0, 255, 255, 0.6); }
+
+        .fire-btn {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, rgba(255, 0, 0, 0.4), rgba(255, 100, 0, 0.4));
+            border: 4px solid rgba(255, 0, 0, 0.8);
+            border-radius: 50%;
+            color: #ff0000;
+            font-size: 18px;
+            font-weight: bold;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+            touch-action: none;
+        }
+        .fire-btn:active {
+            background: linear-gradient(135deg, rgba(255, 0, 0, 0.7), rgba(255, 100, 0, 0.7));
+        }
+
+        .autofire-btn {
+            padding: 12px 20px;
+            background: rgba(100, 100, 100, 0.4);
+            border: 2px solid rgba(200, 200, 200, 0.6);
+            border-radius: 10px;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: bold;
+            backdrop-filter: blur(5px);
+            touch-action: none;
+        }
+        .autofire-btn.active {
+            background: rgba(0, 255, 0, 0.4);
+            border-color: rgba(0, 255, 0, 0.8);
+        }
         
         /* Mobile Responsive Styles */
         @media (max-width: 768px) {
@@ -350,42 +435,16 @@
                 <h3 style="color: #00ff00; margin-bottom: 30px; font-size: 24px;">SELECT YOUR PLATFORM</h3>
                 
                 <div style="display: flex; gap: 30px; justify-content: center; flex-wrap: wrap; max-width: 600px; margin: 0 auto;">
-                    <button onclick="selectPlatform('pc')" onmouseover="this.style.transform='translateY(-5px) scale(1.05)'; this.style.boxShadow='0 15px 40px rgba(0, 204, 255, 0.6)';" onmouseout="this.style.transform='translateY(0) scale(1)'; this.style.boxShadow='0 10px 30px rgba(0, 204, 255, 0.4)';" style="
-                        padding: 40px 60px;
-                        background: linear-gradient(135deg, #00ccff, #0088cc);
-                        border: 4px solid #00ffff;
-                        border-radius: 20px;
-                        color: #000;
-                        font-family: 'Segoe UI', sans-serif;
-                        font-weight: bold;
-                        cursor: pointer;
-                        font-size: 28px;
-                        min-width: 250px;
-                        transition: all 0.3s ease;
-                        box-shadow: 0 10px 30px rgba(0, 204, 255, 0.4);
-                    ">
-                        <div style="font-size: 48px; margin-bottom: 10px;">🖥️</div>
+                    <button class="platform-btn platform-btn-pc" onclick="selectPlatform('pc')">
+                        <div class="platform-btn-icon">🖥️</div>
                         <div>PC / DESKTOP</div>
-                        <div style="font-size: 14px; margin-top: 10px; opacity: 0.8;">Keyboard Controls</div>
+                        <div class="platform-btn-sub">Keyboard Controls</div>
                     </button>
-                    
-                    <button onclick="selectPlatform('mobile')" onmouseover="this.style.transform='translateY(-5px) scale(1.05)'; this.style.boxShadow='0 15px 40px rgba(255, 0, 255, 0.6)';" onmouseout="this.style.transform='translateY(0) scale(1)'; this.style.boxShadow='0 10px 30px rgba(255, 0, 255, 0.4)';" style="
-                        padding: 40px 60px;
-                        background: linear-gradient(135deg, #ff00ff, #cc00cc);
-                        border: 4px solid #ff66ff;
-                        border-radius: 20px;
-                        color: #000;
-                        font-family: 'Segoe UI', sans-serif;
-                        font-weight: bold;
-                        cursor: pointer;
-                        font-size: 28px;
-                        min-width: 250px;
-                        transition: all 0.3s ease;
-                        box-shadow: 0 10px 30px rgba(255, 0, 255, 0.4);
-                    ">
-                        <div style="font-size: 48px; margin-bottom: 10px;">📱</div>
+
+                    <button class="platform-btn platform-btn-mobile" onclick="selectPlatform('mobile')">
+                        <div class="platform-btn-icon">📱</div>
                         <div>MOBILE / TABLET</div>
-                        <div style="font-size: 14px; margin-top: 10px; opacity: 0.8;">Touch Controls</div>
+                        <div class="platform-btn-sub">Touch Controls</div>
                     </button>
                 </div>
                 
@@ -431,125 +490,23 @@
         
         <!-- MOBILE TOUCH CONTROLS -->
         <div id="mobileControls" style="display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 200px; pointer-events: none; z-index: 1000;">
-            <!-- Left Side: Directional Controls -->
             <div style="position: absolute; left: 20px; bottom: 20px; pointer-events: auto;">
-                <!-- D-Pad Style Controls -->
                 <div style="position: relative; width: 180px; height: 180px;">
-                    <!-- Up -->
-                    <button id="btnUp" style="
-                        position: absolute;
-                        top: 0;
-                        left: 60px;
-                        width: 60px;
-                        height: 60px;
-                        background: rgba(0, 255, 255, 0.3);
-                        border: 3px solid rgba(0, 255, 255, 0.8);
-                        border-radius: 10px;
-                        color: #00ffff;
-                        font-size: 28px;
-                        font-weight: bold;
-                        backdrop-filter: blur(5px);
-                        touch-action: none;
-                    ">▲</button>
-                    
-                    <!-- Left -->
-                    <button id="btnLeft" style="
-                        position: absolute;
-                        top: 60px;
-                        left: 0;
-                        width: 60px;
-                        height: 60px;
-                        background: rgba(0, 255, 255, 0.3);
-                        border: 3px solid rgba(0, 255, 255, 0.8);
-                        border-radius: 10px;
-                        color: #00ffff;
-                        font-size: 28px;
-                        font-weight: bold;
-                        backdrop-filter: blur(5px);
-                        touch-action: none;
-                    ">◄</button>
-                    
-                    <!-- Center (unused) -->
-                    <div style="
-                        position: absolute;
-                        top: 60px;
-                        left: 60px;
-                        width: 60px;
-                        height: 60px;
-                        background: rgba(0, 255, 255, 0.1);
-                        border: 2px solid rgba(0, 255, 255, 0.3);
-                        border-radius: 10px;
-                    "></div>
-                    
-                    <!-- Right -->
-                    <button id="btnRight" style="
-                        position: absolute;
-                        top: 60px;
-                        left: 120px;
-                        width: 60px;
-                        height: 60px;
-                        background: rgba(0, 255, 255, 0.3);
-                        border: 3px solid rgba(0, 255, 255, 0.8);
-                        border-radius: 10px;
-                        color: #00ffff;
-                        font-size: 28px;
-                        font-weight: bold;
-                        backdrop-filter: blur(5px);
-                        touch-action: none;
-                    ">►</button>
-                    
-                    <!-- Down -->
-                    <button id="btnDown" style="
-                        position: absolute;
-                        top: 120px;
-                        left: 60px;
-                        width: 60px;
-                        height: 60px;
-                        background: rgba(0, 255, 255, 0.3);
-                        border: 3px solid rgba(0, 255, 255, 0.8);
-                        border-radius: 10px;
-                        color: #00ffff;
-                        font-size: 28px;
-                        font-weight: bold;
-                        backdrop-filter: blur(5px);
-                        touch-action: none;
-                    ">▼</button>
+                    <button id="btnUp" class="dpad-btn" style="top: 0; left: 60px;">▲</button>
+                    <button id="btnLeft" class="dpad-btn" style="top: 60px; left: 0;">◄</button>
+                    <div style="position: absolute; top: 60px; left: 60px; width: 60px; height: 60px; background: rgba(0,255,255,0.1); border: 2px solid rgba(0,255,255,0.3); border-radius: 10px;"></div>
+                    <button id="btnRight" class="dpad-btn" style="top: 60px; left: 120px;">►</button>
+                    <button id="btnDown" class="dpad-btn" style="top: 120px; left: 60px;">▼</button>
                 </div>
             </div>
-            
-            <!-- Right Side: Fire Button -->
             <div style="position: absolute; right: 20px; bottom: 20px; pointer-events: auto;">
-                <button id="btnFire" style="
-                    width: 120px;
-                    height: 120px;
-                    background: linear-gradient(135deg, rgba(255, 0, 0, 0.4), rgba(255, 100, 0, 0.4));
-                    border: 4px solid rgba(255, 0, 0, 0.8);
-                    border-radius: 50%;
-                    color: #ff0000;
-                    font-size: 18px;
-                    font-weight: bold;
-                    backdrop-filter: blur(5px);
-                    box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
-                    touch-action: none;
-                ">
+                <button id="btnFire" class="fire-btn">
                     <div style="font-size: 36px;">🔥</div>
                     <div>FIRE</div>
                 </button>
             </div>
-            
-            <!-- Top Right: Auto-Fire Toggle -->
             <div style="position: absolute; right: 20px; top: -160px; pointer-events: auto;">
-                <button id="btnAutoFire" onclick="toggleAutoFire()" style="
-                    padding: 12px 20px;
-                    background: rgba(100, 100, 100, 0.4);
-                    border: 2px solid rgba(200, 200, 200, 0.6);
-                    border-radius: 10px;
-                    color: #ffffff;
-                    font-size: 14px;
-                    font-weight: bold;
-                    backdrop-filter: blur(5px);
-                    touch-action: none;
-                ">
+                <button id="btnAutoFire" class="autofire-btn" onclick="toggleAutoFire()">
                     <div id="autoFireText">AUTO-FIRE: OFF</div>
                 </button>
             </div>
@@ -571,6 +528,27 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+
+        // Named constants
+        const MAX_PARTICLES = 500;
+        const SHIELD_DURATION_FRAMES = 3000;  // 50 seconds at 60 FPS
+        const TRIPLE_SHOT_DURATION = 1800;    // 30 seconds at 60 FPS
+        const INVINCIBLE_DURATION = 300;      // 5 seconds at 60 FPS
+        const BOSS_KILL_THRESHOLD = 200;
+        const BOSS_HP = 75;
+        const SNAKE_HP = 25;
+        const TARGET_FPS = 60;
+        const FRAME_DURATION = 1000 / TARGET_FPS;
+
+        // Canvas coordinate scaling (maps CSS pixel coordinates to canvas coordinates)
+        function getCanvasScale() {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                scaleX: canvas.width / rect.width,
+                scaleY: canvas.height / rect.height,
+                rect: rect
+            };
+        }
         
         // 25 Unique Levels
         const LEVELS = [
@@ -742,124 +720,53 @@
         function toggleAutoFire() {
             autoFire = !autoFire;
             document.getElementById('autoFireText').textContent = autoFire ? 'AUTO-FIRE: ON' : 'AUTO-FIRE: OFF';
-            document.getElementById('btnAutoFire').style.background = autoFire ? 
-                'rgba(0, 255, 0, 0.4)' : 'rgba(100, 100, 100, 0.4)';
-            document.getElementById('btnAutoFire').style.borderColor = autoFire ?
-                'rgba(0, 255, 0, 0.8)' : 'rgba(200, 200, 200, 0.6)';
+            document.getElementById('btnAutoFire').classList.toggle('active', autoFire);
         }
         
-        // Setup mobile touch controls
+        // Setup mobile touch controls (refactored with helper to reduce duplication)
         function setupMobileControls() {
-            // Directional buttons
-            const btnUp = document.getElementById('btnUp');
-            const btnDown = document.getElementById('btnDown');
-            const btnLeft = document.getElementById('btnLeft');
-            const btnRight = document.getElementById('btnRight');
-            const btnFire = document.getElementById('btnFire');
-            
-            // Prevent default touch behavior
-            [btnUp, btnDown, btnLeft, btnRight, btnFire].forEach(btn => {
-                btn.addEventListener('touchstart', (e) => e.preventDefault());
-                btn.addEventListener('touchend', (e) => e.preventDefault());
-                btn.addEventListener('touchmove', (e) => e.preventDefault());
-            });
-            
-            // Up button
-            btnUp.addEventListener('touchstart', () => { 
-                mobileButtons.up = true;
-                btnUp.style.background = 'rgba(0, 255, 255, 0.6)';
-            });
-            btnUp.addEventListener('touchend', () => { 
-                mobileButtons.up = false;
-                btnUp.style.background = 'rgba(0, 255, 255, 0.3)';
-            });
-            btnUp.addEventListener('mousedown', () => { 
-                mobileButtons.up = true;
-                btnUp.style.background = 'rgba(0, 255, 255, 0.6)';
-            });
-            btnUp.addEventListener('mouseup', () => { 
-                mobileButtons.up = false;
-                btnUp.style.background = 'rgba(0, 255, 255, 0.3)';
-            });
-            
-            // Down button
-            btnDown.addEventListener('touchstart', () => { 
-                mobileButtons.down = true;
-                btnDown.style.background = 'rgba(0, 255, 255, 0.6)';
-            });
-            btnDown.addEventListener('touchend', () => { 
-                mobileButtons.down = false;
-                btnDown.style.background = 'rgba(0, 255, 255, 0.3)';
-            });
-            btnDown.addEventListener('mousedown', () => { 
-                mobileButtons.down = true;
-                btnDown.style.background = 'rgba(0, 255, 255, 0.6)';
-            });
-            btnDown.addEventListener('mouseup', () => { 
-                mobileButtons.down = false;
-                btnDown.style.background = 'rgba(0, 255, 255, 0.3)';
-            });
-            
-            // Left button
-            btnLeft.addEventListener('touchstart', () => { 
-                mobileButtons.left = true;
-                btnLeft.style.background = 'rgba(0, 255, 255, 0.6)';
-            });
-            btnLeft.addEventListener('touchend', () => { 
-                mobileButtons.left = false;
-                btnLeft.style.background = 'rgba(0, 255, 255, 0.3)';
-            });
-            btnLeft.addEventListener('mousedown', () => { 
-                mobileButtons.left = true;
-                btnLeft.style.background = 'rgba(0, 255, 255, 0.6)';
-            });
-            btnLeft.addEventListener('mouseup', () => { 
-                mobileButtons.left = false;
-                btnLeft.style.background = 'rgba(0, 255, 255, 0.3)';
-            });
-            
-            // Right button
-            btnRight.addEventListener('touchstart', () => { 
-                mobileButtons.right = true;
-                btnRight.style.background = 'rgba(0, 255, 255, 0.6)';
-            });
-            btnRight.addEventListener('touchend', () => { 
-                mobileButtons.right = false;
-                btnRight.style.background = 'rgba(0, 255, 255, 0.3)';
-            });
-            btnRight.addEventListener('mousedown', () => { 
-                mobileButtons.right = true;
-                btnRight.style.background = 'rgba(0, 255, 255, 0.6)';
-            });
-            btnRight.addEventListener('mouseup', () => { 
-                mobileButtons.right = false;
-                btnRight.style.background = 'rgba(0, 255, 255, 0.3)';
-            });
-            
+            function bindDpadButton(id, key) {
+                const el = document.getElementById(id);
+                const activeStyle = 'rgba(0, 255, 255, 0.6)';
+                const defaultStyle = 'rgba(0, 255, 255, 0.3)';
+
+                function press(e) { e.preventDefault(); mobileButtons[key] = true; el.style.background = activeStyle; }
+                function release(e) { e.preventDefault(); mobileButtons[key] = false; el.style.background = defaultStyle; }
+
+                el.addEventListener('touchstart', press, { passive: false });
+                el.addEventListener('touchend', release, { passive: false });
+                el.addEventListener('touchcancel', release, { passive: false });
+                el.addEventListener('mousedown', press);
+                el.addEventListener('mouseup', release);
+            }
+
+            bindDpadButton('btnUp', 'up');
+            bindDpadButton('btnDown', 'down');
+            bindDpadButton('btnLeft', 'left');
+            bindDpadButton('btnRight', 'right');
+
             // Fire button
-            btnFire.addEventListener('touchstart', () => { 
+            const btnFire = document.getElementById('btnFire');
+            const fireActive = 'linear-gradient(135deg, rgba(255, 0, 0, 0.7), rgba(255, 100, 0, 0.7))';
+            const fireDefault = 'linear-gradient(135deg, rgba(255, 0, 0, 0.4), rgba(255, 100, 0, 0.4))';
+
+            function firePress(e) {
+                e.preventDefault();
                 mobileButtons.fire = true;
-                btnFire.style.background = 'linear-gradient(135deg, rgba(255, 0, 0, 0.7), rgba(255, 100, 0, 0.7))';
-                // Start game if on start or game over screen
-                if (gameState === 'start' || gameState === 'gameover') {
-                    startGame();
-                }
-            });
-            btnFire.addEventListener('touchend', () => { 
+                btnFire.style.background = fireActive;
+                if (gameState === 'start' || gameState === 'gameover') startGame();
+            }
+            function fireRelease(e) {
+                e.preventDefault();
                 mobileButtons.fire = false;
-                btnFire.style.background = 'linear-gradient(135deg, rgba(255, 0, 0, 0.4), rgba(255, 100, 0, 0.4))';
-            });
-            btnFire.addEventListener('mousedown', () => { 
-                mobileButtons.fire = true;
-                btnFire.style.background = 'linear-gradient(135deg, rgba(255, 0, 0, 0.7), rgba(255, 100, 0, 0.7))';
-                if (gameState === 'start' || gameState === 'gameover') {
-                    startGame();
-                }
-            });
-            btnFire.addEventListener('mouseup', () => { 
-                mobileButtons.fire = false;
-                btnFire.style.background = 'linear-gradient(135deg, rgba(255, 0, 0, 0.4), rgba(255, 100, 0, 0.4))';
-            });
+                btnFire.style.background = fireDefault;
+            }
+
+            btnFire.addEventListener('touchstart', firePress, { passive: false });
+            btnFire.addEventListener('touchend', fireRelease, { passive: false });
+            btnFire.addEventListener('touchcancel', fireRelease, { passive: false });
+            btnFire.addEventListener('mousedown', firePress);
+            btnFire.addEventListener('mouseup', fireRelease);
         }
         
         // Player
@@ -872,7 +779,7 @@
             health: 100,
             maxHealth: 100,
             shield: 0,
-            maxShield: 3000, // 50 seconds at 60 FPS
+            maxShield: SHIELD_DURATION_FRAMES,
             rapidFire: 0,
             doubleShot: 0,
             tripleShot: 0,
@@ -1094,18 +1001,7 @@
             ctx.fillStyle = engineGlow;
             ctx.fillRect(px - 40, py - 15, 15, 30);
             
-            // Exhaust particles
-            if (animationFrame % 3 === 0) {
-                particles.push({
-                    x: px - 25,
-                    y: py + (Math.random() - 0.5) * 20,
-                    vx: -3 - Math.random() * 2,
-                    vy: (Math.random() - 0.5) * 2,
-                    size: 2 + Math.random() * 3,
-                    life: 20,
-                    color: Math.random() > 0.5 ? '#ff6600' : '#ffaa00'
-                });
-            }
+            // Exhaust particles are now spawned in update()
         }
         
         // Shoot bullet
@@ -1167,81 +1063,51 @@
             }
         }
         
+        // Update bullets (separate from drawing)
+        function updateBullets() {
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].x += bullets[i].vx;
+                if (bullets[i].x > canvas.width) {
+                    bullets.splice(i, 1);
+                }
+            }
+        }
+
         // Draw bullets
         function drawBullets() {
-            bullets.forEach((bullet, index) => {
-                bullet.x += bullet.vx;
-                
-                // Remove off-screen bullets
-                if (bullet.x > canvas.width) {
-                    bullets.splice(index, 1);
-                    return;
-                }
-                
+            for (let i = 0; i < bullets.length; i++) {
+                const bullet = bullets[i];
+
                 // Bullet glow
                 const gradient = ctx.createLinearGradient(bullet.x, bullet.y, bullet.x + bullet.width, bullet.y);
                 gradient.addColorStop(0, 'rgba(0, 255, 0, 0.3)');
                 gradient.addColorStop(0.5, '#00ff00');
                 gradient.addColorStop(1, '#00ff00');
-                
+
                 ctx.fillStyle = gradient;
                 ctx.fillRect(bullet.x, bullet.y - bullet.height / 2, bullet.width, bullet.height);
-                
+
                 // Bullet trail
                 ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
                 ctx.fillRect(bullet.x - 10, bullet.y - bullet.height / 2, 10, bullet.height);
-            });
+            }
         }
         
-        // Draw enemy bullets
-        function drawEnemyBullets() {
-            enemyBullets.forEach((bullet, index) => {
+        // Update enemy bullets (separate from drawing)
+        function updateEnemyBullets() {
+            for (let i = enemyBullets.length - 1; i >= 0; i--) {
+                const bullet = enemyBullets[i];
                 bullet.x += bullet.vx;
                 bullet.y += bullet.vy;
-                
-                // Remove off-screen bullets
-                if (bullet.x < -50 || bullet.x > canvas.width + 50 || 
+
+                if (bullet.x < -50 || bullet.x > canvas.width + 50 ||
                     bullet.y < -50 || bullet.y > canvas.height + 50) {
-                    enemyBullets.splice(index, 1);
-                    return;
+                    enemyBullets.splice(i, 1);
+                    continue;
                 }
-                
-                // Missile body with glow
-                const angle = Math.atan2(bullet.vy, bullet.vx);
-                
-                ctx.save();
-                ctx.translate(bullet.x, bullet.y);
-                ctx.rotate(angle);
-                
-                // Glow effect
-                const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 8);
-                gradient.addColorStop(0, 'rgba(255, 0, 0, 0.8)');
-                gradient.addColorStop(0.5, 'rgba(255, 100, 0, 0.5)');
-                gradient.addColorStop(1, 'rgba(255, 100, 0, 0)');
-                ctx.fillStyle = gradient;
-                ctx.fillRect(-15, -8, 30, 16);
-                
-                // Missile body
-                ctx.fillStyle = '#ff3333';
-                ctx.fillRect(-6, -3, 12, 6);
-                
-                // Missile tip
-                ctx.fillStyle = '#ff6666';
-                ctx.beginPath();
-                ctx.moveTo(6, 0);
-                ctx.lineTo(10, -3);
-                ctx.lineTo(10, 3);
-                ctx.closePath();
-                ctx.fill();
-                
-                // Exhaust trail
-                ctx.fillStyle = 'rgba(255, 150, 0, 0.6)';
-                ctx.fillRect(-10, -2, 4, 4);
-                
-                ctx.restore();
-                
+
                 // Trail particles
-                if (animationFrame % 2 === 0) {
+                if (animationFrame % 2 === 0 && particles.length < MAX_PARTICLES) {
                     particles.push({
                         x: bullet.x,
                         y: bullet.y,
@@ -1252,7 +1118,47 @@
                         color: '#ff6600'
                     });
                 }
-            });
+            }
+        }
+
+        // Draw enemy bullets
+        function drawEnemyBullets() {
+            for (let i = 0; i < enemyBullets.length; i++) {
+                const bullet = enemyBullets[i];
+
+                const angle = Math.atan2(bullet.vy, bullet.vx);
+
+                ctx.save();
+                ctx.translate(bullet.x, bullet.y);
+                ctx.rotate(angle);
+
+                // Glow effect
+                const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 8);
+                gradient.addColorStop(0, 'rgba(255, 0, 0, 0.8)');
+                gradient.addColorStop(0.5, 'rgba(255, 100, 0, 0.5)');
+                gradient.addColorStop(1, 'rgba(255, 100, 0, 0)');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(-15, -8, 30, 16);
+
+                // Missile body
+                ctx.fillStyle = '#ff3333';
+                ctx.fillRect(-6, -3, 12, 6);
+
+                // Missile tip
+                ctx.fillStyle = '#ff6666';
+                ctx.beginPath();
+                ctx.moveTo(6, 0);
+                ctx.lineTo(10, -3);
+                ctx.lineTo(10, 3);
+                ctx.closePath();
+                ctx.fill();
+
+                // Exhaust trail
+                ctx.fillStyle = 'rgba(255, 150, 0, 0.6)';
+                ctx.fillRect(-10, -2, 4, 4);
+
+                ctx.restore();
+            }
         }
         
         // Spawn enemy
@@ -1300,34 +1206,6 @@
             enemies.push(enemy);
         }
         
-        // Spawn level boss serpent
-        function spawnLevelBoss() {
-            if (bossActive || bossDefeated) return;
-            
-            const currentLevelData = LEVELS[level - 1];
-            bossActive = true;
-            
-            enemies.push({
-                type: 'levelboss',
-                x: canvas.width + 50,
-                y: canvas.height / 2,
-                vx: -2,
-                vy: 0,
-                width: 120,
-                height: 60,
-                health: 50, // Boss takes 50 shots
-                maxHealth: 50,
-                points: 2000, // Massive reward
-                shootCooldown: 0,
-                shootInterval: 9999,
-                segments: [],
-                segmentPhase: 0,
-                hitFlash: 0,
-                bossName: currentLevelData.bossName,
-                bossColor: currentLevelData.bossColor
-            });
-        }
-        
         // Update game speed based on kills (gets faster with each kill!)
         function updateGameSpeed() {
             // Speed increases every 10 kills
@@ -1337,14 +1215,8 @@
             // Reduce interval by 1ms for every 10 kills (minimum 1ms)
             currentGameSpeed = Math.max(1, baseSpeed - speedBoost);
             
-            // Update the speed display
+            // Update the speed display (rAF loop reads currentGameSpeed automatically)
             document.getElementById('gameSpeed').textContent = currentGameSpeed + 'ms';
-            
-            // Update the game loop with new speed
-            if (gameLoop && gameState === 'playing') {
-                clearInterval(gameLoop);
-                gameLoop = setInterval(update, currentGameSpeed);
-            }
         }
         
         // Spawn level boss serpent after 200 kills
@@ -1368,8 +1240,8 @@
                 vy: 0,
                 width: 120,
                 height: 60,
-                health: 75, // Boss has 3 heads x 25 HP each = 75 HP total
-                maxHealth: 75,
+                health: BOSS_HP,
+                maxHealth: BOSS_HP,
                 points: 5000,
                 shootCooldown: 0,
                 shootInterval: 9999,
@@ -1398,8 +1270,8 @@
                     vy: 0,
                     width: 80,
                     height: 40,
-                    health: 25, // Takes 25 shots to destroy!
-                    maxHealth: 25,
+                    health: SNAKE_HP,
+                    maxHealth: SNAKE_HP,
                     points: 500, // High reward
                     shootCooldown: 0,
                     shootInterval: 9999, // Doesn't shoot
@@ -1420,8 +1292,8 @@
                     vy: 0,
                     width: 80,
                     height: 40,
-                    health: 25, // Takes 25 shots to destroy!
-                    maxHealth: 25,
+                    health: SNAKE_HP,
+                    maxHealth: SNAKE_HP,
                     points: 500, // High reward
                     shootCooldown: 0,
                     shootInterval: 9999, // Doesn't shoot
@@ -1432,65 +1304,53 @@
             }
         }
         
-        // Draw enemies
-        function drawEnemies() {
-            enemies.forEach((enemy, index) => {
+        // Update enemies (separate from drawing)
+        function updateEnemies() {
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
                 enemy.x += enemy.vx;
                 enemy.y += enemy.vy;
-                
-                // Scout pattern
+
                 if (enemy.type === 'scout') {
-                    enemy.y += Math.sin(animationFrame * 0.05 + index) * 0.5;
+                    enemy.y += Math.sin(animationFrame * 0.05 + i) * 0.5;
                 }
-                
-                // Space snake serpentine movement
                 if (enemy.type === 'spacesnake') {
                     enemy.segmentPhase += 0.1;
                     enemy.y += Math.sin(enemy.segmentPhase) * 2;
                 }
-                
-                // Level boss serpentine movement (slower, more menacing)
                 if (enemy.type === 'levelboss') {
                     enemy.segmentPhase += 0.08;
                     enemy.y += Math.sin(enemy.segmentPhase) * 3;
                 }
-                
-                // Bounds
+
                 if (enemy.y < 20) enemy.y = 20;
                 if (enemy.y > canvas.height - 20) enemy.y = canvas.height - 20;
-                
-                // Remove off-screen
+
                 if (enemy.x < -100) {
-                    enemies.splice(index, 1);
-                    return;
+                    enemies.splice(i, 1);
+                    continue;
                 }
-                
-                // Enemy shooting logic - only shoot if player is in front or to the side
+
+                // Enemy shooting
                 enemy.shootCooldown--;
                 if (enemy.type !== 'spacesnake' && enemy.type !== 'levelboss' && enemy.shootCooldown <= 0 && enemy.x < canvas.width - 50 && enemy.x > 100) {
                     const dx = player.x - enemy.x;
                     const dy = player.y - enemy.y;
-                    
-                    // Only shoot if player is in front (negative dx means player is to the left/front)
-                    // Allow shooting at angles up to 90 degrees to the sides
+
                     if (dx <= 0) {
                         const distance = Math.sqrt(dx * dx + dy * dy);
                         const speed = 8;
-                        
-                        // Calculate angle to player
                         let targetVx = (dx / distance) * speed;
                         let targetVy = (dy / distance) * speed;
-                        
-                        // Limit vertical angle (max 60 degrees up or down)
-                        const maxVerticalRatio = Math.tan(Math.PI / 3); // 60 degrees
+
+                        const maxVerticalRatio = Math.tan(Math.PI / 3);
                         const currentRatio = Math.abs(targetVy / targetVx);
-                        
+
                         if (currentRatio > maxVerticalRatio) {
-                            // Clamp the vertical component
                             const sign = targetVy > 0 ? 1 : -1;
                             targetVy = Math.abs(targetVx) * maxVerticalRatio * sign;
                         }
-                        
+
                         enemyBullets.push({
                             x: enemy.x - 20,
                             y: enemy.y,
@@ -1499,11 +1359,16 @@
                             width: 12,
                             height: 4
                         });
-                        
                         enemy.shootCooldown = enemy.shootInterval;
                     }
                 }
-                
+            }
+        }
+
+        // Draw enemies
+        function drawEnemies() {
+            for (let i = 0; i < enemies.length; i++) {
+                const enemy = enemies[i];
                 const ex = enemy.x;
                 const ey = enemy.y;
                 
@@ -1629,7 +1494,7 @@
                     ctx.fillText(`SHIELD BREAKER! (${warningTime})`, ex, ey - 35);
                     
                     // Health bar
-                    const healthPercent = enemy.health / 25;
+                    const healthPercent = enemy.health / SNAKE_HP;
                     const barWidth = 60;
                     const barHeight = 6;
                     const barX = ex - barWidth / 2;
@@ -1654,7 +1519,7 @@
                     // Health count text
                     ctx.font = 'bold 10px Courier New';
                     ctx.fillStyle = '#ffffff';
-                    ctx.fillText(`${enemy.health}/25`, ex, barY - 3);
+                    ctx.fillText(`${enemy.health}/${SNAKE_HP}`, ex, barY - 3);
                     
                     ctx.restore();
                     
@@ -1870,7 +1735,7 @@
                     // Health count
                     ctx.font = 'bold 11px Courier New';
                     ctx.fillStyle = '#ffffff';
-                    ctx.fillText(`${enemy.health}/75`, ex, barY - 4);
+                    ctx.fillText(`${enemy.health}/${BOSS_HP}`, ex, barY - 4);
                     
                     ctx.shadowBlur = 0;
                     ctx.restore();
@@ -1884,7 +1749,7 @@
                     ctx.fillStyle = glow;
                     ctx.fillRect(ex + 20, ey - 12, 12, 24);
                 }
-            });
+            }
         }
         
         // Spawn power-up
@@ -1915,16 +1780,21 @@
             });
         }
         
+        // Update power-ups (separate from drawing)
+        function updatePowerUps() {
+            for (let i = powerUps.length - 1; i >= 0; i--) {
+                powerUps[i].x += powerUps[i].vx;
+                powerUps[i].rotation += 0.05;
+                if (powerUps[i].x < -50) {
+                    powerUps.splice(i, 1);
+                }
+            }
+        }
+
         // Draw power-ups
         function drawPowerUps() {
-            powerUps.forEach((powerUp, index) => {
-                powerUp.x += powerUp.vx;
-                powerUp.rotation += 0.05;
-                
-                if (powerUp.x < -50) {
-                    powerUps.splice(index, 1);
-                    return;
-                }
+            for (let i = 0; i < powerUps.length; i++) {
+                const powerUp = powerUps[i];
                 
                 ctx.save();
                 ctx.translate(powerUp.x, powerUp.y);
@@ -2062,12 +1932,12 @@
                 }
                 
                 ctx.restore();
-            });
+            }
         }
-        
+
         // Create explosion
         function createExplosion(x, y, size = 20) {
-            for (let i = 0; i < 15; i++) {
+            for (let i = 0; i < 15 && particles.length < MAX_PARTICLES; i++) {
                 const angle = Math.random() * Math.PI * 2;
                 const speed = 2 + Math.random() * 4;
                 particles.push({
@@ -2081,49 +1951,54 @@
                 });
             }
         }
-        
+
+        // Update particles (separate from drawing)
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
         // Draw particles
         function drawParticles() {
-            particles.forEach((particle, index) => {
-                particle.x += particle.vx;
-                particle.y += particle.vy;
-                particle.life--;
-                
-                if (particle.life <= 0) {
-                    particles.splice(index, 1);
-                    return;
-                }
-                
+            for (let i = 0; i < particles.length; i++) {
+                const particle = particles[i];
                 ctx.globalAlpha = particle.life / 30;
                 ctx.fillStyle = particle.color;
                 ctx.beginPath();
                 ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.globalAlpha = 1;
-            });
+            }
+            ctx.globalAlpha = 1;
         }
         
-        // Collision detection
+        // Collision detection - uses reverse iteration to safely splice
         function checkCollisions() {
             // Player Bullets vs Enemy Bullets
-            bullets.forEach((bullet, bIndex) => {
-                enemyBullets.forEach((eBullet, eIndex) => {
-                    const dist = Math.sqrt(
-                        Math.pow(bullet.x - eBullet.x, 2) + 
-                        Math.pow(bullet.y - eBullet.y, 2)
-                    );
-                    
+            for (let bi = bullets.length - 1; bi >= 0; bi--) {
+                let bulletRemoved = false;
+                for (let ei = enemyBullets.length - 1; ei >= 0; ei--) {
+                    const dx = bullets[bi].x - enemyBullets[ei].x;
+                    const dy = bullets[bi].y - enemyBullets[ei].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
                     if (dist < 10) {
-                        bullets.splice(bIndex, 1);
-                        enemyBullets.splice(eIndex, 1);
-                        
-                        // Explosion effect
-                        for (let i = 0; i < 8; i++) {
+                        const ex = enemyBullets[ei].x;
+                        const ey = enemyBullets[ei].y;
+                        enemyBullets.splice(ei, 1);
+                        bulletRemoved = true;
+
+                        for (let i = 0; i < 8 && particles.length < MAX_PARTICLES; i++) {
                             const angle = Math.random() * Math.PI * 2;
                             const speed = 1 + Math.random() * 3;
                             particles.push({
-                                x: eBullet.x,
-                                y: eBullet.y,
+                                x: ex, y: ey,
                                 vx: Math.cos(angle) * speed,
                                 vy: Math.sin(angle) * speed,
                                 size: 2 + Math.random() * 3,
@@ -2131,175 +2006,154 @@
                                 color: Math.random() > 0.5 ? '#ffaa00' : '#ff6600'
                             });
                         }
+                        break;
                     }
-                });
-            });
-            
+                }
+                if (bulletRemoved) {
+                    bullets.splice(bi, 1);
+                }
+            }
+
             // Bullets vs Enemies
-            bullets.forEach((bullet, bIndex) => {
-                enemies.forEach((enemy, eIndex) => {
+            for (let bi = bullets.length - 1; bi >= 0; bi--) {
+                let bulletHit = false;
+                for (let ei = enemies.length - 1; ei >= 0; ei--) {
+                    const enemy = enemies[ei];
+                    const bullet = bullets[bi];
+                    if (!bullet) break;
+
                     const hitboxWidth = (enemy.type === 'spacesnake' || enemy.type === 'levelboss') ? enemy.width * 1.5 : enemy.width;
                     const hitboxHeight = (enemy.type === 'spacesnake' || enemy.type === 'levelboss') ? enemy.height * 1.2 : enemy.height / 2;
-                    
+
                     if (bullet.x < enemy.x + hitboxWidth &&
                         bullet.x + bullet.width > enemy.x &&
                         bullet.y < enemy.y + hitboxHeight &&
                         bullet.y > enemy.y - hitboxHeight) {
-                        
-                        bullets.splice(bIndex, 1);
+
+                        bulletHit = true;
                         enemy.health--;
-                        
-                        // Hit flash for space snake and boss
+
                         if (enemy.type === 'spacesnake' || enemy.type === 'levelboss') {
-                            enemy.hitFlash = 10; // Flash for 10 frames
+                            enemy.hitFlash = 10;
                         }
-                        
+
                         if (enemy.health <= 0) {
                             createExplosion(enemy.x, enemy.y);
                             score += enemy.points;
                             enemiesKilled++;
-                            
-                            // Track ship kills for boss spawn (not including space snakes or boss)
+
                             if (enemy.type !== 'spacesnake' && enemy.type !== 'levelboss') {
                                 shipsKilledThisLevel++;
-                                console.log('Ship killed! Total:', shipsKilledThisLevel, '/ 200, bossActive:', bossActive, 'bossDefeated:', bossDefeated);
-                                updateGameSpeed(); // Speed intensifies with each kill!
+                                updateGameSpeed();
                             }
-                            
-                            // Boss defeated - advance to next level
+
                             if (enemy.type === 'levelboss') {
-                                console.log('Boss defeated! Advancing from level', level);
                                 bossDefeated = true;
                                 bossActive = false;
-                                
-                                // Check if there are more levels
                                 if (level < LEVELS.length) {
-                                    setTimeout(() => {
-                                        advanceLevel();
-                                    }, 2000); // 2 second delay before advancing
+                                    setTimeout(() => { advanceLevel(); }, 2000);
                                 } else {
-                                    // Victory - completed all 25 levels!
-                                    setTimeout(() => {
-                                        gameVictory();
-                                    }, 2000);
+                                    setTimeout(() => { gameVictory(); }, 2000);
                                 }
                             }
-                            
-                            enemies.splice(eIndex, 1);
+
+                            enemies.splice(ei, 1);
                             updateScore();
                         }
+                        break;
                     }
-                });
-            });
-            
+                }
+                if (bulletHit) {
+                    bullets.splice(bi, 1);
+                }
+            }
+
             // Enemy Bullets vs Player
-            enemyBullets.forEach((bullet, index) => {
-                const dist = Math.sqrt(
-                    Math.pow(player.x - bullet.x, 2) + 
-                    Math.pow(player.y - bullet.y, 2)
-                );
-                
+            for (let i = enemyBullets.length - 1; i >= 0; i--) {
+                const bullet = enemyBullets[i];
+                const dx = player.x - bullet.x;
+                const dy = player.y - bullet.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
                 if (dist < 25) {
-                    enemyBullets.splice(index, 1);
-                    
+                    enemyBullets.splice(i, 1);
+
                     if (player.invincible > 0) {
-                        // Invincible - no damage, golden particles
-                        for (let i = 0; i < 8; i++) {
+                        for (let j = 0; j < 8 && particles.length < MAX_PARTICLES; j++) {
                             const angle = Math.random() * Math.PI * 2;
                             const speed = 2 + Math.random() * 3;
                             particles.push({
-                                x: bullet.x,
-                                y: bullet.y,
+                                x: bullet.x, y: bullet.y,
                                 vx: Math.cos(angle) * speed,
                                 vy: Math.sin(angle) * speed,
                                 size: 2 + Math.random() * 3,
-                                life: 20,
-                                color: '#ffd700'
+                                life: 20, color: '#ffd700'
                             });
                         }
                     } else if (player.shield > 0) {
-                        // Shield absorbs all damage - no health reduction, shield continues for full duration
-                        // Blue/cyan particles to show shield blocked it
-                        for (let i = 0; i < 6; i++) {
+                        for (let j = 0; j < 6 && particles.length < MAX_PARTICLES; j++) {
                             const angle = Math.random() * Math.PI * 2;
                             const speed = 1 + Math.random() * 2;
                             particles.push({
-                                x: bullet.x,
-                                y: bullet.y,
+                                x: bullet.x, y: bullet.y,
                                 vx: Math.cos(angle) * speed,
                                 vy: Math.sin(angle) * speed,
                                 size: 2 + Math.random() * 2,
-                                life: 15,
-                                color: '#00ccff'
+                                life: 15, color: '#00ccff'
                             });
                         }
                     } else {
-                        // No protection - take damage
                         player.health -= 10;
                         updateHealth();
-                        
-                        // Red impact effect
-                        for (let i = 0; i < 5; i++) {
+                        for (let j = 0; j < 5 && particles.length < MAX_PARTICLES; j++) {
                             const angle = Math.random() * Math.PI * 2;
                             const speed = 1 + Math.random() * 2;
                             particles.push({
-                                x: bullet.x,
-                                y: bullet.y,
+                                x: bullet.x, y: bullet.y,
                                 vx: Math.cos(angle) * speed,
                                 vy: Math.sin(angle) * speed,
                                 size: 2 + Math.random() * 2,
-                                life: 15,
-                                color: '#ff6600'
+                                life: 15, color: '#ff6600'
                             });
                         }
-                        
-                        if (player.health <= 0) {
-                            gameOver();
-                        }
+                        if (player.health <= 0) { gameOver(); }
                     }
                 }
-            });
-            
+            }
+
             // Player vs Enemies
-            enemies.forEach((enemy, index) => {
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
                 const hitboxWidth = (enemy.type === 'spacesnake' || enemy.type === 'levelboss') ? enemy.width * 1.5 : enemy.width;
                 const hitboxHeight = (enemy.type === 'spacesnake' || enemy.type === 'levelboss') ? enemy.height * 1.2 : enemy.height / 2;
-                
+
                 if (player.x < enemy.x + hitboxWidth &&
                     player.x + player.width > enemy.x &&
                     player.y - 15 < enemy.y + hitboxHeight &&
                     player.y + 15 > enemy.y - hitboxHeight) {
-                    
+
                     if (player.invincible > 0) {
-                        // Invincible - destroy enemy without taking damage, gain points
-                        // But can't destroy bosses with invincibility!
                         if (enemy.type !== 'levelboss') {
                             createExplosion(enemy.x, enemy.y);
                             score += enemy.points;
                             enemiesKilled++;
-                            if (enemy.type !== 'spacesnake' && enemy.type !== 'levelboss') {
+                            if (enemy.type !== 'spacesnake') {
                                 shipsKilledThisLevel++;
-                                updateGameSpeed(); // Speed intensifies with each kill!
+                                updateGameSpeed();
                             }
-                            enemies.splice(index, 1);
+                            enemies.splice(i, 1);
                             updateScore();
                         }
                     } else if (enemy.type === 'spacesnake' || enemy.type === 'levelboss') {
-                        // Space snake or boss - Destroys shields and damages health!
                         if (player.shield > 0) {
-                            player.shield = 0; // Shield destroyed!
-                            
-                            // Reset trackers when shield is destroyed
+                            player.shield = 0;
                             spaceSnakeSpawned10s = false;
                             spaceSnakeSpawned15s = false;
-                            
-                            // Massive shield break effect
-                            for (let i = 0; i < 30; i++) {
+                            for (let j = 0; j < 30 && particles.length < MAX_PARTICLES; j++) {
                                 const angle = Math.random() * Math.PI * 2;
                                 const speed = 3 + Math.random() * 5;
                                 particles.push({
-                                    x: player.x,
-                                    y: player.y,
+                                    x: player.x, y: player.y,
                                     vx: Math.cos(angle) * speed,
                                     vy: Math.sin(angle) * speed,
                                     size: 3 + Math.random() * 5,
@@ -2308,90 +2162,72 @@
                                 });
                             }
                         }
-                        
-                        // Also damages health
                         player.health -= (enemy.type === 'levelboss' ? 40 : 30);
                         updateHealth();
-                        
                         createExplosion(enemy.x, enemy.y);
-                        enemies.splice(index, 1);
-                        
-                        if (player.health <= 0) {
-                            gameOver();
-                        }
+                        enemies.splice(i, 1);
+                        if (player.health <= 0) { gameOver(); }
                     } else if (player.shield > 0) {
-                        // Shield blocks all damage - no health reduction, shield continues for full duration
                         createExplosion(enemy.x, enemy.y);
-                        enemies.splice(index, 1);
-                        
-                        // Shield impact particles (cyan/blue)
-                        for (let i = 0; i < 10; i++) {
+                        enemies.splice(i, 1);
+                        for (let j = 0; j < 10 && particles.length < MAX_PARTICLES; j++) {
                             const angle = Math.random() * Math.PI * 2;
                             const speed = 2 + Math.random() * 3;
                             particles.push({
-                                x: player.x,
-                                y: player.y,
+                                x: player.x, y: player.y,
                                 vx: Math.cos(angle) * speed,
                                 vy: Math.sin(angle) * speed,
                                 size: 2 + Math.random() * 3,
-                                life: 20,
-                                color: '#00ccff'
+                                life: 20, color: '#00ccff'
                             });
                         }
                     } else {
-                        // No protection - take full damage
                         player.health -= 20;
                         updateHealth();
                         createExplosion(enemy.x, enemy.y);
-                        enemies.splice(index, 1);
-                        
-                        if (player.health <= 0) {
-                            gameOver();
-                        }
+                        enemies.splice(i, 1);
+                        if (player.health <= 0) { gameOver(); }
                     }
                 }
-            });
-            
+            }
+
             // Player vs PowerUps
-            powerUps.forEach((powerUp, index) => {
-                const dist = Math.sqrt(
-                    Math.pow(player.x - powerUp.x, 2) + 
-                    Math.pow(player.y - powerUp.y, 2)
-                );
-                
+            for (let i = powerUps.length - 1; i >= 0; i--) {
+                const powerUp = powerUps[i];
+                const dx = player.x - powerUp.x;
+                const dy = player.y - powerUp.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
                 if (dist < 35) {
                     if (powerUp.type === 'health') {
                         player.health = Math.min(player.maxHealth, player.health + 30);
                         updateHealth();
                     } else if (powerUp.type === 'shield') {
-                        player.shield = Math.min(player.maxShield, player.shield + 3000); // Add 50 seconds, cap at max
-                        // Reset space snake spawn trackers when shield is refreshed/collected
-                        if (player.shield >= 2900) { // If near full, reset trackers
+                        player.shield = Math.min(player.maxShield, player.shield + SHIELD_DURATION_FRAMES);
+                        if (player.shield >= 2900) {
                             spaceSnakeSpawned10s = false;
                             spaceSnakeSpawned15s = false;
                         }
                     } else if (powerUp.type === 'supershield') {
-                        player.shield = player.maxShield; // Instantly max out shield (50s)
-                        // Reset space snake spawn trackers for new shield cycle
+                        player.shield = player.maxShield;
                         spaceSnakeSpawned10s = false;
                         spaceSnakeSpawned15s = false;
                     } else if (powerUp.type === 'rapidfire') {
                         player.rapidFire = 400;
                     } else if (powerUp.type === 'doubleshot') {
                         player.doubleShot = 400;
-                        player.tripleShot = 0; // Disable triple if active
+                        player.tripleShot = 0;
                     } else if (powerUp.type === 'tripleshot') {
-                        player.tripleShot = 1800; // 30 seconds at 60 FPS
-                        player.doubleShot = 0; // Disable double if active
+                        player.tripleShot = TRIPLE_SHOT_DURATION;
+                        player.doubleShot = 0;
                     } else if (powerUp.type === 'speedboost') {
                         player.speedBoost = 400;
                     } else if (powerUp.type === 'invincible') {
-                        player.invincible = 300;
+                        player.invincible = INVINCIBLE_DURATION;
                     }
-                    
-                    powerUps.splice(index, 1);
+                    powerUps.splice(i, 1);
                 }
-            });
+            }
         }
         
         function advanceLevel() {
@@ -2414,36 +2250,10 @@
             // Clear remaining enemies
             enemies = enemies.filter(e => e.type === 'spacesnake'); // Keep space snakes if any
             
-            // Update game speed
-            if (gameLoop) {
-                clearInterval(gameLoop);
-                gameLoop = setInterval(update, currentGameSpeed);
-            }
+            // rAF loop reads currentGameSpeed automatically, no restart needed
             
             // Level up message
             createLevelUpEffect();
-        }
-        
-        function gameVictory() {
-            gameState = 'victory';
-            clearInterval(gameLoop);
-            
-            // Show victory message
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            ctx.fillStyle = '#ffdd00';
-            ctx.font = 'bold 50px Courier New';
-            ctx.textAlign = 'center';
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-            ctx.shadowBlur = 15;
-            ctx.fillText('🎉 VICTORY! 🎉', canvas.width / 2, canvas.height / 2 - 50);
-            
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 24px Courier New';
-            ctx.fillText('ALL 25 LEVELS CONQUERED!', canvas.width / 2, canvas.height / 2);
-            ctx.fillText(`Final Score: ${score}`, canvas.width / 2, canvas.height / 2 + 40);
-            ctx.fillText('You are a TRUE SPACE WARRIOR!', canvas.width / 2, canvas.height / 2 + 80);
         }
         
         function createLevelUpEffect() {
@@ -2463,75 +2273,104 @@
             }
         }
         
-        // Update game
+        // Update game logic (decoupled from rendering)
         function update() {
             animationFrame++;
-            
-            // Current player speed (with boost)
+
             const currentSpeed = player.speedBoost > 0 ? player.speed * 1.5 : player.speed;
-            
-            // Player movement (keyboard OR mobile buttons)
-            if ((keys['ArrowUp'] || mobileButtons.up) && player.y > 30) {
-                player.y -= currentSpeed;
-            }
-            if ((keys['ArrowDown'] || mobileButtons.down) && player.y < canvas.height - 30) {
-                player.y += currentSpeed;
-            }
-            if ((keys['ArrowLeft'] || mobileButtons.left) && player.x > 50) {
-                player.x -= currentSpeed;
-            }
-            if ((keys['ArrowRight'] || mobileButtons.right) && player.x < canvas.width - 50) {
-                player.x += currentSpeed;
-            }
-            
-            // Shooting (keyboard, mobile fire button, or auto-fire)
-            if (keys[' '] || mobileButtons.fire || (autoFire && platform === 'mobile')) {
-                shootBullet();
-            }
-            
+
+            // Player movement
+            if ((keys['ArrowUp'] || mobileButtons.up) && player.y > 30) player.y -= currentSpeed;
+            if ((keys['ArrowDown'] || mobileButtons.down) && player.y < canvas.height - 30) player.y += currentSpeed;
+            if ((keys['ArrowLeft'] || mobileButtons.left) && player.x > 50) player.x -= currentSpeed;
+            if ((keys['ArrowRight'] || mobileButtons.right) && player.x < canvas.width - 50) player.x += currentSpeed;
+
+            // Shooting
+            if (keys[' '] || mobileButtons.fire || (autoFire && platform === 'mobile')) shootBullet();
+
             // Spawn enemies (not during boss fight)
             const spawnRate = Math.max(20, 60 - level * 2);
-            if (animationFrame % spawnRate === 0 && !bossActive && !bossDefeated) {
-                spawnEnemy();
-            }
-            
-            // Check for boss spawn
-            if (shipsKilledThisLevel >= LEVELS[level - 1].shipsToKill && !bossActive && !bossDefeated) {
-                console.log('Spawning boss at', shipsKilledThisLevel, 'kills');
-                spawnLevelBoss();
-            }
-            
-            // Try spawning space snake (at specific shield timings)
+            if (animationFrame % spawnRate === 0 && !bossActive && !bossDefeated) spawnEnemy();
+
+            // Boss spawn check
+            if (shipsKilledThisLevel >= LEVELS[level - 1].shipsToKill && !bossActive && !bossDefeated) spawnLevelBoss();
+
             trySpawnSpaceSnake();
-            
-            // Spawn power-ups
-            if (animationFrame % 500 === 0) {
-                spawnPowerUp();
-            }
-            
+
+            if (animationFrame % 500 === 0) spawnPowerUp();
+
             // Update power-up timers
             if (player.shield > 0) {
                 player.shield--;
-                // Reset trackers when shield expires
-                if (player.shield === 0) {
-                    spaceSnakeSpawned10s = false;
-                    spaceSnakeSpawned15s = false;
-                }
+                if (player.shield === 0) { spaceSnakeSpawned10s = false; spaceSnakeSpawned15s = false; }
             }
             if (player.rapidFire > 0) player.rapidFire--;
             if (player.doubleShot > 0) player.doubleShot--;
             if (player.tripleShot > 0) player.tripleShot--;
             if (player.speedBoost > 0) player.speedBoost--;
             if (player.invincible > 0) player.invincible--;
-            
+
+            // Exhaust particles (with cap)
+            if (animationFrame % 3 === 0 && particles.length < MAX_PARTICLES) {
+                particles.push({
+                    x: player.x - 25,
+                    y: player.y + (Math.random() - 0.5) * 20,
+                    vx: -3 - Math.random() * 2,
+                    vy: (Math.random() - 0.5) * 2,
+                    size: 2 + Math.random() * 3,
+                    life: 20,
+                    color: Math.random() > 0.5 ? '#ff6600' : '#ffaa00'
+                });
+            }
+
+            // Update all entities
+            updateBullets();
+            updateEnemyBullets();
+            updateEnemies();
+            updatePowerUps();
+            updateParticles();
+
             // Check collisions
             checkCollisions();
-            
-            // Levels only advance after defeating the boss (handled in boss defeat code)
-            // No automatic level-up based on score!
-            
+
             // Draw everything
             draw();
+        }
+
+        // requestAnimationFrame-based game loop
+        let lastFrameTime = 0;
+        let accumulator = 0;
+
+        function gameLoopRAF(timestamp) {
+            if (gameState !== 'playing') return;
+
+            if (!lastFrameTime) lastFrameTime = timestamp;
+            const deltaTime = timestamp - lastFrameTime;
+            lastFrameTime = timestamp;
+
+            accumulator += deltaTime;
+
+            // Run update ticks at the configured game speed
+            while (accumulator >= currentGameSpeed) {
+                update();
+                accumulator -= currentGameSpeed;
+            }
+
+            gameLoop = requestAnimationFrame(gameLoopRAF);
+        }
+
+        function startGameLoop() {
+            lastFrameTime = 0;
+            accumulator = 0;
+            if (gameLoop) cancelAnimationFrame(gameLoop);
+            gameLoop = requestAnimationFrame(gameLoopRAF);
+        }
+
+        function stopGameLoop() {
+            if (gameLoop) {
+                cancelAnimationFrame(gameLoop);
+                gameLoop = null;
+            }
         }
         
         // Draw game
@@ -2560,52 +2399,45 @@
             drawPowerUps();
             drawPlayer();
             
-            // Draw active power-up indicators
-            let powerUpY = 10;
-            ctx.font = 'bold 14px Courier New';
-            ctx.textAlign = 'right';
+            // Draw HUD overlay (save/restore to protect state)
+            ctx.save();
             ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
             ctx.shadowBlur = 4;
-            
+
             // Level name and progress (top left)
             ctx.textAlign = 'left';
             ctx.fillStyle = currentLevelData.colors.accent;
             ctx.font = 'bold 16px Courier New';
             ctx.fillText(currentLevelData.name, 10, 20);
-            
-            // Ships killed progress
+
             ctx.font = 'bold 12px Courier New';
             ctx.fillStyle = '#ffffff';
             const killProgress = bossDefeated ? '200/200' : `${shipsKilledThisLevel}/200`;
             ctx.fillText(`Ships: ${killProgress}`, 10, 40);
-            
-            // Boss warning
+
             if (bossActive) {
                 ctx.fillStyle = '#ff0000';
                 ctx.font = 'bold 14px Courier New';
                 ctx.textAlign = 'center';
-                const bossWarning = '⚠️ BOSS BATTLE ⚠️';
-                ctx.fillText(bossWarning, canvas.width / 2, 20);
+                ctx.fillText('BOSS BATTLE', canvas.width / 2, 20);
             }
-            
+
+            // Active power-up indicators (right side)
             ctx.textAlign = 'right';
             ctx.font = 'bold 14px Courier New';
-            powerUpY = 10;
-            
+            let powerUpY = 10;
+
             if (player.shield > 0) {
                 const shieldSeconds = Math.ceil(player.shield / 60);
-                const color = player.shield > 1500 ? '#00ffff' : '#00ccff'; // Cyan if over 25 seconds remaining
-                ctx.fillStyle = color;
+                ctx.fillStyle = player.shield > 1500 ? '#00ffff' : '#00ccff';
                 ctx.fillText(`SHIELD: ${shieldSeconds}s`, canvas.width - 10, powerUpY);
                 powerUpY += 20;
             }
-            
             if (player.invincible > 0) {
                 ctx.fillStyle = '#ffd700';
                 ctx.fillText(`INVINCIBLE: ${Math.ceil(player.invincible / 60)}s`, canvas.width - 10, powerUpY);
                 powerUpY += 20;
             }
-            
             if (player.tripleShot > 0) {
                 ctx.fillStyle = '#ff00ff';
                 ctx.fillText(`TRIPLE SHOT: ${Math.ceil(player.tripleShot / 60)}s`, canvas.width - 10, powerUpY);
@@ -2615,24 +2447,22 @@
                 ctx.fillText(`DOUBLE SHOT: ${Math.ceil(player.doubleShot / 60)}s`, canvas.width - 10, powerUpY);
                 powerUpY += 20;
             }
-            
             if (player.rapidFire > 0) {
                 ctx.fillStyle = '#ffaa00';
                 ctx.fillText(`RAPID FIRE: ${Math.ceil(player.rapidFire / 60)}s`, canvas.width - 10, powerUpY);
                 powerUpY += 20;
             }
-            
             if (player.speedBoost > 0) {
                 ctx.fillStyle = '#00ff80';
                 ctx.fillText(`SPEED BOOST: ${Math.ceil(player.speedBoost / 60)}s`, canvas.width - 10, powerUpY);
                 powerUpY += 20;
             }
-            
-            ctx.shadowBlur = 0;
-            ctx.textAlign = 'left';
-            
+
+            ctx.restore();
+
             // Paused overlay
             if (gameState === 'paused') {
+                ctx.save();
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = '#00ff00';
@@ -2641,7 +2471,7 @@
                 ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
                 ctx.shadowBlur = 15;
                 ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2);
-                ctx.shadowBlur = 0;
+                ctx.restore();
             }
         }
         
@@ -2731,31 +2561,36 @@
             
             gameState = 'playing';
             animationFrame = 0;
-            
+
+            // Reset game over screen state
             document.getElementById('startScreen').style.display = 'none';
             document.getElementById('gameOverScreen').style.display = 'none';
+            document.querySelector('#gameOverScreen h2').textContent = 'MISSION FAILED';
+            document.querySelector('#gameOverScreen h2').style.color = '';
+            const vm = document.getElementById('victoryMessage');
+            if (vm) vm.style.display = 'none';
             
             updateScore();
             updateLevel();
             updateHealth();
             document.getElementById('gameSpeed').textContent = currentGameSpeed + 'ms';
             
-            if (gameLoop) clearInterval(gameLoop);
-            gameLoop = setInterval(update, currentGameSpeed);
+            startGameLoop();
         }
-        
+
         function togglePause() {
             if (gameState === 'playing') {
                 gameState = 'paused';
-                clearInterval(gameLoop);
+                stopGameLoop();
+                draw(); // Draw paused overlay
             } else if (gameState === 'paused') {
                 gameState = 'playing';
-                gameLoop = setInterval(update, currentGameSpeed);
+                startGameLoop();
             }
         }
-        
+
         function resetGame() {
-            if (gameLoop) clearInterval(gameLoop);
+            stopGameLoop();
             gameState = 'start';
             
             // Reset all game state
@@ -2799,7 +2634,7 @@
         
         function gameOver() {
             gameState = 'gameover';
-            clearInterval(gameLoop);
+            stopGameLoop();
             
             document.getElementById('finalScore').textContent = score;
             document.getElementById('finalLevel').textContent = level;
@@ -2809,39 +2644,49 @@
         
         function gameVictory() {
             gameState = 'victory';
-            clearInterval(gameLoop);
-            
-            // Show victory on game over screen with special message
+            stopGameLoop();
+
             document.getElementById('finalScore').textContent = score;
             document.getElementById('finalLevel').textContent = '25 (ALL!)';
             document.getElementById('enemiesKilled').textContent = enemiesKilled;
-            document.querySelector('#gameOverScreen h2').textContent = '🎉 VICTORY! 🎉';
+            document.querySelector('#gameOverScreen h2').textContent = 'VICTORY!';
             document.querySelector('#gameOverScreen h2').style.color = '#00ff00';
             document.getElementById('gameOverScreen').style.display = 'block';
-            
-            // Add victory message
-            const victoryMsg = document.createElement('p');
+
+            // Reuse or create victory message (prevents DOM leak)
+            let victoryMsg = document.getElementById('victoryMessage');
+            if (!victoryMsg) {
+                victoryMsg = document.createElement('p');
+                victoryMsg.id = 'victoryMessage';
+                victoryMsg.style.color = '#ffaa00';
+                victoryMsg.style.fontSize = '18px';
+                victoryMsg.style.fontWeight = 'bold';
+                document.getElementById('gameOverScreen').insertBefore(
+                    victoryMsg,
+                    document.getElementById('gameOverScreen').lastElementChild
+                );
+            }
             victoryMsg.textContent = 'You conquered all 25 levels!';
-            victoryMsg.style.color = '#ffaa00';
-            victoryMsg.style.fontSize = '18px';
-            victoryMsg.style.fontWeight = 'bold';
-            document.getElementById('gameOverScreen').insertBefore(
-                victoryMsg, 
-                document.getElementById('gameOverScreen').lastElementChild
-            );
+            victoryMsg.style.display = 'block';
         }
         
         // Initialize
         initStars();
         draw();
         
-        // Ambient animation when not playing
-        setInterval(() => {
-            if (gameState !== 'playing' && gameState !== 'paused') {
-                animationFrame++;
-                draw();
+        // Ambient animation when not playing (uses rAF instead of setInterval)
+        let ambientLastTime = 0;
+        function ambientLoop(timestamp) {
+            if (gameState !== 'playing') {
+                if (timestamp - ambientLastTime >= 33) { // ~30 FPS
+                    ambientLastTime = timestamp;
+                    animationFrame++;
+                    draw();
+                }
             }
-        }, 1000 / 30);
+            requestAnimationFrame(ambientLoop);
+        }
+        requestAnimationFrame(ambientLoop);
     </script>
 </body>
 </html>
