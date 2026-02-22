@@ -1599,8 +1599,15 @@
         function updateEnemies() {
             for (let i = enemies.length - 1; i >= 0; i--) {
                 const enemy = enemies[i];
-                enemy.x += enemy.vx;
-                enemy.y += enemy.vy;
+
+                // Boss AI handles its own movement entirely
+                if (enemy.type === 'levelboss') {
+                    enemy.segmentPhase += 0.08;
+                    updateBossAI(enemy);
+                } else {
+                    enemy.x += enemy.vx;
+                    enemy.y += enemy.vy;
+                }
 
                 if (enemy.type === 'scout') {
                     enemy.y += Math.sin(animationFrame * 0.05 + i) * 0.5;
@@ -1608,10 +1615,6 @@
                 if (enemy.type === 'spacesnake') {
                     enemy.segmentPhase += 0.1;
                     enemy.y += Math.sin(enemy.segmentPhase) * 2;
-                }
-                if (enemy.type === 'levelboss') {
-                    enemy.segmentPhase += 0.08;
-                    updateBossAI(enemy);
                 }
 
                 if (enemy.y < 20) enemy.y = 20;
