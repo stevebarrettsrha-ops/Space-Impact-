@@ -262,6 +262,36 @@
             text-align: center;
         }
 
+        /* Hidden admin level select */
+        .admin-panel {
+            display: none;
+            margin-top: 20px;
+            padding: 12px 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            background: rgba(0,0,0,0.6);
+            text-align: center;
+        }
+        .admin-panel.visible { display: block; }
+        .admin-panel select {
+            background: #111;
+            color: #00ff00;
+            border: 1px solid #333;
+            padding: 8px 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 6px;
+            width: 100%;
+            max-width: 260px;
+        }
+        .admin-panel label {
+            color: #555;
+            font-size: 10px;
+            letter-spacing: 1px;
+        }
+
         /* Instructions page */
         .instructions-screen {
             position: absolute;
@@ -532,6 +562,10 @@
                 <div class="menu-buttons">
                     <button class="menu-btn menu-btn-start" onclick="startGame()">START GAME</button>
                     <button class="menu-btn menu-btn-howto" onclick="showInstructions()">HOW TO PLAY</button>
+                </div>
+                <div class="admin-panel" id="adminPanel">
+                    <label>LEVEL SELECT</label><br>
+                    <select id="adminLevelSelect"></select>
                 </div>
                 <div class="menu-footer">Inspired by Nokia 3310 Classic</div>
             </div>
@@ -832,6 +866,38 @@
             document.getElementById('menuScreen').classList.remove('hidden');
         }
         
+        // Secret admin: tap the title 5 times within 3 seconds
+        let adminTaps = 0;
+        let adminTapTimer = null;
+        let adminUnlocked = false;
+
+        function initAdminSecret() {
+            const title = document.querySelector('.menu-title');
+            const sel = document.getElementById('adminLevelSelect');
+
+            // Populate level dropdown
+            sel.innerHTML = '<option value="0">-- Default (Level 1) --</option>';
+            for (let i = 0; i < LEVELS.length; i++) {
+                sel.innerHTML += `<option value="${i + 1}">Level ${i + 1} — ${LEVELS[i].name}</option>`;
+            }
+
+            title.style.cursor = 'default';
+            title.addEventListener('click', function () {
+                adminTaps++;
+                clearTimeout(adminTapTimer);
+                adminTapTimer = setTimeout(() => { adminTaps = 0; }, 3000);
+
+                if (adminTaps >= 5 && !adminUnlocked) {
+                    adminUnlocked = true;
+                    document.getElementById('adminPanel').classList.add('visible');
+                    title.style.textShadow = '0 0 20px rgba(255,0,0,0.6), 0 0 40px rgba(255,0,0,0.3)';
+                    setTimeout(() => {
+                        title.style.textShadow = '0 0 20px rgba(0,255,0,0.6), 0 0 40px rgba(0,255,0,0.3)';
+                    }, 600);
+                }
+            });
+        }
+
         // Toggle auto-fire for mobile
         function toggleAutoFire() {
             autoFire = !autoFire;
@@ -3304,15 +3370,19 @@
             player.invincible = 0;
             
             score = 0;
-            level = 1;
             enemiesKilled = 0;
             shipsKilledThisLevel = 0;
             bossActive = false;
             bossDefeated = false;
             spaceSnakeSpawned10s = false;
             spaceSnakeSpawned15s = false;
-            currentGameSpeed = LEVELS[0].speed;
-            
+
+            // Admin level select override
+            const adminSel = document.getElementById('adminLevelSelect');
+            const adminLevel = adminSel ? parseInt(adminSel.value) : 0;
+            level = adminLevel > 0 ? adminLevel : 1;
+            currentGameSpeed = LEVELS[level - 1].speed;
+
             console.log('Game started - Level:', level, 'bossActive:', bossActive, 'bossDefeated:', bossDefeated);
             
             bullets = [];
@@ -3435,6 +3505,7 @@
         
         // Initialize
         initPlatform();
+        initAdminSecret();
         initStars();
         draw();
         
