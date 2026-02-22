@@ -676,7 +676,7 @@
         const TRIPLE_SHOT_DURATION = 1800;    // 30 seconds at 60 FPS
         const INVINCIBLE_DURATION = 300;      // 5 seconds at 60 FPS
         const BOSS_HP = 150;
-        const SNAKE_HP = 25;
+        const BREAKER_HP = 25;
         const TARGET_FPS = 60;
         const FRAME_DURATION = 1000 / TARGET_FPS;
 
@@ -694,28 +694,28 @@
         const LEVELS = [
             { level: 1, speed: 20, shipsToKill: 50, theme: 'nebula', name: 'Nebula Genesis',
               colors: { bg: ['#1a0033', '#330066', '#4d0099'], accent: '#9966ff', particle: '#cc99ff' },
-              playerShip: 'striker', enemyTypes: ['fighter', 'bomber', 'scout'],
-              bossName: 'Nebula Hydra', bossColor: '#9966ff', bossHeads: 3 },
-            
-            { level: 2, speed: 18, shipsToKill: 75, theme: 'crimson', name: 'Crimson Void',
-              colors: { bg: ['#330000', '#660000', '#990000'], accent: '#ff3333', particle: '#ff6666' },
-              playerShip: 'viper', enemyTypes: ['fighter', 'gunner', 'flanker'],
-              bossName: 'Blood Hydra', bossColor: '#ff0000', bossHeads: 3 },
-            
-            { level: 3, speed: 20, shipsToKill: 200, theme: 'emerald', name: 'Emerald Garden',
-              colors: { bg: ['#003300', '#006600', '#009900'], accent: '#00ff00', particle: '#66ff66' },
-              playerShip: 'wasp', enemyTypes: ['beetle', 'mantis'],
-              bossName: 'Vine Hydra', bossColor: '#00cc00', bossHeads: 3 },
-            
-            { level: 4, speed: 20, shipsToKill: 200, theme: 'ice', name: 'Frozen Abyss',
-              colors: { bg: ['#001a33', '#003366', '#004d99'], accent: '#00ccff', particle: '#99e6ff' },
-              playerShip: 'frost', enemyTypes: ['icebreaker', 'glacier'],
-              bossName: 'Frost Hydra', bossColor: '#00ffff', bossHeads: 3 },
-            
-            { level: 5, speed: 20, shipsToKill: 200, theme: 'solar', name: 'Solar Flare',
+              playerShip: 'striker', enemyTypes: ['drone', 'scout'],
+              bossName: 'Nebula Hydra', bossColor: '#9966ff', bossHeads: 3, bossType: 'hydra' },
+
+            { level: 2, speed: 18, shipsToKill: 75, theme: 'crimson', name: 'Crimson Garden',
+              colors: { bg: ['#330011', '#550022', '#880033'], accent: '#ff3366', particle: '#ff6699' },
+              playerShip: 'viper', enemyTypes: ['moth', 'wasp', 'hornet'],
+              bossName: 'Crimson Monarch', bossColor: '#ff1155', bossHeads: 3, bossType: 'butterfly' },
+
+            { level: 3, speed: 17, shipsToKill: 100, theme: 'emerald', name: 'Emerald Colony',
+              colors: { bg: ['#001a00', '#003300', '#005500'], accent: '#33ff33', particle: '#66ff66' },
+              playerShip: 'wasp', enemyTypes: ['ant', 'mantis', 'beetle'],
+              bossName: 'Emerald Titan', bossColor: '#00cc00', bossHeads: 3, bossType: 'beetle' },
+
+            { level: 4, speed: 16, shipsToKill: 100, theme: 'ice', name: 'Frozen Web',
+              colors: { bg: ['#001a33', '#003355', '#004d77'], accent: '#00ccff', particle: '#99e6ff' },
+              playerShip: 'frost', enemyTypes: ['ice_spider', 'frost_moth', 'snowfly'],
+              bossName: 'Frost Widow', bossColor: '#00eeff', bossHeads: 3, bossType: 'spider' },
+
+            { level: 5, speed: 15, shipsToKill: 125, theme: 'solar', name: 'Solar Forge',
               colors: { bg: ['#331a00', '#663300', '#994d00'], accent: '#ffaa00', particle: '#ffcc66' },
-              playerShip: 'phoenix', enemyTypes: ['ember', 'inferno'],
-              bossName: 'Corona Hydra', bossColor: '#ff8800', bossHeads: 3 },
+              playerShip: 'phoenix', enemyTypes: ['ember', 'flame_hawk', 'fire_beetle'],
+              bossName: 'Solar Phoenix', bossColor: '#ff8800', bossHeads: 3, bossType: 'phoenix' },
             
             { level: 6, speed: 20, shipsToKill: 200, theme: 'violet', name: 'Violet Storm',
               colors: { bg: ['#1a0033', '#330066', '#660099'], accent: '#cc00ff', particle: '#e666ff' },
@@ -1307,6 +1307,47 @@
             for (let i = 0; i < enemyBullets.length; i++) {
                 const bullet = enemyBullets[i];
 
+                // Bubble projectile (butterfly boss)
+                if (bullet.isBubble) {
+                    bullet.wobblePhase = (bullet.wobblePhase || 0) + 0.08;
+                    const wobble = Math.sin(bullet.wobblePhase) * 2;
+                    const bx = bullet.x;
+                    const by = bullet.y + wobble;
+                    const r = 8;
+                    const hue = bullet.bubbleHue || 0;
+
+                    // Outer glow
+                    const glow = ctx.createRadialGradient(bx, by, r * 0.3, bx, by, r * 1.8);
+                    glow.addColorStop(0, `hsla(${hue}, 80%, 70%, 0.4)`);
+                    glow.addColorStop(1, `hsla(${hue}, 80%, 70%, 0)`);
+                    ctx.fillStyle = glow;
+                    ctx.beginPath();
+                    ctx.arc(bx, by, r * 1.8, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Bubble body
+                    const bg = ctx.createRadialGradient(bx - 2, by - 2, 0, bx, by, r);
+                    bg.addColorStop(0, `hsla(${hue}, 90%, 85%, 0.9)`);
+                    bg.addColorStop(0.5, `hsla(${hue}, 80%, 60%, 0.7)`);
+                    bg.addColorStop(1, `hsla(${hue}, 70%, 40%, 0.3)`);
+                    ctx.fillStyle = bg;
+                    ctx.beginPath();
+                    ctx.arc(bx, by, r, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Bubble outline
+                    ctx.strokeStyle = `hsla(${hue}, 90%, 80%, 0.5)`;
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+
+                    // Highlight/sheen
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                    ctx.beginPath();
+                    ctx.arc(bx - 3, by - 3, r * 0.3, 0, Math.PI * 2);
+                    ctx.fill();
+                    continue;
+                }
+
                 const angle = Math.atan2(bullet.vy, bullet.vx);
 
                 ctx.save();
@@ -1396,10 +1437,10 @@
                 enemy.burstCount = 0;
                 enemy.burstTimer = 0;
                 enemy.repositionTarget = 0;
-            } else if (type === 'flanker') {
-                // Flanker: enters from top or bottom, flies diagonally across
+            } else if (type === 'flanker' || type === 'hornet' || type === 'snowfly' || type === 'flame_hawk') {
+                // Diagonal flyer: enters from top/bottom, weaves across
                 const fromTop = Math.random() > 0.5;
-                enemy.health = 1;
+                enemy.health = type === 'flame_hawk' ? 2 : 1;
                 enemy.points = 200;
                 enemy.x = canvas.width + 50;
                 enemy.y = fromTop ? -20 : canvas.height + 20;
@@ -1409,6 +1450,82 @@
                 enemy.height = 30;
                 enemy.shootInterval = 60;
                 enemy.flankerPhase = Math.random() * Math.PI * 2;
+
+            // === LEVEL 2: Butterfly/Moth theme ===
+            } else if (type === 'moth') {
+                enemy.health = 1;
+                enemy.points = 100;
+                enemy.vx = -3 - Math.random() * 2;
+                enemy.vy = (Math.random() - 0.5) * 1.5;
+                enemy.width = 35;
+                enemy.height = 30;
+                enemy.shootInterval = 90;
+                enemy.wingPhase = Math.random() * Math.PI * 2;
+            } else if (type === 'wasp') {
+                enemy.health = 2;
+                enemy.points = 200;
+                enemy.vx = -5 - Math.random() * 2;
+                enemy.width = 30;
+                enemy.height = 25;
+                enemy.shootInterval = 50;
+
+            // === LEVEL 3: Beetle/Insect Colony ===
+            } else if (type === 'ant') {
+                enemy.health = 1;
+                enemy.points = 80;
+                enemy.vx = -4 - Math.random() * 3;
+                enemy.width = 25;
+                enemy.height = 20;
+                enemy.shootInterval = 120;
+            } else if (type === 'mantis') {
+                enemy.health = 3;
+                enemy.points = 250;
+                enemy.vx = -2.5 - Math.random() * 1;
+                enemy.width = 50;
+                enemy.height = 35;
+                enemy.shootInterval = 45;
+            } else if (type === 'beetle') {
+                enemy.health = 4;
+                enemy.points = 300;
+                enemy.vx = -2 - Math.random() * 1;
+                enemy.width = 50;
+                enemy.height = 40;
+                enemy.shootInterval = 55;
+
+            // === LEVEL 4: Spider/Arachnid theme ===
+            } else if (type === 'ice_spider') {
+                enemy.health = 3;
+                enemy.points = 250;
+                enemy.vx = -2 - Math.random() * 2;
+                enemy.vy = (Math.random() - 0.5) * 2;
+                enemy.width = 45;
+                enemy.height = 40;
+                enemy.shootInterval = 50;
+            } else if (type === 'frost_moth') {
+                enemy.health = 2;
+                enemy.points = 150;
+                enemy.vx = -3 - Math.random() * 2;
+                enemy.width = 35;
+                enemy.height = 30;
+                enemy.shootInterval = 70;
+                enemy.wingPhase = Math.random() * Math.PI * 2;
+
+            // === LEVEL 5: Phoenix/Fire theme ===
+            } else if (type === 'ember') {
+                enemy.health = 1;
+                enemy.points = 120;
+                enemy.vx = -5 - Math.random() * 3;
+                enemy.vy = (Math.random() - 0.5) * 3;
+                enemy.width = 25;
+                enemy.height = 25;
+                enemy.shootInterval = 100;
+            } else if (type === 'fire_beetle') {
+                enemy.health = 4;
+                enemy.points = 350;
+                enemy.vx = -2 - Math.random() * 1;
+                enemy.width = 55;
+                enemy.height = 40;
+                enemy.shootInterval = 40;
             }
 
             enemies.push(enemy);
@@ -1457,7 +1574,8 @@
                 segmentPhase: 0,
                 hitFlash: 0,
                 bossColor: levelData.bossColor,
-                bossHeads: 3,
+                bossHeads: levelData.bossHeads || 3,
+                bossType: levelData.bossType || 'hydra',
                 // Attack state machine
                 attackState: 'idle',        // idle, head_stretch, charging, retreating, summoning, bullet_fan
                 attackTimer: 120,           // frames until next attack
@@ -1485,51 +1603,39 @@
             enemies.push(boss);
             console.log('Boss added to enemies array. Total enemies:', enemies.length);
         }
-        function trySpawnSpaceSnake() {
-            // Don't spawn space snakes during boss fight
+        function trySpawnShieldBreaker() {
+            // Don't spawn shield breakers during boss fight
             if (bossActive) return;
-            
+
             // Spawn at 40s remaining (10 seconds after collection)
             if (player.shield > 2340 && player.shield <= 2400 && !spaceSnakeSpawned10s) {
                 spaceSnakeSpawned10s = true;
                 enemies.push({
-                    type: 'spacesnake',
+                    type: 'shieldbreaker',
                     x: canvas.width + 50,
                     y: 50 + Math.random() * (canvas.height - 100),
-                    vx: -2.5,
-                    vy: 0,
-                    width: 80,
-                    height: 40,
-                    health: SNAKE_HP,
-                    maxHealth: SNAKE_HP,
-                    points: 500, // High reward
-                    shootCooldown: 0,
-                    shootInterval: 9999, // Doesn't shoot
-                    segments: [], // For snake body animation
-                    segmentPhase: 0,
-                    hitFlash: 0 // Visual feedback when hit
+                    vx: -4, vy: (Math.random() - 0.5) * 1.5,
+                    width: 45, height: 30,
+                    health: BREAKER_HP, maxHealth: BREAKER_HP,
+                    points: 500,
+                    shootCooldown: 0, shootInterval: 9999,
+                    hitFlash: 0
                 });
             }
-            
+
             // Spawn at 35s remaining (15 seconds after collection)
             if (player.shield > 2040 && player.shield <= 2100 && !spaceSnakeSpawned15s) {
                 spaceSnakeSpawned15s = true;
                 enemies.push({
-                    type: 'spacesnake',
+                    type: 'shieldbreaker',
                     x: canvas.width + 50,
                     y: 50 + Math.random() * (canvas.height - 100),
-                    vx: -2.5,
-                    vy: 0,
-                    width: 80,
-                    height: 40,
-                    health: SNAKE_HP,
-                    maxHealth: SNAKE_HP,
-                    points: 500, // High reward
-                    shootCooldown: 0,
-                    shootInterval: 9999, // Doesn't shoot
-                    segments: [], // For snake body animation
-                    segmentPhase: 0,
-                    hitFlash: 0 // Visual feedback when hit
+                    vx: -4.5, vy: (Math.random() - 0.5) * 1.5,
+                    width: 45, height: 30,
+                    health: BREAKER_HP, maxHealth: BREAKER_HP,
+                    points: 500,
+                    shootCooldown: 0, shootInterval: 9999,
+                    hitFlash: 0
                 });
             }
         }
@@ -1608,45 +1714,65 @@
                 return;
             }
 
-            // BULLET FAN ATTACK: Heads fire spread shots (level 2+)
+            // BULLET FAN ATTACK: Boss fires spread shots (level 2+)
             if (boss.attackState === 'bullet_fan') {
                 boss.y += Math.sin(boss.segmentPhase) * 2;
                 boss.attackCooldown--;
 
                 if (boss.attackCooldown <= 0 && boss.fanWaves < boss.fanMaxWaves) {
-                    // Fire a fan of 5 bullets from a random head
-                    const headSpacing = 40;
-                    const headIdx = boss.fanWaves % 3;
-                    const headY = boss.y + (headIdx - 1) * headSpacing;
-                    const headX = boss.x - 20;
-                    const spreadAngles = [-0.4, -0.2, 0, 0.2, 0.4];
+                    const isButterfly = boss.bossType === 'butterfly';
+                    const isHydra = boss.bossType === 'hydra';
+
+                    // Determine fire origin based on boss type
+                    let fireX, fireY;
+                    if (isHydra) {
+                        const headSpacing = 40;
+                        const headIdx = boss.fanWaves % 3;
+                        fireY = boss.y + (headIdx - 1) * headSpacing;
+                        fireX = boss.x - 20;
+                    } else {
+                        // Other bosses fire from center/mouth
+                        fireX = boss.x - 30;
+                        fireY = boss.y;
+                    }
+
+                    const spreadAngles = isButterfly
+                        ? [-0.5, -0.25, 0, 0.25, 0.5]  // wider spread for bubbles
+                        : [-0.4, -0.2, 0, 0.2, 0.4];
+                    const speed = isButterfly ? 4.5 : 6;
 
                     for (let a = 0; a < spreadAngles.length; a++) {
                         const angle = Math.PI + spreadAngles[a];
-                        const speed = 6;
-                        enemyBullets.push({
-                            x: headX - 15,
-                            y: headY,
+                        const bullet = {
+                            x: fireX - 15,
+                            y: fireY,
                             vx: Math.cos(angle) * speed,
                             vy: Math.sin(angle) * speed,
-                            width: 10,
-                            height: 4
-                        });
+                            width: isButterfly ? 16 : 10,
+                            height: isButterfly ? 16 : 4
+                        };
+                        if (isButterfly) {
+                            bullet.isBubble = true;
+                            bullet.bubbleHue = (a * 60 + boss.fanWaves * 30) % 360;
+                            bullet.wobblePhase = Math.random() * Math.PI * 2;
+                        }
+                        enemyBullets.push(bullet);
                     }
 
                     boss.fanWaves++;
-                    boss.attackCooldown = 20; // delay between fan waves
+                    boss.attackCooldown = isButterfly ? 25 : 20;
 
-                    // Spawn muzzle flash particles
+                    // Spawn particles
                     if (particles.length < MAX_PARTICLES) {
+                        const pColor = isButterfly ? '#ff66cc' : boss.bossColor;
                         for (let p = 0; p < 5; p++) {
                             particles.push({
-                                x: headX - 15, y: headY,
+                                x: fireX - 15, y: fireY,
                                 vx: -2 - Math.random() * 3,
                                 vy: (Math.random() - 0.5) * 4,
                                 size: 3 + Math.random() * 3,
                                 life: 12,
-                                color: boss.bossColor
+                                color: pColor
                             });
                         }
                     }
@@ -1723,24 +1849,22 @@
                 }
 
                 if (boss.attackCooldown <= 0) {
-                    // Spawn snakes!
+                    // Spawn shield-breaking ships!
                     for (let s = 0; s < boss.summonCount; s++) {
                         const spawnY = 60 + Math.random() * (canvas.height - 120);
                         enemies.push({
-                            type: 'spacesnake',
+                            type: 'shieldbreaker',
                             x: boss.x - 20,
                             y: spawnY,
-                            vx: -3 - Math.random() * 2,
-                            vy: 0,
-                            width: 80,
-                            height: 40,
-                            health: SNAKE_HP,
-                            maxHealth: SNAKE_HP,
+                            vx: -4 - Math.random() * 2,
+                            vy: (Math.random() - 0.5) * 2,
+                            width: 45,
+                            height: 30,
+                            health: BREAKER_HP,
+                            maxHealth: BREAKER_HP,
                             points: 500,
                             shootCooldown: 0,
                             shootInterval: 9999,
-                            segments: [],
-                            segmentPhase: Math.random() * Math.PI * 2,
                             hitFlash: 0
                         });
                     }
@@ -1769,18 +1893,21 @@
                 if (enemy.type === 'scout') {
                     enemy.y += Math.sin(animationFrame * 0.05 + i) * 0.5;
                 }
-                if (enemy.type === 'spacesnake') {
-                    enemy.segmentPhase += 0.1;
-                    enemy.y += Math.sin(enemy.segmentPhase) * 2;
+                if (enemy.type === 'shieldbreaker') {
+                    // Track player Y loosely
+                    const dyToPlayer = player.y - enemy.y;
+                    enemy.vy += dyToPlayer * 0.003;
+                    enemy.vy *= 0.95; // dampen
                 }
-                if (enemy.type === 'flanker') {
+                if (enemy.type === 'flanker' || enemy.type === 'hornet' || enemy.type === 'snowfly' || enemy.type === 'flame_hawk') {
                     enemy.flankerPhase += 0.08;
-                    // Slight sinusoidal weave along flight path
                     enemy.x += Math.sin(enemy.flankerPhase) * 0.5;
-                    // Bounce off top/bottom edges
                     if (enemy.y < 30 || enemy.y > canvas.height - 30) {
                         enemy.vy *= -1;
                     }
+                }
+                if (enemy.wingPhase !== undefined) {
+                    enemy.wingPhase += 0.15; // wing flap animation
                 }
                 if (enemy.type === 'gunner') {
                     // Gunner state machine
@@ -1834,7 +1961,8 @@
                     }
                 }
 
-                if (enemy.type !== 'flanker') {
+                const isFlankerType = enemy.type === 'flanker' || enemy.type === 'hornet' || enemy.type === 'snowfly' || enemy.type === 'flame_hawk';
+                if (!isFlankerType) {
                     if (enemy.y < 20) enemy.y = 20;
                     if (enemy.y > canvas.height - 20) enemy.y = canvas.height - 20;
                 }
@@ -1844,14 +1972,14 @@
                     continue;
                 }
                 // Remove flankers that exit the screen vertically
-                if (enemy.type === 'flanker' && (enemy.y < -50 || enemy.y > canvas.height + 50)) {
+                if (isFlankerType && (enemy.y < -50 || enemy.y > canvas.height + 50)) {
                     enemies.splice(i, 1);
                     continue;
                 }
 
                 // Enemy shooting
                 enemy.shootCooldown--;
-                if (enemy.type !== 'spacesnake' && enemy.type !== 'levelboss' && enemy.type !== 'gunner' && enemy.shootCooldown <= 0 && enemy.x < canvas.width - 50 && enemy.x > 100) {
+                if (enemy.type !== 'shieldbreaker' && enemy.type !== 'levelboss' && enemy.type !== 'gunner' && enemy.shootCooldown <= 0 && enemy.x < canvas.width - 50 && enemy.x > 100) {
                     const dx = player.x - enemy.x;
                     const dy = player.y - enemy.y;
 
@@ -1891,7 +2019,7 @@
                 const ey = enemy.y;
                 
                 // Draw based on type
-                if (enemy.type === 'spacesnake') {
+                if (enemy.type === 'shieldbreaker') {
                     // Decrement hit flash
                     if (enemy.hitFlash) {
                         enemy.hitFlash--;
@@ -1899,120 +2027,64 @@
                     
                     const isFlashing = enemy.hitFlash && enemy.hitFlash > 0;
                     
-                    // SPACE SNAKE - Shield destroyer
-                    const segments = 8;
-                    const segmentLength = 15;
-                    
-                    // Warning glow (pulsing red/purple)
-                    const warningGlow = ctx.createRadialGradient(ex, ey, 0, ex, ey, 60);
+                    // SHIELD BREAKER SHIP — aggressive angular ship
+                    // Warning glow (pulsing magenta)
+                    const warningGlow = ctx.createRadialGradient(ex, ey, 0, ex, ey, 45);
                     const pulseIntensity = 0.3 + Math.sin(animationFrame * 0.15) * 0.2;
                     warningGlow.addColorStop(0, `rgba(255, 0, 128, ${pulseIntensity})`);
                     warningGlow.addColorStop(1, 'rgba(255, 0, 128, 0)');
                     ctx.fillStyle = warningGlow;
-                    ctx.fillRect(ex - 60, ey - 60, 120, 120);
-                    
-                    // Draw snake body segments
-                    for (let i = segments - 1; i >= 0; i--) {
-                        const segX = ex + i * segmentLength;
-                        const segY = ey + Math.sin(enemy.segmentPhase + i * 0.5) * 10;
-                        const segSize = 18 - i * 1.5;
-                        
-                        // Segment shadow
-                        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-                        ctx.beginPath();
-                        ctx.ellipse(segX + 3, segY + 3, segSize, segSize * 0.7, 0, 0, Math.PI * 2);
-                        ctx.fill();
-                        
-                        // Segment body (purple/pink gradient)
-                        const segGradient = ctx.createRadialGradient(segX - 3, segY - 3, 0, segX, segY, segSize);
-                        if (isFlashing) {
-                            // White flash when hit
-                            segGradient.addColorStop(0, '#ffffff');
-                            segGradient.addColorStop(0.5, '#ffccff');
-                            segGradient.addColorStop(1, '#ff00ff');
-                        } else {
-                            segGradient.addColorStop(0, '#ff0080');
-                            segGradient.addColorStop(0.5, '#cc0066');
-                            segGradient.addColorStop(1, '#990050');
-                        }
-                        ctx.fillStyle = segGradient;
-                        ctx.beginPath();
-                        ctx.ellipse(segX, segY, segSize, segSize * 0.7, 0, 0, Math.PI * 2);
-                        ctx.fill();
-                        
-                        // Segment scales
-                        if (i < segments - 1) {
-                            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-                            ctx.beginPath();
-                            ctx.arc(segX - 5, segY - 5, 3, 0, Math.PI * 2);
-                            ctx.fill();
-                            ctx.beginPath();
-                            ctx.arc(segX - 5, segY + 5, 3, 0, Math.PI * 2);
-                            ctx.fill();
-                        }
-                    }
-                    
-                    // Snake head
-                    const headSize = 22;
-                    const headGradient = ctx.createRadialGradient(ex - 5, ey - 5, 0, ex, ey, headSize);
-                    if (isFlashing) {
-                        // White flash when hit
-                        headGradient.addColorStop(0, '#ffffff');
-                        headGradient.addColorStop(0.6, '#ffccff');
-                        headGradient.addColorStop(1, '#ff00ff');
-                    } else {
-                        headGradient.addColorStop(0, '#ff00aa');
-                        headGradient.addColorStop(0.6, '#cc0088');
-                        headGradient.addColorStop(1, '#990066');
-                    }
-                    ctx.fillStyle = headGradient;
+                    ctx.fillRect(ex - 45, ey - 45, 90, 90);
+
+                    // Main hull (angular wedge)
+                    ctx.fillStyle = isFlashing ? '#ffffff' : '#cc0066';
                     ctx.beginPath();
-                    ctx.ellipse(ex, ey, headSize, headSize * 0.8, 0, 0, Math.PI * 2);
+                    ctx.moveTo(ex - 25, ey);
+                    ctx.lineTo(ex + 5, ey - 15);
+                    ctx.lineTo(ex + 20, ey - 8);
+                    ctx.lineTo(ex + 20, ey + 8);
+                    ctx.lineTo(ex + 5, ey + 15);
+                    ctx.closePath();
                     ctx.fill();
-                    
-                    // Eyes (glowing red)
-                    ctx.fillStyle = '#ff0000';
+
+                    // Armour stripe
+                    ctx.fillStyle = isFlashing ? '#ffccff' : '#ff0080';
                     ctx.beginPath();
-                    ctx.arc(ex - 8, ey - 8, 4, 0, Math.PI * 2);
+                    ctx.moveTo(ex - 15, ey);
+                    ctx.lineTo(ex + 5, ey - 10);
+                    ctx.lineTo(ex + 15, ey - 5);
+                    ctx.lineTo(ex + 15, ey + 5);
+                    ctx.lineTo(ex + 5, ey + 10);
+                    ctx.closePath();
                     ctx.fill();
-                    ctx.beginPath();
-                    ctx.arc(ex - 8, ey + 8, 4, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    // Eye glow
-                    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
-                    ctx.beginPath();
-                    ctx.arc(ex - 8, ey - 8, 6, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.beginPath();
-                    ctx.arc(ex - 8, ey + 8, 6, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    // Fangs
+
+                    // Ram spike
                     ctx.fillStyle = '#ffffff';
                     ctx.beginPath();
-                    ctx.moveTo(ex - 15, ey - 5);
-                    ctx.lineTo(ex - 22, ey - 8);
-                    ctx.lineTo(ex - 18, ey - 3);
+                    ctx.moveTo(ex - 25, ey);
+                    ctx.lineTo(ex - 35, ey - 3);
+                    ctx.lineTo(ex - 35, ey + 3);
                     ctx.closePath();
                     ctx.fill();
+
+                    // Engine flames
+                    ctx.fillStyle = `rgba(255, 100, 0, ${0.5 + Math.random() * 0.3})`;
                     ctx.beginPath();
-                    ctx.moveTo(ex - 15, ey + 5);
-                    ctx.lineTo(ex - 22, ey + 8);
-                    ctx.lineTo(ex - 18, ey + 3);
+                    ctx.moveTo(ex + 20, ey - 5);
+                    ctx.lineTo(ex + 28 + Math.random() * 6, ey);
+                    ctx.lineTo(ex + 20, ey + 5);
                     ctx.closePath();
                     ctx.fill();
-                    
-                    // Warning text above snake
+
+                    // Warning text
                     ctx.save();
                     ctx.font = 'bold 12px Courier New';
                     ctx.fillStyle = `rgba(255, 0, 128, ${0.5 + Math.sin(animationFrame * 0.2) * 0.5})`;
                     ctx.textAlign = 'center';
-                    const warningTime = player.shield > 2100 ? '10s' : '15s';
-                    ctx.fillText(`SHIELD BREAKER! (${warningTime})`, ex, ey - 35);
+                    ctx.fillText('SHIELD BREAKER!', ex, ey - 30);
                     
                     // Health bar
-                    const healthPercent = enemy.health / SNAKE_HP;
+                    const healthPercent = enemy.health / BREAKER_HP;
                     const barWidth = 60;
                     const barHeight = 6;
                     const barX = ex - barWidth / 2;
@@ -2037,7 +2109,7 @@
                     // Health count text
                     ctx.font = 'bold 10px Courier New';
                     ctx.fillStyle = '#ffffff';
-                    ctx.fillText(`${enemy.health}/${SNAKE_HP}`, ex, barY - 3);
+                    ctx.fillText(`${enemy.health}/${BREAKER_HP}`, ex, barY - 3);
                     
                     ctx.restore();
                     
@@ -2192,6 +2264,231 @@
 
                     ctx.restore();
 
+                // === LEVEL 2: Moth (fluttery, weak) ===
+                } else if (enemy.type === 'moth' || enemy.type === 'frost_moth') {
+                    const accent = LEVELS[level - 1].colors.accent;
+                    const wp = enemy.wingPhase || 0;
+                    const wingFlap = Math.sin(wp) * 0.4;
+                    ctx.save();
+                    ctx.translate(ex, ey);
+                    // Left wing
+                    ctx.fillStyle = accent;
+                    ctx.beginPath();
+                    ctx.ellipse(-5, -8 * Math.cos(wp * 0.5), 12, 18 * Math.abs(Math.cos(wingFlap)), wingFlap * 0.3, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Right wing
+                    ctx.beginPath();
+                    ctx.ellipse(-5, 8 * Math.cos(wp * 0.5), 12, 18 * Math.abs(Math.cos(wingFlap)), -wingFlap * 0.3, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Wing pattern
+                    ctx.fillStyle = shadeColor(accent, -30);
+                    ctx.beginPath(); ctx.arc(-8, -6, 5, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(-8, 6, 5, 0, Math.PI * 2); ctx.fill();
+                    // Body
+                    ctx.fillStyle = shadeColor(accent, -50);
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 15, 5, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Antennae
+                    ctx.strokeStyle = accent;
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(-20, -8); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(-20, 8); ctx.stroke();
+                    ctx.restore();
+
+                // === LEVEL 2: Wasp (fast, stinger) ===
+                } else if (enemy.type === 'wasp') {
+                    const accent = LEVELS[level - 1].colors.accent;
+                    ctx.fillStyle = accent;
+                    // Body (striped)
+                    ctx.beginPath();
+                    ctx.ellipse(ex, ey, 14, 8, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#111';
+                    ctx.fillRect(ex - 8, ey - 3, 4, 6);
+                    ctx.fillRect(ex, ey - 3, 4, 6);
+                    // Wings
+                    ctx.fillStyle = `${accent}66`;
+                    ctx.beginPath();
+                    ctx.ellipse(ex + 3, ey - 10, 8, 5, -0.3, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.ellipse(ex + 3, ey + 10, 8, 5, 0.3, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Stinger
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.moveTo(ex - 14, ey); ctx.lineTo(ex - 22, ey - 2); ctx.lineTo(ex - 22, ey + 2);
+                    ctx.closePath(); ctx.fill();
+
+                // === LEVEL 2: Hornet (diagonal) ===
+                } else if (enemy.type === 'hornet') {
+                    const accent = LEVELS[level - 1].colors.accent;
+                    const movingDown = enemy.vy > 0;
+                    ctx.save();
+                    ctx.translate(ex, ey);
+                    ctx.rotate(movingDown ? 0.3 : -0.3);
+                    ctx.fillStyle = accent;
+                    ctx.beginPath();
+                    ctx.moveTo(-15, 0); ctx.lineTo(5, -10); ctx.lineTo(12, 0); ctx.lineTo(5, 10);
+                    ctx.closePath(); ctx.fill();
+                    ctx.fillStyle = '#111';
+                    ctx.fillRect(-5, -2, 3, 4);
+                    ctx.fillRect(2, -2, 3, 4);
+                    // Wings
+                    ctx.fillStyle = `${accent}55`;
+                    ctx.beginPath();
+                    ctx.ellipse(0, -8, 6, 4, 0, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath();
+                    ctx.ellipse(0, 8, 6, 4, 0, 0, Math.PI * 2); ctx.fill();
+                    ctx.restore();
+
+                // === LEVEL 3: Ant (small, swarming) ===
+                } else if (enemy.type === 'ant') {
+                    const accent = LEVELS[level - 1].colors.accent;
+                    // Body segments
+                    ctx.fillStyle = shadeColor(accent, -30);
+                    ctx.beginPath(); ctx.arc(ex + 8, ey, 7, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(ex, ey, 6, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = accent;
+                    ctx.beginPath(); ctx.arc(ex - 10, ey, 8, 0, Math.PI * 2); ctx.fill();
+                    // Mandibles
+                    ctx.strokeStyle = accent;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(ex - 16, ey - 3); ctx.lineTo(ex - 22, ey - 7); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(ex - 16, ey + 3); ctx.lineTo(ex - 22, ey + 7); ctx.stroke();
+                    // Legs
+                    ctx.lineWidth = 1;
+                    for (let lg = -1; lg <= 1; lg++) {
+                        ctx.beginPath(); ctx.moveTo(ex + lg * 6, ey - 6); ctx.lineTo(ex + lg * 6 - 3, ey - 13); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(ex + lg * 6, ey + 6); ctx.lineTo(ex + lg * 6 - 3, ey + 13); ctx.stroke();
+                    }
+
+                // === LEVEL 3: Mantis (precise attacker) ===
+                } else if (enemy.type === 'mantis') {
+                    const accent = LEVELS[level - 1].colors.accent;
+                    // Body
+                    ctx.fillStyle = accent;
+                    ctx.beginPath();
+                    ctx.ellipse(ex + 5, ey, 18, 8, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Head (triangular)
+                    ctx.fillStyle = shadeColor(accent, 20);
+                    ctx.beginPath();
+                    ctx.moveTo(ex - 15, ey); ctx.lineTo(ex - 8, ey - 8); ctx.lineTo(ex - 8, ey + 8);
+                    ctx.closePath(); ctx.fill();
+                    // Eyes
+                    ctx.fillStyle = '#ffff00';
+                    ctx.beginPath(); ctx.arc(ex - 12, ey - 4, 3, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(ex - 12, ey + 4, 3, 0, Math.PI * 2); ctx.fill();
+                    // Forearms (claws)
+                    ctx.strokeStyle = shadeColor(accent, -20);
+                    ctx.lineWidth = 3;
+                    ctx.beginPath(); ctx.moveTo(ex - 5, ey - 8); ctx.lineTo(ex - 18, ey - 18); ctx.lineTo(ex - 25, ey - 14); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(ex - 5, ey + 8); ctx.lineTo(ex - 18, ey + 18); ctx.lineTo(ex - 25, ey + 14); ctx.stroke();
+
+                // === LEVEL 3: Beetle (armored) ===
+                } else if (enemy.type === 'beetle') {
+                    const accent = LEVELS[level - 1].colors.accent;
+                    // Shell
+                    ctx.fillStyle = shadeColor(accent, -20);
+                    ctx.beginPath();
+                    ctx.ellipse(ex + 3, ey, 22, 16, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Shell line
+                    ctx.strokeStyle = shadeColor(accent, -50);
+                    ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(ex + 3, ey - 16); ctx.lineTo(ex + 3, ey + 16); ctx.stroke();
+                    // Head
+                    ctx.fillStyle = accent;
+                    ctx.beginPath();
+                    ctx.arc(ex - 18, ey, 10, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Horn
+                    ctx.fillStyle = shadeColor(accent, 30);
+                    ctx.beginPath();
+                    ctx.moveTo(ex - 25, ey); ctx.lineTo(ex - 35, ey - 6); ctx.lineTo(ex - 30, ey);
+                    ctx.closePath(); ctx.fill();
+
+                // === LEVEL 4: Ice Spider (crawling) ===
+                } else if (enemy.type === 'ice_spider') {
+                    const accent = LEVELS[level - 1].colors.accent;
+                    // Body
+                    ctx.fillStyle = accent;
+                    ctx.beginPath();
+                    ctx.arc(ex, ey, 12, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Abdomen
+                    ctx.fillStyle = shadeColor(accent, -20);
+                    ctx.beginPath();
+                    ctx.ellipse(ex + 14, ey, 10, 12, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Legs (8)
+                    ctx.strokeStyle = accent;
+                    ctx.lineWidth = 2;
+                    for (let lg = 0; lg < 4; lg++) {
+                        const lx = ex - 6 + lg * 5;
+                        const spread = 12 + lg * 3;
+                        ctx.beginPath(); ctx.moveTo(lx, ey - 8); ctx.lineTo(lx - 8, ey - spread); ctx.lineTo(lx - 14, ey - spread + 4); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(lx, ey + 8); ctx.lineTo(lx - 8, ey + spread); ctx.lineTo(lx - 14, ey + spread - 4); ctx.stroke();
+                    }
+                    // Eyes (multiple)
+                    ctx.fillStyle = '#ff0000';
+                    ctx.beginPath(); ctx.arc(ex - 6, ey - 4, 2, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(ex - 6, ey + 4, 2, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(ex - 9, ey - 2, 1.5, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(ex - 9, ey + 2, 1.5, 0, Math.PI * 2); ctx.fill();
+
+                // === LEVEL 4: Snowfly (diagonal, icy) ===
+                // Uses flanker drawing (handled above under 'flanker' alias)
+
+                // === LEVEL 5: Ember (fast, fiery) ===
+                } else if (enemy.type === 'ember') {
+                    const accent = LEVELS[level - 1].colors.accent;
+                    // Fire glow
+                    const glow = ctx.createRadialGradient(ex, ey, 0, ex, ey, 18);
+                    glow.addColorStop(0, `${accent}88`);
+                    glow.addColorStop(1, `${accent}00`);
+                    ctx.fillStyle = glow;
+                    ctx.fillRect(ex - 18, ey - 18, 36, 36);
+                    // Core
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath(); ctx.arc(ex, ey, 6, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = accent;
+                    ctx.beginPath(); ctx.arc(ex, ey, 10, 0, Math.PI * 2); ctx.fill();
+                    // Fire trail
+                    ctx.fillStyle = `rgba(255, 100, 0, ${0.4 + Math.random() * 0.3})`;
+                    for (let ft = 0; ft < 3; ft++) {
+                        ctx.beginPath();
+                        ctx.arc(ex + 12 + ft * 5 + Math.random() * 4, ey + (Math.random() - 0.5) * 8, 3 + Math.random() * 3, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                // === LEVEL 5: Flame Hawk (diagonal, fiery) ===
+                // Uses flanker drawing (handled under 'flanker' alias)
+
+                // === LEVEL 5: Fire Beetle (armored, fiery) ===
+                } else if (enemy.type === 'fire_beetle') {
+                    const accent = LEVELS[level - 1].colors.accent;
+                    // Glowing shell
+                    ctx.fillStyle = shadeColor(accent, -20);
+                    ctx.beginPath();
+                    ctx.ellipse(ex + 3, ey, 24, 18, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Lava cracks
+                    ctx.strokeStyle = '#ff4400';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath(); ctx.moveTo(ex - 5, ey - 10); ctx.lineTo(ex + 8, ey); ctx.lineTo(ex - 3, ey + 12); ctx.stroke();
+                    // Head
+                    ctx.fillStyle = accent;
+                    ctx.beginPath(); ctx.arc(ex - 20, ey, 10, 0, Math.PI * 2); ctx.fill();
+                    // Fire aura
+                    const fGlow = ctx.createRadialGradient(ex, ey, 15, ex, ey, 30);
+                    fGlow.addColorStop(0, 'rgba(255, 100, 0, 0.2)');
+                    fGlow.addColorStop(1, 'rgba(255, 100, 0, 0)');
+                    ctx.fillStyle = fGlow;
+                    ctx.fillRect(ex - 30, ey - 30, 60, 60);
+
                 } else if (enemy.type === 'levelboss') {
                     // LEVEL BOSS SERPENT - Larger, more impressive
                     if (enemy.hitFlash) {
@@ -2254,23 +2551,258 @@
                         ctx.restore();
                     }
 
-                    // Bullet fan charge-up glow on heads
+                    // Bullet fan charge-up glow
                     if (enemy.attackState === 'bullet_fan') {
                         ctx.save();
-                        const headSpacing = 40;
-                        for (let h = 0; h < 3; h++) {
-                            const headY = ey + (h - 1) * headSpacing;
-                            const headX = ex - 20;
-                            const glowSize = 20 + Math.sin(animationFrame * 0.3 + h) * 8;
-                            const fanGlow = ctx.createRadialGradient(headX, headY, 0, headX, headY, glowSize);
-                            fanGlow.addColorStop(0, 'rgba(255, 170, 0, 0.6)');
-                            fanGlow.addColorStop(1, 'rgba(255, 170, 0, 0)');
+                        if (enemy.bossType === 'hydra') {
+                            // Hydra: glow on each of 3 heads
+                            const headSpacing = 40;
+                            for (let h = 0; h < 3; h++) {
+                                const headY = ey + (h - 1) * headSpacing;
+                                const headX = ex - 20;
+                                const glowSize = 20 + Math.sin(animationFrame * 0.3 + h) * 8;
+                                const fanGlow = ctx.createRadialGradient(headX, headY, 0, headX, headY, glowSize);
+                                fanGlow.addColorStop(0, 'rgba(255, 170, 0, 0.6)');
+                                fanGlow.addColorStop(1, 'rgba(255, 170, 0, 0)');
+                                ctx.fillStyle = fanGlow;
+                                ctx.fillRect(headX - glowSize, headY - glowSize, glowSize * 2, glowSize * 2);
+                            }
+                        } else if (enemy.bossType === 'butterfly') {
+                            // Butterfly: pink/purple glow at mouth
+                            const glowSize = 25 + Math.sin(animationFrame * 0.25) * 10;
+                            const fanGlow = ctx.createRadialGradient(ex - 50, ey, 0, ex - 50, ey, glowSize);
+                            fanGlow.addColorStop(0, 'rgba(255, 100, 200, 0.7)');
+                            fanGlow.addColorStop(1, 'rgba(255, 100, 200, 0)');
                             ctx.fillStyle = fanGlow;
-                            ctx.fillRect(headX - glowSize, headY - glowSize, glowSize * 2, glowSize * 2);
+                            ctx.fillRect(ex - 50 - glowSize, ey - glowSize, glowSize * 2, glowSize * 2);
+                        } else {
+                            // Other bosses: center glow
+                            const glowSize = 30 + Math.sin(animationFrame * 0.3) * 10;
+                            const fanGlow = ctx.createRadialGradient(ex - 20, ey, 0, ex - 20, ey, glowSize);
+                            fanGlow.addColorStop(0, `${enemy.bossColor}99`);
+                            fanGlow.addColorStop(1, `${enemy.bossColor}00`);
+                            ctx.fillStyle = fanGlow;
+                            ctx.fillRect(ex - 20 - glowSize, ey - glowSize, glowSize * 2, glowSize * 2);
                         }
                         ctx.restore();
                     }
                     
+                    // ========== BOSS TYPE-SPECIFIC DRAWING ==========
+                    if (enemy.bossType === 'butterfly') {
+                        // BUTTERFLY BOSS — giant wings, antennae
+                        const wingFlap = Math.sin(enemy.segmentPhase * 1.5) * 0.6;
+                        const wingSize = 55 + Math.sin(enemy.segmentPhase) * 8;
+                        const bc = enemy.bossColor;
+
+                        // Left wing
+                        ctx.save();
+                        ctx.translate(ex, ey);
+                        ctx.fillStyle = isFlashing ? '#ffffff' : bc;
+                        ctx.beginPath();
+                        ctx.ellipse(10, -30 * Math.cos(wingFlap * 0.5), 35, wingSize * Math.abs(Math.cos(wingFlap)), wingFlap * 0.2, 0, Math.PI * 2);
+                        ctx.fill();
+                        // Right wing
+                        ctx.beginPath();
+                        ctx.ellipse(10, 30 * Math.cos(wingFlap * 0.5), 35, wingSize * Math.abs(Math.cos(wingFlap)), -wingFlap * 0.2, 0, Math.PI * 2);
+                        ctx.fill();
+                        // Wing patterns (circles)
+                        ctx.fillStyle = isFlashing ? '#ffcccc' : shadeColor(bc, -30);
+                        ctx.beginPath(); ctx.arc(5, -25, 12, 0, Math.PI * 2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(5, 25, 12, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = isFlashing ? '#ffffff' : shadeColor(bc, 30);
+                        ctx.beginPath(); ctx.arc(15, -35, 8, 0, Math.PI * 2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(15, 35, 8, 0, Math.PI * 2); ctx.fill();
+                        // Body
+                        ctx.fillStyle = isFlashing ? '#ffdddd' : shadeColor(bc, -50);
+                        ctx.beginPath();
+                        ctx.ellipse(0, 0, 40, 12, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        // Head
+                        ctx.fillStyle = isFlashing ? '#ffffff' : shadeColor(bc, -20);
+                        ctx.beginPath(); ctx.arc(-35, 0, 15, 0, Math.PI * 2); ctx.fill();
+                        // Eyes
+                        ctx.fillStyle = '#ffff00';
+                        ctx.beginPath(); ctx.arc(-40, -6, 4, 0, Math.PI * 2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(-40, 6, 4, 0, Math.PI * 2); ctx.fill();
+                        // Antennae
+                        ctx.strokeStyle = bc;
+                        ctx.lineWidth = 3;
+                        ctx.beginPath(); ctx.moveTo(-45, -8); ctx.quadraticCurveTo(-60, -30, -55, -40); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(-45, 8); ctx.quadraticCurveTo(-60, 30, -55, 40); ctx.stroke();
+                        // Antenna tips
+                        ctx.fillStyle = shadeColor(bc, 40);
+                        ctx.beginPath(); ctx.arc(-55, -40, 4, 0, Math.PI * 2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(-55, 40, 4, 0, Math.PI * 2); ctx.fill();
+                        // Mouth (for bubble shooting)
+                        if (enemy.attackState === 'bullet_fan' || enemy.attackState === 'head_stretch') {
+                            ctx.fillStyle = 'rgba(255, 255, 100, 0.7)';
+                            ctx.beginPath(); ctx.arc(-50, 0, 6 + Math.sin(animationFrame * 0.3) * 3, 0, Math.PI * 2); ctx.fill();
+                        }
+                        ctx.restore();
+
+                    } else if (enemy.bossType === 'beetle') {
+                        // BEETLE BOSS — armored shell, horn, legs
+                        const bc = enemy.bossColor;
+                        // Shell
+                        ctx.fillStyle = isFlashing ? '#ffffff' : shadeColor(bc, -15);
+                        ctx.beginPath();
+                        ctx.ellipse(ex + 10, ey, 50, 35, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        // Shell line
+                        ctx.strokeStyle = shadeColor(bc, -40);
+                        ctx.lineWidth = 3;
+                        ctx.beginPath(); ctx.moveTo(ex + 10, ey - 35); ctx.lineTo(ex + 10, ey + 35); ctx.stroke();
+                        // Shell ridges
+                        ctx.strokeStyle = shadeColor(bc, 20) + '44';
+                        ctx.lineWidth = 1;
+                        for (let r = -2; r <= 2; r++) {
+                            ctx.beginPath();
+                            ctx.ellipse(ex + 10 + r * 8, ey, 40 - Math.abs(r) * 8, 30 - Math.abs(r) * 5, 0, 0, Math.PI * 2);
+                            ctx.stroke();
+                        }
+                        // Head
+                        ctx.fillStyle = isFlashing ? '#ffffff' : bc;
+                        ctx.beginPath(); ctx.arc(ex - 35, ey, 20, 0, Math.PI * 2); ctx.fill();
+                        // Horn
+                        ctx.fillStyle = shadeColor(bc, 30);
+                        ctx.beginPath();
+                        ctx.moveTo(ex - 50, ey); ctx.lineTo(ex - 75, ey - 15); ctx.lineTo(ex - 65, ey + 5);
+                        ctx.closePath(); ctx.fill();
+                        // Mandibles
+                        ctx.fillStyle = shadeColor(bc, -20);
+                        ctx.beginPath(); ctx.moveTo(ex - 50, ey + 5); ctx.lineTo(ex - 60, ey + 15); ctx.lineTo(ex - 50, ey + 10); ctx.closePath(); ctx.fill();
+                        ctx.beginPath(); ctx.moveTo(ex - 50, ey - 5); ctx.lineTo(ex - 60, ey - 15); ctx.lineTo(ex - 50, ey - 10); ctx.closePath(); ctx.fill();
+                        // Legs
+                        ctx.strokeStyle = bc;
+                        ctx.lineWidth = 3;
+                        for (let lg = 0; lg < 3; lg++) {
+                            const lx = ex - 10 + lg * 18;
+                            const phase = enemy.segmentPhase + lg * 0.8;
+                            const legBend = Math.sin(phase) * 5;
+                            ctx.beginPath(); ctx.moveTo(lx, ey - 30); ctx.lineTo(lx - 8, ey - 45 + legBend); ctx.lineTo(lx - 16, ey - 40 + legBend); ctx.stroke();
+                            ctx.beginPath(); ctx.moveTo(lx, ey + 30); ctx.lineTo(lx - 8, ey + 45 - legBend); ctx.lineTo(lx - 16, ey + 40 - legBend); ctx.stroke();
+                        }
+                        // Eyes
+                        ctx.fillStyle = '#ff0000';
+                        ctx.beginPath(); ctx.arc(ex - 42, ey - 8, 4, 0, Math.PI * 2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(ex - 42, ey + 8, 4, 0, Math.PI * 2); ctx.fill();
+
+                    } else if (enemy.bossType === 'spider') {
+                        // SPIDER BOSS — body, abdomen, 8 legs, multiple eyes
+                        const bc = enemy.bossColor;
+                        // Abdomen (large back)
+                        ctx.fillStyle = isFlashing ? '#ffffff' : shadeColor(bc, -20);
+                        ctx.beginPath();
+                        ctx.ellipse(ex + 25, ey, 30, 25, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        // Abdomen pattern
+                        ctx.fillStyle = shadeColor(bc, -40);
+                        ctx.beginPath(); ctx.arc(ex + 30, ey - 5, 6, 0, Math.PI * 2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(ex + 22, ey + 8, 4, 0, Math.PI * 2); ctx.fill();
+                        // Cephalothorax
+                        ctx.fillStyle = isFlashing ? '#ffffff' : bc;
+                        ctx.beginPath();
+                        ctx.arc(ex - 5, ey, 18, 0, Math.PI * 2);
+                        ctx.fill();
+                        // 8 Legs
+                        ctx.strokeStyle = bc;
+                        ctx.lineWidth = 3;
+                        for (let lg = 0; lg < 4; lg++) {
+                            const lx = ex - 10 + lg * 10;
+                            const phase = enemy.segmentPhase + lg * 0.6;
+                            const bend = Math.sin(phase) * 8;
+                            // Top legs
+                            ctx.beginPath(); ctx.moveTo(lx, ey - 15); ctx.lineTo(lx - 15, ey - 40 + bend); ctx.lineTo(lx - 25, ey - 35 + bend); ctx.stroke();
+                            // Bottom legs
+                            ctx.beginPath(); ctx.moveTo(lx, ey + 15); ctx.lineTo(lx - 15, ey + 40 - bend); ctx.lineTo(lx - 25, ey + 35 - bend); ctx.stroke();
+                        }
+                        // Eyes (8 eyes)
+                        ctx.fillStyle = '#ff0000';
+                        const eyePositions = [[-12,-8],[-12,8],[-8,-12],[-8,12],[-15,-4],[-15,4],[-18,0],[-5,0]];
+                        eyePositions.forEach(([ox,oy]) => {
+                            ctx.beginPath(); ctx.arc(ex + ox, ey + oy, 2.5, 0, Math.PI * 2); ctx.fill();
+                        });
+                        // Fangs
+                        ctx.fillStyle = '#ffffff';
+                        ctx.beginPath(); ctx.moveTo(ex - 20, ey - 5); ctx.lineTo(ex - 30, ey - 10); ctx.lineTo(ex - 25, ey - 3); ctx.closePath(); ctx.fill();
+                        ctx.beginPath(); ctx.moveTo(ex - 20, ey + 5); ctx.lineTo(ex - 30, ey + 10); ctx.lineTo(ex - 25, ey + 3); ctx.closePath(); ctx.fill();
+                        // Web threads (during summoning)
+                        if (enemy.attackState === 'summoning') {
+                            ctx.strokeStyle = `rgba(255,255,255,${0.3 + Math.sin(animationFrame * 0.2) * 0.2})`;
+                            ctx.lineWidth = 1;
+                            for (let w = 0; w < 5; w++) {
+                                const angle = (w / 5) * Math.PI * 2 + animationFrame * 0.02;
+                                ctx.beginPath();
+                                ctx.moveTo(ex - 25, ey);
+                                ctx.lineTo(ex - 25 + Math.cos(angle) * 80, ey + Math.sin(angle) * 80);
+                                ctx.stroke();
+                            }
+                        }
+
+                    } else if (enemy.bossType === 'phoenix') {
+                        // PHOENIX BOSS — fire bird, spread wings, tail feathers
+                        const bc = enemy.bossColor;
+                        // Fire aura
+                        const fireGlow = ctx.createRadialGradient(ex, ey, 10, ex, ey, 70);
+                        fireGlow.addColorStop(0, 'rgba(255, 150, 0, 0.3)');
+                        fireGlow.addColorStop(1, 'rgba(255, 50, 0, 0)');
+                        ctx.fillStyle = fireGlow;
+                        ctx.fillRect(ex - 70, ey - 70, 140, 140);
+                        // Wings
+                        const wingSpread = 40 + Math.sin(enemy.segmentPhase) * 10;
+                        ctx.fillStyle = isFlashing ? '#ffffff' : bc;
+                        // Top wing
+                        ctx.beginPath();
+                        ctx.moveTo(ex + 10, ey - 5);
+                        ctx.quadraticCurveTo(ex + 30, ey - wingSpread, ex - 10, ey - wingSpread - 15);
+                        ctx.quadraticCurveTo(ex - 30, ey - wingSpread, ex - 20, ey - 5);
+                        ctx.closePath(); ctx.fill();
+                        // Bottom wing
+                        ctx.beginPath();
+                        ctx.moveTo(ex + 10, ey + 5);
+                        ctx.quadraticCurveTo(ex + 30, ey + wingSpread, ex - 10, ey + wingSpread + 15);
+                        ctx.quadraticCurveTo(ex - 30, ey + wingSpread, ex - 20, ey + 5);
+                        ctx.closePath(); ctx.fill();
+                        // Wing feather highlights
+                        ctx.fillStyle = shadeColor(bc, 30);
+                        ctx.beginPath(); ctx.ellipse(ex, ey - wingSpread * 0.7, 15, 5, -0.3, 0, Math.PI * 2); ctx.fill();
+                        ctx.beginPath(); ctx.ellipse(ex, ey + wingSpread * 0.7, 15, 5, 0.3, 0, Math.PI * 2); ctx.fill();
+                        // Body
+                        ctx.fillStyle = isFlashing ? '#ffffcc' : shadeColor(bc, -10);
+                        ctx.beginPath();
+                        ctx.ellipse(ex - 5, ey, 30, 12, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        // Head
+                        ctx.fillStyle = isFlashing ? '#ffffff' : shadeColor(bc, 20);
+                        ctx.beginPath(); ctx.arc(ex - 30, ey, 12, 0, Math.PI * 2); ctx.fill();
+                        // Beak
+                        ctx.fillStyle = '#ffdd00';
+                        ctx.beginPath(); ctx.moveTo(ex - 40, ey); ctx.lineTo(ex - 52, ey - 4); ctx.lineTo(ex - 52, ey + 4); ctx.closePath(); ctx.fill();
+                        // Eye
+                        ctx.fillStyle = '#ff0000';
+                        ctx.beginPath(); ctx.arc(ex - 35, ey - 4, 3, 0, Math.PI * 2); ctx.fill();
+                        // Tail feathers
+                        ctx.fillStyle = shadeColor(bc, -20);
+                        for (let tf = -2; tf <= 2; tf++) {
+                            ctx.beginPath();
+                            ctx.moveTo(ex + 25, ey);
+                            ctx.quadraticCurveTo(ex + 45, ey + tf * 12, ex + 55 + Math.random() * 5, ey + tf * 18);
+                            ctx.lineTo(ex + 50, ey + tf * 15);
+                            ctx.quadraticCurveTo(ex + 40, ey + tf * 8, ex + 25, ey);
+                            ctx.fill();
+                        }
+                        // Fire particles on wings
+                        if (enemy.attackState === 'charging' || enemy.attackState === 'bullet_fan') {
+                            for (let fp = 0; fp < 4; fp++) {
+                                ctx.fillStyle = `rgba(255, ${100 + Math.random() * 100}, 0, ${0.4 + Math.random() * 0.3})`;
+                                ctx.beginPath();
+                                ctx.arc(ex + (Math.random() - 0.5) * 60, ey + (Math.random() - 0.5) * 60, 3 + Math.random() * 4, 0, Math.PI * 2);
+                                ctx.fill();
+                            }
+                        }
+
+                    } else {
+                    // DEFAULT: HYDRA BOSS — serpent body + 3 heads
                     // Draw boss body segments
                     for (let i = segments - 1; i >= 0; i--) {
                         const segX = ex + i * segmentLength;
@@ -2409,7 +2941,9 @@
                         ctx.closePath();
                         ctx.fill();
                     });
-                    
+                    } // end else (hydra default)
+
+                    // ========== SHARED BOSS UI (all boss types) ==========
                     // Boss name and health
                     ctx.save();
                     ctx.font = 'bold 14px Courier New';
@@ -2418,41 +2952,41 @@
                     ctx.shadowBlur = 5;
                     ctx.textAlign = 'center';
                     ctx.fillText(enemy.name.toUpperCase(), ex, ey - 55);
-                    
+
                     // Health bar
                     const healthPercent = enemy.health / enemy.maxHealth;
                     const barWidth = 80;
                     const barHeight = 8;
                     const barX = ex - barWidth / 2;
                     const barY = ey - 70;
-                    
+
                     // Background
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
                     ctx.fillRect(barX, barY, barWidth, barHeight);
-                    
+
                     // Health
                     const healthGradient = ctx.createLinearGradient(barX, barY, barX + barWidth * healthPercent, barY);
                     healthGradient.addColorStop(0, enemy.bossColor);
                     healthGradient.addColorStop(1, shadeColor(enemy.bossColor, 30));
                     ctx.fillStyle = healthGradient;
                     ctx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
-                    
+
                     // Border
                     ctx.strokeStyle = '#ffffff';
                     ctx.lineWidth = 2;
                     ctx.strokeRect(barX, barY, barWidth, barHeight);
-                    
+
                     // Health count
                     ctx.font = 'bold 11px Courier New';
                     ctx.fillStyle = '#ffffff';
-                    ctx.fillText(`${enemy.health}/${BOSS_HP}`, ex, barY - 4);
-                    
+                    ctx.fillText(`${enemy.health}/${enemy.maxHealth}`, ex, barY - 4);
+
                     ctx.shadowBlur = 0;
                     ctx.restore();
                 }
                 
                 // Engine glow (not for space snake or level boss)
-                if (enemy.type !== 'spacesnake' && enemy.type !== 'levelboss') {
+                if (enemy.type !== 'shieldbreaker' && enemy.type !== 'levelboss') {
                     const glow = ctx.createRadialGradient(ex + 20, ey, 0, ex + 20, ey, 12);
                     glow.addColorStop(0, 'rgba(0, 255, 255, 0.6)');
                     glow.addColorStop(1, 'rgba(0, 255, 255, 0)');
@@ -2732,8 +3266,8 @@
                     const bullet = bullets[bi];
                     if (!bullet) break;
 
-                    const hitboxWidth = (enemy.type === 'spacesnake' || enemy.type === 'levelboss') ? enemy.width * 1.5 : enemy.width;
-                    const hitboxHeight = (enemy.type === 'spacesnake' || enemy.type === 'levelboss') ? enemy.height * 1.2 : enemy.height / 2;
+                    const hitboxWidth = (enemy.type === 'shieldbreaker' || enemy.type === 'levelboss') ? enemy.width * 1.5 : enemy.width;
+                    const hitboxHeight = (enemy.type === 'shieldbreaker' || enemy.type === 'levelboss') ? enemy.height * 1.2 : enemy.height / 2;
 
                     if (bullet.x < enemy.x + hitboxWidth &&
                         bullet.x + bullet.width > enemy.x &&
@@ -2743,7 +3277,7 @@
                         bulletHit = true;
                         enemy.health--;
 
-                        if (enemy.type === 'spacesnake' || enemy.type === 'levelboss') {
+                        if (enemy.type === 'shieldbreaker' || enemy.type === 'levelboss') {
                             enemy.hitFlash = 10;
                         }
 
@@ -2752,7 +3286,7 @@
                             score += enemy.points;
                             enemiesKilled++;
 
-                            if (enemy.type !== 'spacesnake' && enemy.type !== 'levelboss') {
+                            if (enemy.type !== 'shieldbreaker' && enemy.type !== 'levelboss') {
                                 shipsKilledThisLevel++;
                                 updateGameSpeed();
                             }
@@ -2834,8 +3368,8 @@
             // Player vs Enemies
             for (let i = enemies.length - 1; i >= 0; i--) {
                 const enemy = enemies[i];
-                const hitboxWidth = (enemy.type === 'spacesnake' || enemy.type === 'levelboss') ? enemy.width * 1.5 : enemy.width;
-                const hitboxHeight = (enemy.type === 'spacesnake' || enemy.type === 'levelboss') ? enemy.height * 1.2 : enemy.height / 2;
+                const hitboxWidth = (enemy.type === 'shieldbreaker' || enemy.type === 'levelboss') ? enemy.width * 1.5 : enemy.width;
+                const hitboxHeight = (enemy.type === 'shieldbreaker' || enemy.type === 'levelboss') ? enemy.height * 1.2 : enemy.height / 2;
 
                 if (player.x < enemy.x + hitboxWidth &&
                     player.x + player.width > enemy.x &&
@@ -2847,7 +3381,7 @@
                             createExplosion(enemy.x, enemy.y);
                             score += enemy.points;
                             enemiesKilled++;
-                            if (enemy.type !== 'spacesnake') {
+                            if (enemy.type !== 'shieldbreaker') {
                                 shipsKilledThisLevel++;
                                 updateGameSpeed();
                             }
@@ -2887,7 +3421,7 @@
                             enemy.contactCooldown = 30; // prevent damage every frame
                             if (player.health <= 0) { gameOver(); }
                         }
-                    } else if (enemy.type === 'spacesnake') {
+                    } else if (enemy.type === 'shieldbreaker') {
                         if (player.shield > 0) {
                             player.shield = 0;
                             spaceSnakeSpawned10s = false;
@@ -2979,15 +3513,22 @@
                 const boss = enemies[i];
                 if (boss.type !== 'levelboss') continue;
 
-                // Head stretch damage: check lunging head position vs player
+                // Head stretch / lunge damage: check attack position vs player
                 if (boss.attackState === 'head_stretch') {
                     const stretchAmount = Math.sin(boss.headStretchProgress * Math.PI);
                     if (stretchAmount > 0.3) {
-                        const headSpacing = 40;
-                        const baseY = [boss.y - headSpacing, boss.y, boss.y + headSpacing];
-                        const headIdx = boss.headStretchTarget;
-                        const headX = (boss.x - 20) - 200 * stretchAmount;
-                        const headY = baseY[headIdx] + (boss.headStretchTargetY - boss.y) * stretchAmount * 0.6;
+                        let headX, headY;
+                        if (boss.bossType === 'hydra') {
+                            const headSpacing = 40;
+                            const baseY = [boss.y - headSpacing, boss.y, boss.y + headSpacing];
+                            const headIdx = boss.headStretchTarget;
+                            headX = (boss.x - 20) - 200 * stretchAmount;
+                            headY = baseY[headIdx] + (boss.headStretchTargetY - boss.y) * stretchAmount * 0.6;
+                        } else {
+                            // Non-hydra bosses lunge from center
+                            headX = boss.x - 200 * stretchAmount;
+                            headY = boss.y + (boss.headStretchTargetY - boss.y) * stretchAmount * 0.6;
+                        }
 
                         const dx = player.x - headX;
                         const dy = player.y - headY;
@@ -3070,7 +3611,7 @@
             document.getElementById('gameSpeed').textContent = currentGameSpeed + 'ms';
             
             // Clear remaining enemies
-            enemies = enemies.filter(e => e.type === 'spacesnake'); // Keep space snakes if any
+            enemies = enemies.filter(e => e.type === 'shieldbreaker'); // Keep space snakes if any
             
             // rAF loop reads currentGameSpeed automatically, no restart needed
             
@@ -3117,7 +3658,7 @@
             // Boss spawn check
             if (shipsKilledThisLevel >= LEVELS[level - 1].shipsToKill && !bossActive && !bossDefeated) spawnLevelBoss();
 
-            trySpawnSpaceSnake();
+            trySpawnShieldBreaker();
 
             if (animationFrame % 500 === 0) spawnPowerUp();
 
