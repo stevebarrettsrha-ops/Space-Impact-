@@ -2512,7 +2512,15 @@
                             updateScore();
                         }
                     } else if (enemy.type === 'levelboss') {
-                        // Boss body collision: damages player but boss survives
+                        // Boss body collision: damages player and knocks them back, boss survives
+                        // Knockback: push player away from boss
+                        const knockbackForce = 80;
+                        const dxKB = player.x - enemy.x;
+                        const dyKB = player.y - enemy.y;
+                        const distKB = Math.sqrt(dxKB * dxKB + dyKB * dyKB) || 1;
+                        player.x = Math.max(30, Math.min(canvas.width - 30, player.x + (dxKB / distKB) * knockbackForce));
+                        player.y = Math.max(30, Math.min(canvas.height - 30, player.y + (dyKB / distKB) * knockbackForce));
+
                         if (!enemy.contactCooldown || enemy.contactCooldown <= 0) {
                             if (player.shield > 0) {
                                 player.shield = 0;
@@ -2559,7 +2567,7 @@
                         createExplosion(enemy.x, enemy.y);
                         enemies.splice(i, 1);
                         if (player.health <= 0) { gameOver(); }
-                    } else if (player.shield > 0) {
+                    } else if (player.shield > 0 && enemy.type !== 'levelboss') {
                         createExplosion(enemy.x, enemy.y);
                         enemies.splice(i, 1);
                         for (let j = 0; j < 10 && particles.length < MAX_PARTICLES; j++) {
@@ -2573,7 +2581,7 @@
                                 life: 20, color: '#00ccff'
                             });
                         }
-                    } else {
+                    } else if (enemy.type !== 'levelboss') {
                         player.health -= 20;
                         updateHealth();
                         createExplosion(enemy.x, enemy.y);
