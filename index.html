@@ -1382,8 +1382,8 @@
                 vy: 0,
                 width: 120,
                 height: 60,
-                health: BOSS_HP,
-                maxHealth: BOSS_HP,
+                health: BOSS_HP + (level - 1) * 25,
+                maxHealth: BOSS_HP + (level - 1) * 25,
                 points: 5000,
                 shootCooldown: 0,
                 shootInterval: 9999,
@@ -1975,9 +1975,10 @@
                     
                     ctx.restore();
                     
-                } else if (enemy.type === 'fighter') {
-                    // Fighter ship
-                    ctx.fillStyle = '#ff4444';
+                } else if (enemy.type === 'fighter' || enemy.type === 'drone') {
+                    // Fighter / Drone — themed to the current level
+                    const accent = LEVELS[level - 1].colors.accent;
+                    ctx.fillStyle = accent;
                     ctx.beginPath();
                     ctx.moveTo(ex - 20, ey);
                     ctx.lineTo(ex + 10, ey - 12);
@@ -1985,13 +1986,19 @@
                     ctx.lineTo(ex + 10, ey + 12);
                     ctx.closePath();
                     ctx.fill();
-                    
-                    ctx.fillStyle = '#cc0000';
+
+                    ctx.fillStyle = shadeColor(accent, -25);
                     ctx.beginPath();
                     ctx.moveTo(ex - 20, ey);
                     ctx.lineTo(ex, ey - 7);
                     ctx.lineTo(ex, ey + 7);
                     ctx.closePath();
+                    ctx.fill();
+
+                    // Engine glow
+                    ctx.fillStyle = `${accent}88`;
+                    ctx.beginPath();
+                    ctx.arc(ex + 18, ey, 4, 0, Math.PI * 2);
                     ctx.fill();
                 } else if (enemy.type === 'bomber') {
                     // Bomber ship
@@ -2011,18 +2018,25 @@
                     ctx.fillRect(ex - 10, ey - 25, 15, 10);
                     ctx.fillRect(ex - 10, ey + 15, 15, 10);
                 } else if (enemy.type === 'scout') {
-                    // Scout ship
-                    ctx.fillStyle = '#ff9800';
+                    // Scout ship — themed to the current level
+                    const accent = LEVELS[level - 1].colors.accent;
+                    ctx.fillStyle = accent;
                     ctx.beginPath();
                     ctx.arc(ex, ey, 15, 0, Math.PI * 2);
                     ctx.fill();
-                    
-                    ctx.fillStyle = '#f57c00';
+
+                    ctx.fillStyle = shadeColor(accent, -25);
                     ctx.beginPath();
                     ctx.moveTo(ex - 15, ey);
                     ctx.lineTo(ex + 15, ey - 10);
                     ctx.lineTo(ex + 15, ey + 10);
                     ctx.closePath();
+                    ctx.fill();
+
+                    // Centre dot
+                    ctx.fillStyle = `${accent}cc`;
+                    ctx.beginPath();
+                    ctx.arc(ex, ey, 5, 0, Math.PI * 2);
                     ctx.fill();
                 } else if (enemy.type === 'gunner') {
                     // Gunner ship - Turret-style, crimson themed
