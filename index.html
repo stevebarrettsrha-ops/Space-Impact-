@@ -918,10 +918,28 @@ function spawnWave(prog = 0) {
 
 /* ----------------------------- POWER-UPS & COINS -------------------------- */
 const POWER_TYPES = ['weapon','heal','shield','overcharge'];
-function spawnPowerup() {
-  const t = pick(POWER_TYPES);
-  Game.powerups.push({ type:t, x:W+20, y:rand(60,H-60), w:24, h:24, vx:-2.4, seed:rand(0,TAU),
-    weapon: t==='weapon' ? pick(WEAPON_ORDER.filter(w=>w!=='blaster')) : null });
+// Weighted by intensity: the hotter the fight, the more weapons & shields drop.
+function dropPowerup(type) {
+  Game.powerups.push({ type, x:W+20, y:rand(60,H-60), w:24, h:24, vx:-2.4, seed:rand(0,TAU),
+    weapon: type==='weapon' ? pick(WEAPON_ORDER.filter(w=>w!=='blaster')) : null });
+}
+function weightedPower(intensity) {
+  const lowHp = Player.health < Player.maxHealth * 0.5;
+  const weights = {
+    weapon: 3 + intensity * 4,                     // many more weapon swaps when hot
+    shield: 2 + intensity * 4,                      // shields scale with intensity
+    heal:   lowHp ? 4 : 1.5,                         // heals when you actually need them
+    overcharge: 0.8 + intensity * 0.8,
+  };
+  let total = 0; for (const k in weights) total += weights[k];
+  let r = Math.random() * total;
+  for (const k in weights) { r -= weights[k]; if (r <= 0) return k; }
+  return 'weapon';
+}
+function spawnPowerup(intensity = 0) {
+  dropPowerup(weightedPower(intensity));
+  // At peak intensity, occasionally drop a second pickup (weapon or shield).
+  if (intensity > 0.7 && Math.random() < 0.45) dropPowerup(Math.random() < 0.5 ? 'weapon' : 'shield');
 }
 function spawnCoin(x, y, value=1) {
   Game.coinEnts.push({ x, y, vx:rand(-1,1), vy:rand(-1.5,1.5), value, life:600, seed:rand(0,TAU), collected:false });
@@ -1628,7 +1646,12 @@ function tick() {
       spawnWave(prog);
     }
   }
-  if (--Game.powerTimer <= 0) { Game.powerTimer = 520; spawnPowerup(); }
+  if (--Game.powerTimer <= 0) {
+    const plv = LEVELS[Game.level-1];
+    const pintensity = Game.bossActive ? 1 : clamp(Game.killsThisLevel / plv.toClear, 0, 1);
+    Game.powerTimer = Math.round(440 - pintensity * 220);   // ~7.3s calm → ~3.7s at peak
+    spawnPowerup(pintensity);
+  }
   if (Game.comboTimer > 0 && --Game.comboTimer <= 0) Game.resetCombo();
 
   updateBullets(); updateEbullets(); updateEnemies();
