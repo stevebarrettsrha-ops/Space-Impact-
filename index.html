@@ -544,7 +544,7 @@ const Game = {
   state:'menu', level:1, score:0, coins:0, runCoins:0,
   enemiesKilled:0, killsThisLevel:0,
   combo:0, comboTimer:0, multiplier:1,
-  bossActive:false, boss:null, bossDefeated:false,
+  bossActive:false, boss:null, bossDefeated:false, transition:null,
   spawnTimer:0, powerTimer:0, frame:0,
   shake:0, hitFlash:0, slowmo:0,
   floats:[], coinEnts:[], powerups:[], enemies:[],
@@ -563,7 +563,7 @@ const Game = {
     this.level = level; this.score = 0; this.coins = 0; this.runCoins = 0;
     this.enemiesKilled = 0; this.killsThisLevel = 0;
     this.combo = 0; this.comboTimer = 0; this.multiplier = 1;
-    this.bossActive = false; this.boss = null; this.bossDefeated = false;
+    this.bossActive = false; this.boss = null; this.bossDefeated = false; this.transition = null;
     this.spawnTimer = 0; this.powerTimer = 0; this.frame = 0;
     this.shake = 0; this.hitFlash = 0; this.slowmo = 0;
     this.floats.length = 0; this.coinEnts.length = 0; this.powerups.length = 0; this.enemies.length = 0;
@@ -1187,7 +1187,27 @@ function defeatBoss() {
   const payout = bo.coin;
   for (let i=0;i<Math.min(payout, 30);i++) spawnCoin(bo.x+rand(-40,40), bo.y+rand(-40,40), Math.ceil(payout/Math.min(payout,30)));
   Game.boss = null; Game.bossActive = false; Game.bossDefeated = true;
-  setTimeout(()=>{ if (Game.state==='playing') Game.nextLevel(); }, 1600);
+  // Begin the level-complete flourish: the ship powers up and flies off-screen.
+  Game.transition = { phase:'out', hold:70 };
+  Game.floatText(W/2, H/2 + 40, 'SECTOR CLEARED', '#39ff8a', 100, 22);
+}
+// Cinematic between-level handoff: ship exits right, next world loads, ship enters from left.
+function updateTransition() {
+  const tr = Game.transition;
+  if (tr.phase === 'out') {
+    if (tr.hold > 0) { tr.hold--; if (tr.hold === 0) Audio2.levelup(); return; }
+    Player.x += 11;
+    if (Game.frame % 1 === 0) addParticle(Player.x - 24, Player.y + rand(-6,6), -rand(4,9), rand(-1,1), 16, '#36c5ff', rand(2,4));
+    if (Player.x > W + 70) {
+      Game.nextLevel();                 // increments level / clears field / may trigger victory
+      if (Game.state !== 'playing') { Game.transition = null; return; }
+      Player.x = -70; Player.y = H / 2; tr.phase = 'in';
+    }
+  } else { // 'in'
+    Player.x += (120 - Player.x) * 0.09;
+    if (Game.frame % 1 === 0) addParticle(Player.x - 24, Player.y + rand(-6,6), -rand(2,5), rand(-1,1), 14, '#ff8a3c', rand(2,3));
+    if (Player.x > 112) { Player.x = 120; Game.transition = null; Player.invuln = 100; }
+  }
 }
 
 /* ----------------------------- RENDER ------------------------------------- */
@@ -1431,6 +1451,14 @@ function shade(hex, pct) {
 function tick() {
   Game.frame++;
   Audio2.step(Game.frame);
+
+  // Level-complete cinematic: auto-fly the ship, freeze normal gameplay.
+  if (Game.transition) {
+    updateTransition();
+    updateBullets(); updateEbullets(); updateParticles(); updateFloats(); updateCoins();
+    return;
+  }
+
   // track player velocity for enemy lead-aim
   Player._vx = (Player.x - (Player._px||Player.x)); Player._vy = (Player.y - (Player._py||Player.y));
   Player._px = Player.x; Player._py = Player.y;
