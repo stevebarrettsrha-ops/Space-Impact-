@@ -361,10 +361,10 @@ for (let i = 0; i < 25; i++) {
     name: `${WORLD_NAMES[sector]} ${within+1}/5`,
     worldName: WORLD_NAMES[sector],
     roster: rosterPools[Math.min(within, rosterPools.length-1)],
-    toClear: 14 + i * 2,                         // kills before boss (scales, not grindy)
-    enemyHpMul: 1 + i * 0.12,
+    toClear: Math.round(22 + i * 3),             // kills before boss — longer, escalating run-up
+    enemyHpMul: 1 + i * 0.13,
     enemySpeedMul: 1 + i * 0.03,
-    spawnEvery: Math.max(34, 80 - i * 2),        // frames between spawns
+    spawnEvery: Math.max(30, 78 - i * 2),        // base frames between spawns (ramps within a level)
     bossHp: 90 + i * 22,
     bossDef: BOSS_DEFS[i],
     bossName: BOSS_DEFS[i].name,
@@ -871,15 +871,21 @@ function spawnEnemy(typeKey, x, y) {
   const lv = LEVELS[Game.level-1];
   const def = ENEMY_DEFS[typeKey];
   const d = DIFFICULTY[Game.dif];
+  // Intra-level escalation: enemies get tougher, faster and shoot more the
+  // closer you get to the boss (0 at level start → 1 when the boss appears).
+  const prog = clamp(Game.killsThisLevel / lv.toClear, 0, 1);
+  const hpRamp = 1 + prog * 0.7;
+  const spdRamp = 1 + prog * 0.28;
+  const speed = def.speed * lv.enemySpeedMul * spdRamp;
   const e = {
     type: typeKey, behavior: def.behavior, shape: def.shape,
     x: x != null ? x : W + 40, y: y != null ? y : rand(50, H-50),
     w: def.w, h: def.h,
-    hp: Math.max(1, Math.round(def.hp * lv.enemyHpMul * d.hp)),
-    maxHp: 0, speed: def.speed * lv.enemySpeedMul,
+    hp: Math.max(1, Math.round(def.hp * lv.enemyHpMul * d.hp * hpRamp)),
+    maxHp: 0, speed,
     points: def.points, coin: def.coin,
-    vx: -def.speed * lv.enemySpeedMul, vy: 0,
-    fireCd: def.fireCd ? Math.round(def.fireCd / (1 + lv.sector*0.1)) : 0,
+    vx: -speed, vy: 0,
+    fireCd: def.fireCd ? Math.max(18, Math.round(def.fireCd / (1 + lv.sector*0.1) * (1 - prog*0.3))) : 0,
     ftimer: def.fireCd ? randInt(20, def.fireCd) : 0,
     seed: rand(0, TAU), baseY: 0, dived:false, hitFlash:0,
     color: enemyTint(typeKey, lv), skin: lv.sector, stopX: rand(W*0.55, W*0.78),
@@ -888,31 +894,52 @@ function spawnEnemy(typeKey, x, y) {
   Game.enemies.push(e);
   return e;
 }
-function spawnWave() {
+function spawnWave(prog = 0) {
   const lv = LEVELS[Game.level-1];
   const roll = Math.random();
-  const type = pick(lv.roster);
-  if (roll < 0.25 && Game.level >= 2) {
-    // formation: V or line
-    const n = randInt(3, 5); const y0 = rand(80, H-160);
+  // Late in a level, mix in heavier enemy types and bigger formations.
+  let type = pick(lv.roster);
+  if (prog > 0.55 && Math.random() < prog * 0.5) type = pick(['gunner','bomber','strafer','diver']);
+  const formChance = 0.25 + prog * 0.3;     // more formations as the boss nears
+  if (roll < formChance && Game.level >= 2) {
+    const n = randInt(3, 4 + Math.round(prog * 3)); const y0 = rand(80, H-160);
     const formV = Math.random() < 0.5;
     for (let i=0;i<n;i++) {
-      const e = spawnEnemy(type, W + 40 + i*46, formV ? y0 + Math.abs(i-(n-1)/2)*34 : y0 + i*40);
+      spawnEnemy(type, W + 40 + i*46, formV ? y0 + Math.abs(i-(n-1)/2)*34 : y0 + i*40);
     }
-  } else if (roll < 0.4 && lv.roster.includes('swarmer')) {
-    const n = randInt(4, 7); const y0 = rand(80, H-120);
+  } else if (roll < formChance + 0.15 && lv.roster.includes('swarmer')) {
+    const n = randInt(4, 7 + Math.round(prog * 3)); const y0 = rand(80, H-120);
     for (let i=0;i<n;i++) spawnEnemy('swarmer', W + 40 + rand(0,80), y0 + rand(-50,50));
   } else {
     spawnEnemy(type);
+    if (prog > 0.75 && Math.random() < 0.5) spawnEnemy(pick(lv.roster)); // second wave near boss
   }
 }
 
 /* ----------------------------- POWER-UPS & COINS -------------------------- */
 const POWER_TYPES = ['weapon','heal','shield','overcharge'];
-function spawnPowerup() {
-  const t = pick(POWER_TYPES);
-  Game.powerups.push({ type:t, x:W+20, y:rand(60,H-60), w:24, h:24, vx:-2.4, seed:rand(0,TAU),
-    weapon: t==='weapon' ? pick(WEAPON_ORDER.filter(w=>w!=='blaster')) : null });
+// Weighted by intensity: the hotter the fight, the more weapons & shields drop.
+function dropPowerup(type) {
+  Game.powerups.push({ type, x:W+20, y:rand(60,H-60), w:24, h:24, vx:-2.4, seed:rand(0,TAU),
+    weapon: type==='weapon' ? pick(WEAPON_ORDER.filter(w=>w!=='blaster')) : null });
+}
+function weightedPower(intensity) {
+  const lowHp = Player.health < Player.maxHealth * 0.5;
+  const weights = {
+    weapon: 3 + intensity * 4,                     // many more weapon swaps when hot
+    shield: 2 + intensity * 4,                      // shields scale with intensity
+    heal:   lowHp ? 4 : 1.5,                         // heals when you actually need them
+    overcharge: 0.8 + intensity * 0.8,
+  };
+  let total = 0; for (const k in weights) total += weights[k];
+  let r = Math.random() * total;
+  for (const k in weights) { r -= weights[k]; if (r <= 0) return k; }
+  return 'weapon';
+}
+function spawnPowerup(intensity = 0) {
+  dropPowerup(weightedPower(intensity));
+  // At peak intensity, occasionally drop a second pickup (weapon or shield).
+  if (intensity > 0.7 && Math.random() < 0.45) dropPowerup(Math.random() < 0.5 ? 'weapon' : 'shield');
 }
 function spawnCoin(x, y, value=1) {
   Game.coinEnts.push({ x, y, vx:rand(-1,1), vy:rand(-1.5,1.5), value, life:600, seed:rand(0,TAU), collected:false });
@@ -1437,13 +1464,13 @@ const BForms = {
   pulsar(p,b){ for(const k of [88,68,48]){ ctx.strokeStyle=p.acc; ctx.lineWidth=4; ctx.globalAlpha=k===48?1:0.5; ctx.beginPath(); ctx.arc(0,0,k+Math.sin(b.spin*3)*4,0,TAU); ctx.stroke(); } ctx.globalAlpha=1; bcirc(0,0,30,p.glow); bcirc(0,0,14,p.eye); },
   novaStar(p,b){ bstar(0,0,12,92,40,p.glow,b.spin); bstar(0,0,8,70,30,p.main,-b.spin*0.5); bstar(0,0,6,40,18,p.acc,b.spin); bcirc(0,0,16,p.eye); },
   spider(p,b){ for(let i=0;i<4;i++){ const yy=-30+i*20; bline(0,yy,-78,yy-18+i*12,p.dark,5); bline(0,yy,78,yy-18+i*12,p.dark,5);} bell(0,0,40,52,p.main); bcirc(0,-44,30,p.main); bcirc(-12,-48,8,p.eye); bcirc(12,-48,8,p.eye); bstar(0,0,4,20,8,p.acc,b.spin); },
-  serpent(p,b){ for(let i=7;i>=0;i--){ const x=-i*22+60, y=Math.sin(i*0.5+b.spin)*46; bcirc(x,y,30-i*1.6, i%2?p.main:p.dark);} const hx=76,hy=Math.sin(b.spin)*0+0; bell(hx,hy,40,30,p.main); bpoly([[hx+30,hy-18],[hx+58,hy-6],[hx+30,hy+2]],p.acc); bcirc(hx+8,hy-8,9,p.eye); bcirc(hx+8,hy+10,9,p.eye); },
+  serpent(p,b){ ctx.save(); ctx.scale(-1,1); for(let i=7;i>=0;i--){ const x=-i*22+60, y=Math.sin(i*0.5+b.spin)*46; bcirc(x,y,30-i*1.6, i%2?p.main:p.dark);} const hx=76,hy=0; bell(hx,hy,40,30,p.main); bpoly([[hx+30,hy-18],[hx+58,hy-6],[hx+30,hy+2]],p.acc); bcirc(hx+8,hy-8,9,p.eye); bcirc(hx+8,hy+10,9,p.eye); ctx.restore(); },
   djinn(p,b){ for(let i=4;i>=0;i--){ ctx.globalAlpha=0.7-i*0.12; bell(0,40+i*14,46-i*7,14,p.acc);} ctx.globalAlpha=1; bcirc(0,-10,46,p.main); bpoly([[-46,-10],[-70,-46],[-30,-30]],p.dark); bpoly([[46,-10],[70,-46],[30,-30]],p.dark); bcirc(-16,-16,9,p.eye); bcirc(16,-16,9,p.eye); bstar(0,-50,5,22,9,p.glow,b.spin); },
   mirror(p,b){ bpoly([[0,-86],[60,-26],[60,40],[0,86],[-60,40],[-60,-26]],p.main); ctx.globalAlpha=0.55; bpoly([[0,-70],[46,-18],[46,30],[0,70],[-46,30],[-46,-18]],p.glow); ctx.globalAlpha=1; bcirc(0,0,18,p.eye);
     if(b.shieldUp){ ctx.strokeStyle=p.acc; ctx.lineWidth=4; ctx.globalAlpha=0.5+Math.sin(b.spin*4)*0.2; ctx.beginPath(); ctx.moveTo(-46,-60); ctx.lineTo(-46,60); ctx.stroke(); ctx.globalAlpha=1; } },
   iceTitan(p,b){ brect(-50,-50,100,100,p.main); for(let i=-2;i<=2;i++) bpoly([[i*30,-50],[i*30+14,-78],[i*30+28,-50]],p.glow); brect(-34,-30,68,40,p.dark); bcirc(-18,-10,10,p.eye); bcirc(18,-10,10,p.eye); bstar(0,40,6,26,11,p.acc,b.spin); },
   crab(p,b){ const sweep=Math.sin(b.spin*2)*14; bell(0,0,72,50,p.main); bell(0,0,52,34,p.dark); bpoly([[-72,0],[-110,-26+sweep],[-86,-6],[-110,10+sweep]],p.acc); bpoly([[72,0],[110,-26-sweep],[86,-6],[110,10-sweep]],p.acc); bcirc(-22,-30,10,p.eye); bcirc(22,-30,10,p.eye); if(b.exposed){ bcirc(0,30,12,'#ffdd55'); } },
-  dragon(p,b){ for(let i=0;i<6;i++) bcirc(-60+i*16,18-i*2,18-i,p.dark); const wf=Math.sin(b.spin*2)*10; bpoly([[10,-50+wf],[80,0],[10,50-wf],[40,0]],p.main); bell(58,-6,42,28,p.main); bpoly([[92,-18],[126,-4],[92,8]],p.acc); bcirc(74,-14,9,p.eye); },
+  dragon(p,b){ ctx.save(); ctx.scale(-1,1); for(let i=0;i<6;i++) bcirc(-60+i*16,18-i*2,18-i,p.dark); const wf=Math.sin(b.spin*2)*10; bpoly([[10,-50+wf],[80,0],[10,50-wf],[40,0]],p.main); bell(58,-6,42,28,p.main); bpoly([[92,-18],[126,-4],[92,8]],p.acc); bcirc(74,-14,9,p.eye); ctx.restore(); },
   mech(p,b){ bring(0,0,76,6,12,p.acc,b.spin); brect(-46,-46,92,92,p.main); brect(-30,-30,60,60,p.dark); bcirc(0,0,22,p.glow); bcirc(0,0,10,p.eye); brect(-58,-10,16,20,p.acc); brect(42,-10,16,20,p.acc); },
   phoenix(p,b){ const wf=Math.sin(b.spin*3)*10; bpoly([[0,0],[-80,-60+wf],[-30,-10],[-90,20]],p.acc); bpoly([[0,0],[80,-60+wf],[30,-10],[90,20]],p.acc); bell(0,0,28,44,p.main); bpoly([[0,-44],[-10,-72],[10,-72]],p.glow); bcirc(-9,-20,7,p.eye); bcirc(9,-20,7,p.eye); bpoly([[0,44],[-16,86],[16,86]],p.glow); },
   sun(p,b){ for(let i=0;i<16;i++){ const a=i/16*TAU+b.spin*0.3; bline(Math.cos(a)*58,Math.sin(a)*58,Math.cos(a)*92,Math.sin(a)*92,p.acc,6);} bcirc(0,0,58,p.main); bcirc(0,0,42,p.glow); bcirc(-16,-6,8,p.eye); bcirc(16,-6,8,p.eye); },
@@ -1610,14 +1637,21 @@ function tick() {
 
   Player.update();
 
-  // spawning
+  // spawning — waves arrive faster as you approach the boss
   if (!Game.bossActive && !Game.bossDefeated) {
     if (--Game.spawnTimer <= 0) {
-      Game.spawnTimer = Math.round(LEVELS[Game.level-1].spawnEvery * DIFFICULTY[Game.dif].spawn);
-      spawnWave();
+      const lv = LEVELS[Game.level-1];
+      const prog = clamp(Game.killsThisLevel / lv.toClear, 0, 1);
+      Game.spawnTimer = Math.round(lv.spawnEvery * DIFFICULTY[Game.dif].spawn * (1 - prog * 0.5));
+      spawnWave(prog);
     }
   }
-  if (--Game.powerTimer <= 0) { Game.powerTimer = 520; spawnPowerup(); }
+  if (--Game.powerTimer <= 0) {
+    const plv = LEVELS[Game.level-1];
+    const pintensity = Game.bossActive ? 1 : clamp(Game.killsThisLevel / plv.toClear, 0, 1);
+    Game.powerTimer = Math.round(440 - pintensity * 220);   // ~7.3s calm → ~3.7s at peak
+    spawnPowerup(pintensity);
+  }
   if (Game.comboTimer > 0 && --Game.comboTimer <= 0) Game.resetCombo();
 
   updateBullets(); updateEbullets(); updateEnemies();
