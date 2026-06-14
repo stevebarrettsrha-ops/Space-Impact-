@@ -196,9 +196,10 @@
         <div class="info-card"><h4>COMBO</h4><p>
           Chain kills without getting hit to raise your <span class="hl2">combo multiplier</span> — more score AND more coins.
           Taking a hit resets it.</p></div>
-        <div class="info-card"><h4>POWER-UPS</h4><p>
+        <div class="info-card"><h4>POWER-UPS & ARMS</h4><p>
           <span class="hl2">◆</span> weapon swap &nbsp; <span class="hl">✛</span> repair<br>
-          <span style="color:#36c5ff">⬡</span> shield &nbsp; <span style="color:#ffd54a">★</span> overcharge</p></div>
+          <span style="color:#36c5ff">⬡</span> shield &nbsp; <span style="color:#ffd54a">★</span> overcharge<br>
+          6 weapons: Blaster · Spread · Laser · Cannon · <span class="hl">Seeker</span> · <span style="color:#b06bff">Wave</span></p></div>
         <div class="info-card"><h4>ENEMIES</h4><p>
           Fighters rush, gunners stop & snipe with <span class="hl">leading aim</span>, divers swoop, swarms flock,
           kamikazes ram. They dodge — flank them.</p></div>
@@ -277,8 +278,10 @@ const WEAPONS = {
   spread:  { name:'Spread',  color:'#ffd54a', cd:16, dmg:1, speed:11, pellets:3, spread:0.22, size:[12,4] },
   laser:   { name:'Laser',   color:'#36c5ff', cd:7,  dmg:1, speed:18, pellets:1, spread:0, size:[22,3], pierce:1 },
   cannon:  { name:'Cannon',  color:'#ff6bd6', cd:24, dmg:4, speed:10, pellets:1, spread:0, size:[20,8] },
+  homing:  { name:'Seeker',  color:'#ff8a3c', cd:18, dmg:2, speed:9,  pellets:1, spread:0, size:[12,6], homing:true },
+  wave:    { name:'Wave',    color:'#b06bff', cd:14, dmg:1, speed:10, pellets:2, spread:0, size:[16,6], wave:true },
 };
-const WEAPON_ORDER = ['blaster','spread','laser','cannon'];
+const WEAPON_ORDER = ['blaster','spread','laser','cannon','homing','wave'];
 
 // Enemy archetypes — behavior + base stats. Visuals chosen per-level theme.
 const ENEMY_DEFS = {
@@ -503,7 +506,7 @@ function makePool(factory) {
   const free = []; const live = [];
   return {
     live,
-    spawn(init) { const o = free.pop() || factory(); init(o); o._dead = false; live.push(o); return o; },
+    spawn(init) { const o = free.pop(); if (o) for (const k in o) delete o[k]; const obj = o || factory(); init(obj); obj._dead = false; live.push(obj); return obj; },
     sweep() { for (let i = live.length-1; i>=0; i--) if (live[i]._dead) { free.push(live[i]); live.splice(i,1); } },
     clear() { while (live.length) free.push(live.pop()); }
   };
@@ -710,11 +713,14 @@ const Player = {
       const laneOff = (lane - (lanes-1)/2) * 12;
       for (let p = 0; p < wd.pellets; p++) {
         const spreadOff = (p - (wd.pellets-1)/2) * wd.spread;
+        const waveOff = wd.wave ? (p - (wd.pellets-1)/2) * 18 : 0;
         bulletPool.spawn(b => {
           b.x = this.x + 24; b.y = this.y + laneOff;
           b.vx = Math.cos(spreadOff) * wd.speed; b.vy = Math.sin(spreadOff) * wd.speed;
           b.w = wd.size[0]; b.h = wd.size[1]; b.dmg = dmg; b.color = wd.color;
           b.pierce = wd.pierce || 0; b.crit = isCrit;
+          b.homing = wd.homing || false; b.wave = wd.wave || false;
+          b.spd = wd.speed; b.phase = (lane + p) * 1.2; b.baseY = b.y; b.waveOff = waveOff;
         });
       }
     }
@@ -808,6 +814,22 @@ const AI = {
 };
 
 /* ----------------------------- SPAWNING ----------------------------------- */
+// Per-archetype colour roles, tinted by the level theme, so each level shows
+// several distinct enemy colours instead of one flat accent.
+function enemyTint(typeKey, lv) {
+  const a = lv.theme.accent, s = lv.theme.star;
+  switch (typeKey) {
+    case 'fighter': return a;
+    case 'scout':   return s;
+    case 'gunner':  return shade(a, -28);
+    case 'diver':   return shade(s, 18);
+    case 'strafer': return shade(a, 22);
+    case 'swarmer': return s;
+    case 'kamikaze':return '#ff5a78';
+    case 'bomber':  return shade(a, -40);
+    default:        return a;
+  }
+}
 function spawnEnemy(typeKey, x, y) {
   const lv = LEVELS[Game.level-1];
   const def = ENEMY_DEFS[typeKey];
@@ -823,7 +845,7 @@ function spawnEnemy(typeKey, x, y) {
     fireCd: def.fireCd ? Math.round(def.fireCd / (1 + lv.sector*0.1)) : 0,
     ftimer: def.fireCd ? randInt(20, def.fireCd) : 0,
     seed: rand(0, TAU), baseY: 0, dived:false, hitFlash:0,
-    color: lv.theme.accent, stopX: rand(W*0.55, W*0.78),
+    color: enemyTint(typeKey, lv), skin: lv.sector, stopX: rand(W*0.55, W*0.78),
   };
   e.maxHp = e.hp; e.baseY = e.y;
   Game.enemies.push(e);
@@ -906,8 +928,44 @@ const BossAttacks = {
     const n = b.enrage ? 3 : 2;
     for (let i=0;i<n;i++) { const e = spawnEnemy('kamikaze', b.x-40, b.y+rand(-50,50)); e.hp = 2; }
     burst(b.x-40, b.y, 16, '#ff3c7c', 4, 24);
+  },
+  // --- Sector signature attacks ---
+  starburst(b) { // Nebula: full radial ring
+    const n = b.enrage ? 22 : 16;
+    for (let i=0;i<n;i++){ const a = i/n*TAU + b.spin;
+      ebulletPool.spawn(p=>{ p.x=b.x; p.y=b.y; p.vx=Math.cos(a)*3.6; p.vy=Math.sin(a)*3.6; p.w=9; p.h=9; p.color=b.accent2; p.dmg=Math.round(6*DIFFICULTY[Game.dif].dmg/3); }); }
+    burst(b.x, b.y, 18, b.accent2, 4, 22); Audio2.shootAlt();
+  },
+  icicleRain(b) { // Glacier: shards drop from the ceiling across the screen
+    const cols = b.enrage ? 9 : 6;
+    for (let i=0;i<cols;i++){ const x = 80 + i*(W-160)/(cols-1) + rand(-20,20);
+      ebulletPool.spawn(p=>{ p.x=x; p.y=-10; p.vx=rand(-0.4,0.4); p.vy=rand(4,5.5); p.w=7; p.h=14; p.color='#bdefff'; p.dmg=Math.round(6*DIFFICULTY[Game.dif].dmg/3); }); }
+    Audio2.shootAlt();
+  },
+  flameWall(b) { // Forge: a vertical wall with one safe gap
+    const gap = randInt(1, 6); const rows = 8;
+    for (let r=0;r<rows;r++){ if (Math.abs(r-gap) < (b.enrage?0.6:1.2)) continue;
+      const y = 40 + r*(H-80)/(rows-1);
+      ebulletPool.spawn(p=>{ p.x=b.x-50; p.y=y; p.vx=-4; p.vy=0; p.w=14; p.h=10; p.color='#ff8a3c'; p.dmg=Math.round(7*DIFFICULTY[Game.dif].dmg/3); }); }
+    burst(b.x-50, b.y, 14, '#ff8a3c', 3, 20); Audio2.shootAlt();
+  },
+  spores(b) { // Verdant: slow seeking spores
+    const n = b.enrage ? 6 : 4;
+    for (let i=0;i<n;i++){ const a = Math.PI + rand(-0.6,0.6);
+      ebulletPool.spawn(p=>{ p.x=b.x-30; p.y=b.y+rand(-30,30); p.vx=Math.cos(a)*2.4; p.vy=Math.sin(a)*2.4; p.w=11; p.h=11; p.color='#7dff9e'; p.seek=true; p.spd=2.6; p.dmg=Math.round(6*DIFFICULTY[Game.dif].dmg/3); }); }
+    Audio2.shootAlt();
+  },
+  voidLances(b) { // Void: rapid aimed lances + gravity pull on the player
+    for (let i=0;i<4;i++) setTimeout(()=>{ if (Game.boss===b && Game.state==='playing') {
+      const v = aimAt(b.x-40, b.y, Player.x, Player.y, Player._vx||0, Player._vy||0, 8.5);
+      ebulletPool.spawn(p=>{ p.x=b.x-40; p.y=b.y; p.vx=v.vx; p.vy=v.vy; p.w=20; p.h=4; p.color='#ff3c7c'; p.dmg=Math.round(7*DIFFICULTY[Game.dif].dmg/3); });
+      Audio2.shootAlt();
+    }}, i*90);
+    b.pull = 50; // frames of inward tug, applied in updateBoss
   }
 };
+// Each sector emphasizes a signature attack alongside the shared pool.
+const BOSS_SIGNATURE = ['starburst','icicleRain','flameWall','spores','voidLances'];
 function updateBoss(b) {
   if (b.contactCd > 0) b.contactCd--;
   b.spin += 0.03; if (b.hitFlash > 0) b.hitFlash--;
@@ -932,29 +990,61 @@ function updateBoss(b) {
   // idle: bob, drift home, and choose attacks
   b.y = b.homeY + Math.sin(b.spin * 1.5) * 40;
   b.x += (b.homeX - b.x) * 0.05;
+  // gravity tug toward the void boss
+  if (b.pull > 0) { b.pull--; const a = Math.atan2(b.y - Player.y, b.x - Player.x); Player.x += Math.cos(a)*1.4; Player.y += Math.sin(a)*1.4; }
   if (--b.attackTimer <= 0) {
     const speedup = b.enrage ? 0.6 : 1;
     b.attackTimer = Math.round((b.phase >= 3 ? 60 : 90) * speedup);
+    const sig = BOSS_SIGNATURE[LEVELS[Game.level-1].sector];
     const roll = Math.random();
-    if (roll < 0.3) BossAttacks.fan(b);
-    else if (roll < 0.55) BossAttacks.aimedBurst(b);
-    else if (roll < 0.78 && b.phase >= 2) BossAttacks.spiral(b);
-    else if (roll < 0.9 && b.phase >= 2) BossAttacks.summon(b);
+    // ~35% chance to use this sector's signature attack (unlocks in phase 2+)
+    if (roll < 0.35 && b.phase >= 2) BossAttacks[sig](b);
+    else if (roll < 0.55) BossAttacks.fan(b);
+    else if (roll < 0.72) BossAttacks.aimedBurst(b);
+    else if (roll < 0.85 && b.phase >= 2) BossAttacks.spiral(b);
+    else if (roll < 0.93 && b.phase >= 2) BossAttacks.summon(b);
     else { b.state = 'charge'; b.chargeT = 70; b.cvx = -10; }
   }
 }
 
 /* ----------------------------- UPDATE ------------------------------------- */
+function nearestEnemyTo(x, y) {
+  let best = null, bd = Infinity;
+  for (const e of Game.enemies) { const d = dist2(x, y, e.x, e.y); if (d < bd) { bd = d; best = e; } }
+  if (Game.boss && Game.boss.entered) { const d = dist2(x, y, Game.boss.x, Game.boss.y); if (d < bd) { bd = d; best = Game.boss; } }
+  return best;
+}
 function updateBullets() {
   for (const b of bulletPool.live) {
-    b.x += b.vx; b.y += b.vy;
-    if (b.x > W + 30 || b.x < -30 || b.y < -30 || b.y > H+30) b._dead = true;
+    if (b.homing) {
+      const t = nearestEnemyTo(b.x, b.y);
+      if (t) {
+        const want = Math.atan2(t.y - b.y, t.x - b.x);
+        const cur = Math.atan2(b.vy, b.vx);
+        let d = want - cur; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU;
+        const na = cur + clamp(d, -0.12, 0.12);
+        b.vx = Math.cos(na) * b.spd; b.vy = Math.sin(na) * b.spd;
+      }
+      if (Game.frame % 2 === 0) addParticle(b.x, b.y, -b.vx*0.2, -b.vy*0.2, 10, b.color, 2);
+    }
+    b.x += b.vx;
+    if (b.wave) { b.baseY += b.vy; b.y = b.baseY + Math.sin(Game.frame*0.25 + b.phase) * 14 + b.waveOff*0; }
+    else b.y += b.vy;
+    if (b.x > W + 30 || b.x < -30 || b.y < -40 || b.y > H+40) b._dead = true;
   }
   bulletPool.sweep();
 }
 function updateEbullets() {
   const off = 40;
   for (const b of ebulletPool.live) {
+    if (b.seek) {
+      const want = Math.atan2(Player.y - b.y, Player.x - b.x);
+      const cur = Math.atan2(b.vy, b.vx);
+      let d = want - cur; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU;
+      const na = cur + clamp(d, -0.05, 0.05);
+      b.vx = Math.cos(na) * b.spd; b.vy = Math.sin(na) * b.spd;
+      b.life = (b.life || 240) - 1; if (b.life <= 0) b._dead = true;
+    }
     b.x += b.vx; b.y += b.vy;
     if (b.x < -off || b.x > W+off || b.y < -off || b.y > H+off) b._dead = true;
   }
@@ -1173,6 +1263,21 @@ function drawEnemyShape(e) {
       ctx.fillStyle = c; ctx.fillRect(8,-26,10,52); break;
     default:
       ctx.fillRect(-12,-10,24,20);
+  }
+  // sector skin accent (cheap themed flourish)
+  switch (e.skin) {
+    case 0: // Nebula — orbiting spark
+      ctx.fillStyle = '#fff'; ctx.globalAlpha = 0.7;
+      ctx.fillRect(Math.cos(Game.frame*0.1+e.seed)*12-1, Math.sin(Game.frame*0.1+e.seed)*8-1, 2, 2); ctx.globalAlpha = 1; break;
+    case 1: // Glacier — ice spikes
+      ctx.fillStyle = '#dff6ff'; ctx.beginPath(); ctx.moveTo(-6,-e.h*0.4); ctx.lineTo(-2,-e.h*0.4-6); ctx.lineTo(2,-e.h*0.4); ctx.closePath(); ctx.fill(); break;
+    case 2: // Forge — ember flick
+      if (Game.frame % 4 === 0) addParticle(e.x-e.w*0.4, e.y, -1.5, rand(-0.5,0.5), 8, '#ffb24a', 2); break;
+    case 3: // Verdant — antenna
+      ctx.strokeStyle = '#9dff7d'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(6,-4); ctx.lineTo(12,-12); ctx.stroke();
+      ctx.fillStyle = '#caffb0'; ctx.beginPath(); ctx.arc(12,-12,2,0,TAU); ctx.fill(); break;
+    case 4: // Void — dark halo
+      ctx.strokeStyle = 'rgba(255,60,124,0.5)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0,0,e.w*0.55,0,TAU); ctx.stroke(); break;
   }
   // mini health pip for tanky enemies
   if (e.maxHp > 3) {
