@@ -3,61 +3,102 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#04121b">
 <title>DEEP — Submarine Odyssey</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html,body { height:100%; overflow:hidden; }
+  html, body { height:100%; overflow:hidden; overscroll-behavior:none; }
   body {
-    display:flex; align-items:center; justify-content:center; min-height:100%;
+    display:flex; align-items:center; justify-content:center;
+    padding-bottom:var(--band, 0px);
     background:radial-gradient(ellipse at 50% 20%, #0d3448 0%, #051724 45%, #01070c 100%);
     font-family:'Courier New', monospace; color:#cfe6f2; user-select:none;
+    padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right);
   }
+
+  /* The cabinet around the screen. Gfx.resize() budgets for this padding and
+     strips it (.bare) as soon as the window has no room to spare. */
   #frame {
-    position:relative;
-    padding:10px; border-radius:10px;
+    position:relative; padding:10px; border-radius:10px;
     background:linear-gradient(160deg,#0d2735,#04121b);
     box-shadow:0 24px 60px rgba(0,0,0,.8), inset 0 1px 0 rgba(120,200,230,.12);
     border:1px solid #1b4759;
   }
+  #frame.bare { padding:0; border:0; border-radius:0; box-shadow:none; background:none; }
+
+  /* Sized in JS: always a uniform scale, always exactly 3:4. */
   canvas#screen {
-    display:block; background:#04121b; image-rendering:pixelated;
-    image-rendering:crisp-edges; border-radius:3px; touch-action:none;
+    display:block; background:#04121b; border-radius:3px; touch-action:none;
+    image-rendering:pixelated; image-rendering:crisp-edges;
   }
+  #frame.bare canvas#screen { border-radius:0; }
+
   #fatal {
-    display:none; position:fixed; inset:20px; padding:20px; overflow:auto;
+    display:none; position:fixed; inset:16px; padding:18px; overflow:auto;
     background:rgba(6,20,30,.96); border:1px solid #2b566b; border-radius:8px;
     color:#ffb0a0; white-space:pre-wrap; font-size:13px; line-height:1.5; z-index:99;
   }
-  /* --- touch controls, only on coarse pointers ------------------------- */
+
+  /* ---- touch controls -------------------------------------------------
+     Portrait puts them in a band below the screen, landscape in the side
+     gutters, so they never sit on the picture unless there is nowhere else
+     for them to go. ------------------------------------------------------ */
   #touch { display:none; position:fixed; inset:0; z-index:20; pointer-events:none; }
-  #touch .pad { position:absolute; pointer-events:auto; border-radius:50%;
-    background:rgba(30,120,150,.16); border:1px solid rgba(120,220,255,.32); }
-  #touch .btn { position:absolute; pointer-events:auto; border-radius:8px;
+  html[data-layout="portrait"] #touch, html[data-layout="landscape"] #touch { display:block; }
+  html[data-overlay="yes"] #touch { opacity:.72; }
+
+  #touch .side { position:absolute; display:flex; align-items:center; gap:9px; }
+  #touch .side > * { pointer-events:auto; }
+  #touch .keys { display:flex; flex-direction:column; gap:7px; }
+
+  html[data-layout="portrait"] .side { bottom:0; height:var(--band); }
+  html[data-layout="portrait"] .side.left  { left:10px; }
+  html[data-layout="portrait"] .side.right { right:10px; flex-direction:row-reverse; }
+  html[data-layout="landscape"] .side { top:0; height:100%; }
+  html[data-layout="landscape"] .side.left  { left:10px; }
+  html[data-layout="landscape"] .side.right { right:10px; flex-direction:row-reverse; }
+
+  #stick {
+    position:relative; width:var(--ctl,120px); height:var(--ctl,120px); border-radius:50%;
+    background:rgba(30,120,150,.16); border:1px solid rgba(120,220,255,.32);
+  }
+  #knob {
+    position:absolute; left:31%; top:31%; width:38%; height:38%; border-radius:50%;
+    background:rgba(120,220,255,.28); border:1px solid rgba(160,240,255,.5);
+    pointer-events:none; will-change:transform;
+  }
+  .btn {
+    display:flex; align-items:center; justify-content:center;
     background:rgba(30,120,150,.18); border:1px solid rgba(120,220,255,.3);
     color:#9fd8ee; font:bold 11px 'Courier New',monospace; letter-spacing:1px;
-    display:flex; align-items:center; justify-content:center; }
-  #touch .btn:active, #touch .pad:active { background:rgba(80,200,240,.35); }
-  #stick { left:18px; bottom:22px; width:132px; height:132px; }
-  #knob { position:absolute; left:41px; top:41px; width:50px; height:50px; border-radius:50%;
-    background:rgba(120,220,255,.28); border:1px solid rgba(160,240,255,.5); pointer-events:none; }
-  #bFire { right:22px; bottom:34px; width:82px; height:82px; border-radius:50%; }
-  #bWeap { right:112px; bottom:96px; width:56px; height:34px; }
-  #bAct  { right:22px; bottom:126px; width:56px; height:34px; }
-  #bBack { left:14px; top:14px; width:52px; height:30px; }
-  #bMenu { right:14px; top:14px; width:52px; height:30px; }
-  @media (pointer:coarse) { #touch { display:block; } #frame { padding:0; border:none; border-radius:0; box-shadow:none; background:none; } }
+    border-radius:8px; padding:0 6px;
+  }
+  .btn:active, #stick:active { background:rgba(80,200,240,.35); }
+  #bFire {
+    width:calc(var(--ctl,120px) * .66); height:calc(var(--ctl,120px) * .66);
+    border-radius:50%; font-size:12px;
+  }
+  .btn.key { width:var(--keyw,56px); height:32px; font-size:10px; }
 </style>
 </head>
 <body>
 <div id="frame"><canvas id="screen" width="240" height="320"></canvas></div>
 
 <div id="touch">
-  <div class="pad" id="stick"><div id="knob"></div></div>
-  <div class="btn" id="bFire">FIRE</div>
-  <div class="btn" id="bWeap">WEAP</div>
-  <div class="btn" id="bAct">0</div>
-  <div class="btn" id="bBack">BACK</div>
-  <div class="btn" id="bMenu">MENU</div>
+  <div class="side left">
+    <div id="stick"><div id="knob"></div></div>
+    <div class="keys">
+      <button class="btn key" id="bBack">BACK</button>
+      <button class="btn key" id="bMenu">MENU</button>
+    </div>
+  </div>
+  <div class="side right">
+    <button class="btn" id="bFire">FIRE</button>
+    <div class="keys">
+      <button class="btn key" id="bWeap">WEAP</button>
+      <button class="btn key" id="bAct">0</button>
+    </div>
+  </div>
 </div>
 
 <pre id="fatal"></pre>
@@ -92,32 +133,42 @@
   bind(document.getElementById('bMenu'), 'pause');
 
   const stick = document.getElementById('stick'), knob = document.getElementById('knob');
-  let id = null, cx = 0, cy = 0;
-  const R = 40;
+  let id = null, cx = 0, cy = 0, radius = 40;
+  let lastStep = 0, lastSide = 0;
+
   function set(dx, dy) {
-    const d = Math.hypot(dx, dy) || 1, k = Math.min(1, d / R);
+    const d = Math.hypot(dx, dy) || 1, k = Math.min(1, d / radius);
     Input.stick.x = (dx / d) * k;
     Input.stick.y = (dy / d) * k;
-    knob.style.left = (41 + (dx / d) * k * R) + 'px';
-    knob.style.top = (41 + (dy / d) * k * R) + 'px';
-    /* also drive menu navigation as discrete presses */
-    const now = Date.now();
-    if (Math.abs(dy) > 24 && now - set.last > 190) {
-      set.last = now; Input.virtual(dy < 0 ? 'up' : 'down', true);
-      setTimeout(() => Input.virtual(dy < 0 ? 'up' : 'down', false), 40);
+    knob.style.transform = 'translate(' + (dx / d) * k * radius + 'px,' + (dy / d) * k * radius + 'px)';
+    /* the stick also steps through menus, so it works on every screen */
+    const now = Date.now(), reach = radius * 0.55;
+    if (Math.abs(dy) > reach && now - lastStep > 190) {
+      lastStep = now;
+      const k2 = dy < 0 ? 'up' : 'down';
+      Input.virtual(k2, true); setTimeout(() => Input.virtual(k2, false), 40);
     }
-    if (Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) && now - set.lastX > 220) {
-      set.lastX = now; Input.virtual(dx < 0 ? 'left' : 'right', true);
-      setTimeout(() => Input.virtual(dx < 0 ? 'left' : 'right', false), 40);
+    if (Math.abs(dx) > reach && Math.abs(dx) > Math.abs(dy) && now - lastSide > 220) {
+      lastSide = now;
+      const k2 = dx < 0 ? 'left' : 'right';
+      Input.virtual(k2, true); setTimeout(() => Input.virtual(k2, false), 40);
     }
   }
-  set.last = 0; set.lastX = 0;
-  function reset() { Input.stick.x = Input.stick.y = 0; knob.style.left = '41px'; knob.style.top = '41px'; }
+  function reset() {
+    Input.stick.x = Input.stick.y = 0;
+    knob.style.transform = 'translate(0,0)';
+  }
+  function grab(t) {
+    const r = stick.getBoundingClientRect();
+    cx = r.left + r.width / 2; cy = r.top + r.height / 2;
+    radius = Math.max(24, r.width * 0.34);
+    set(t.clientX - cx, t.clientY - cy);
+  }
   stick.addEventListener('touchstart', e => {
     e.preventDefault();
-    const t = e.changedTouches[0], r = stick.getBoundingClientRect();
-    id = t.identifier; cx = r.left + r.width / 2; cy = r.top + r.height / 2;
-    set(t.clientX - cx, t.clientY - cy);
+    const t = e.changedTouches[0];
+    id = t.identifier;
+    grab(t);
   }, { passive: false });
   stick.addEventListener('touchmove', e => {
     e.preventDefault();
@@ -126,6 +177,7 @@
   const end = e => { for (const t of e.changedTouches) if (t.identifier === id) { id = null; reset(); } };
   stick.addEventListener('touchend', end, { passive: false });
   stick.addEventListener('touchcancel', end, { passive: false });
+  window.addEventListener('gamelayout', reset);
 })();
 </script>
 </body>

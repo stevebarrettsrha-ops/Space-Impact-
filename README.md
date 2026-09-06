@@ -49,6 +49,24 @@ atmosphere above and crushing pressure below, trying to make a living with a har
 
 On phones and tablets an on-screen stick and buttons appear automatically.
 
+## Fitting the screen
+
+The picture is a fixed 240×320 — the resolution Deep 3D was authored for — and is scaled
+to the window with a single uniform factor, so it can never be stretched. Both sides are
+derived from that one number, so the ratio stays exactly 3:4 rather than drifting a pixel
+either way.
+
+Once there is room for a whole multiple the scale snaps to an integer and the pixel art
+stays crisp (2× on a laptop, 3× at 1080p, 4× at 1440p, 6× at 4K). Below 2× it scales
+freely so a handset is filled edge to edge, and it is allowed to go under 1× so a short
+window shows the whole screen instead of clipping it. The cabinet around the screen is
+budgeted for, and dropped entirely when the window has no room to spare.
+
+On a touch device the controls get room of their own rather than sitting on the picture:
+a band beneath the screen in portrait, the side gutters in landscape, with the stick and
+buttons sized from the space actually available. They only overlay the picture — and then
+at reduced opacity — when there is nowhere else for them to go.
+
 ## Running
 
 The game reads the original binary assets with `fetch()`, so it needs to be served over
