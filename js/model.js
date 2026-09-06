@@ -201,5 +201,65 @@ const Micro3D = (() => {
     return o;
   }
 
-  return { loadMBAC, M_TRANSPARENT, M_LIGHT, M_SPECULAR };
+  /* --------------------------------------------------------------------
+     Blend classification.
+
+     Two keying conventions live in these atlases.  Cut-out cells (the algae)
+     leave their surround on palette index 0; glow cells (lights, bolts,
+     explosions, the S.T.R.E.A.M. portal) paint theirs pure black, because
+     the handset blended black away.  Drawn opaquely, that surround is the
+     black box around every light.
+
+     So each polygon is classified once, from the texels it actually covers:
+
+       0  opaque          - hull plating, station panels, creatures
+       1  cut out         - index 0 is dropped, the rest stays solid
+       2  additive        - black adds nothing, the rest glows
+
+     Material bit 0 marks the cut-outs and bit 2 the emissive polygons; where
+     the material says nothing, the texture footprint decides.
+     -------------------------------------------------------------------- */
+  const KEY = 30;                       /* r+g+b at or below this is "black" */
+
+  function classifyBlend(model, tex) {
+    if (!tex || !model || model.blendTex === tex) return model;
+    model.blendTex = tex;
+    const { w, h, data } = tex;
+    for (const t of model.tris) {
+      const mat = t.m;
+      const s = sampleTri(t, w, h, data);
+      if (s.total === 0) { t.blend = 0; continue; }
+      const cut = s.clear / s.total, black = s.black / s.total;
+      if ((mat & M_TRANSPARENT) || cut > 0.3) t.blend = 1;
+      /* a sprite cell: mostly black, with something bright burning in it */
+      else if ((mat & 0x04) || (black > 0.34 && s.peak > 190)) t.blend = 2;
+      else t.blend = 0;
+    }
+    /* solid first, then cut-outs, then the emissive passes, so a glow is
+       never painted before the hull that should occlude it */
+    model.tris.sort((a, b) => (a.blend | 0) - (b.blend | 0));
+    return model;
+  }
+
+  /* walk the polygon's texel footprint on a coarse barycentric grid */
+  function sampleTri(t, w, h, data) {
+    let black = 0, clear = 0, total = 0, peak = 0;
+    const N = 6;
+    for (let i = 0; i <= N; i++) {
+      for (let j = 0; i + j <= N; j++) {
+        const a = i / N, b = j / N, c = 1 - a - b;
+        const u = (t.ua * a + t.ub * b + t.uc * c) | 0;
+        const v = (t.va * a + t.vb * b + t.vc * c) | 0;
+        const p = (((v & (h - 1)) * w) + (u & (w - 1))) << 2;
+        total++;
+        if (data[p + 3] === 0) { clear++; continue; }
+        const sum = data[p] + data[p + 1] + data[p + 2];
+        if (sum <= KEY) black++;
+        else { const lum = (sum / 3) | 0; if (lum > peak) peak = lum; }
+      }
+    }
+    return { black, clear, total, peak };
+  }
+
+  return { loadMBAC, classifyBlend, KEY, M_TRANSPARENT, M_LIGHT, M_SPECULAR };
 })();

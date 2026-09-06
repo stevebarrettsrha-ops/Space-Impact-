@@ -103,6 +103,23 @@ const Game = (() => {
     'station_hangar_de', 'station_hangar_ve', 'station_habitat_de', 'station_habitat_ve'
   ];
 
+  /* which atlas each mesh is painted from: the creatures and every effect
+     come off fx.bmp, the hardware and the world off deep.bmp */
+  const FX_TEXTURED = new Set([
+    'nautilus', 'gulper_eel', 'jellyfish', 'manta', 'fish_swarm',
+    'anglerfish_01', 'anglerfish_02', 'devilfish_01', 'devilfish_02',
+    'marlin_01', 'marlin_02', 'shark_01', 'shark_02', 'shrimp_01', 'shrimp_02',
+    'squid_01', 'squid_02', 'turtle_01', 'turtle_02', 'whale_01', 'whale_02',
+    'alga_gold', 'alga_blue', 'alga_brown', 'alga_red', 'alga_green',
+    'aquar', 'biowaste', 'fischtod', 'explosion', 'pfeil',
+    'laser_0', 'laser_1', 'laser_2', 'laser_6', 'laser_7', 'laser_8',
+    'laser_9', 'laser_10', 'laser_11', 'laser_aqua'
+  ]);
+  function texFor(name) {
+    if (name === 'skybox') return TEX.skybox;
+    return FX_TEXTURED.has(name) ? TEX.fx : TEX.deep;
+  }
+
   async function boot(canvas) {
     Gfx.init(canvas);
     ctx = Gfx.context();
@@ -148,8 +165,10 @@ const Game = (() => {
     for (let i = 0; i <= 94; i++) if (IMG['faces/' + i]) FACE_IDS.push(i);
     Font.build(IMG.font_deep_white);
     Portrait.bind(IMG);
-    Flight.bind(MODELS, TEX, IMG);
-    Station.bind(MODELS, TEX, IMG);
+    /* work out, per polygon, what is hull and what is light */
+    for (const name in MODELS) Micro3D.classifyBlend(MODELS[name], texFor(name));
+    Flight.bind(MODELS, TEX, IMG, texFor);
+    Station.bind(MODELS, TEX, IMG, texFor);
     mode = 'splash';
     splash = { i: 0, t: 0 };
     Sfx.music('intro');

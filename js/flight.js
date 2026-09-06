@@ -11,10 +11,10 @@ const Flight = (() => {
   const SECTOR = 900 * U;        /* play area radius */
   const TAU = Math.PI * 2;
 
-  let M = {}, TEX = {}, IMG = {};
+  let M = {}, TEX = {}, IMG = {}, texFor = () => null;
   let S = null;                  /* sector state */
 
-  function bind(models, textures, images) { M = models; TEX = textures; IMG = images; }
+  function bind(models, textures, images, texture) { M = models; TEX = textures; IMG = images; texFor = texture; }
 
   const rnd = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -262,7 +262,7 @@ const Flight = (() => {
     const e = w.e;
     S.cool = e.reload;
     const dir = forward();
-    const muzzle = 22 * U;
+    const muzzle = 30 * U;
     if (w.kind === 'harpoon') {
       if (S.line) return;
       S.line = {
@@ -837,8 +837,8 @@ const Flight = (() => {
       const m = M[s.model];
       if (!m) continue;
       const yaw = Math.atan2(s.dx, s.dz), pitch = Math.atan2(s.dy, Math.hypot(s.dx, s.dz));
-      Gfx.drawModel(m, s.x, s.y, s.z, Gfx.rotMatrix(yaw, pitch, 0), s.scale, TEX.fx,
-        { additive: true, alpha: 1, noFog: false, ambient: 1 });
+      Gfx.drawModel(m, s.x, s.y, s.z, Gfx.rotMatrix(yaw, pitch, 0), s.scale, texFor(s.model),
+        { ambient: 1, alpha: 0.8 });
     }
 
     /* harpoon line */

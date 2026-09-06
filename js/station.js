@@ -8,7 +8,7 @@
 const Station = (() => {
 
   const C = UI.COL;
-  let IMG = {}, M = {}, TEX = {};
+  let IMG = {}, M = {}, TEX = {}, texFor = () => null;
   let screen = 'menu', sel = 0, sub = 0, scroll = 0, pane = 0;
   let popup = null, help = null, info = null;
   let onUndock = null, onQuit = null;
@@ -17,7 +17,7 @@ const Station = (() => {
   let mapCur = 0, mapMode = 0, mapSpecies = -1;
   let stationRot = 0;
 
-  function bind(models, textures, images) { M = models; TEX = textures; IMG = images; }
+  function bind(models, textures, images, texture) { M = models; TEX = textures; IMG = images; texFor = texture; }
 
   function open(hooks) {
     onUndock = hooks.undock; onQuit = hooks.quit;

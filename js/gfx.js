@@ -126,6 +126,7 @@ const Gfx = (() => {
     sx = new Float32Array(m); sy2 = new Float32Array(m); li = new Float32Array(m);
   }
 
+  const KEY = 30;                      /* r+g+b at or below this is black */
   const LIGHT = [0.35, 0.75, -0.55];
   (function () {
     const l = Math.hypot(LIGHT[0], LIGHT[1], LIGHT[2]);
@@ -210,7 +211,10 @@ const Gfx = (() => {
 
     const dy02 = y2 - y0 || 1e-6, dy01 = y1 - y0 || 1e-6, dy12 = y2 - y1 || 1e-6;
     const texW = tex ? tex.w : 0, texH = tex ? tex.h : 0, td = tex ? tex.data : null;
-    const additive = !!opts.additive;
+    /* 0 opaque, 1 black cut out, 2 black cut out and added as light */
+    const mode = opts.additive ? 2 : (T.blend | 0);
+    const additive = mode === 2;
+    const keyed = mode !== 0;
     const tint = opts.tint;
     const noFog = !!opts.noFog;
     const alphaMul = opts.alpha === undefined ? 1 : opts.alpha;
@@ -251,26 +255,47 @@ const Gfx = (() => {
         else {
           const tu = (u * z) | 0, tv = (v * z) | 0;
           const p = (((tv & (texH - 1)) * texW) + (tu & (texW - 1))) << 2;
-          if (td[p + 3] === 0) continue;
+          /* cut-outs drop palette index 0, glows drop black; opaque
+             polygons keep both, since index 0 is a white highlight there */
+          if (mode === 1 && td[p + 3] === 0) continue;
           r = td[p]; g = td[p + 1]; b = td[p + 2];
+          if (keyed && r + g + b <= KEY) continue;
+          /* cut-out cells are anti-aliased against their white surround, so
+             drop what is left of it too */
+          if (mode === 1 && r >= 236 && g >= 236 && b >= 236) continue;
         }
-        let lum = l * z;
-        if (lum < 0) lum = 0; else if (lum > 1.9) lum = 1.9;
-        r = r * lum; g = g * lum; b = b * lum;
-        if (tint) { r = r * tint[0]; g = g * tint[1]; b = b * tint[2]; }
-        if (!noFog) {
-          let f = (z - fogNear) / (fogFar - fogNear);
-          if (f > 0) {
-            if (f > 1) f = 1;
-            r += (fogR - r) * f; g += (fogG - g) * f; b += (fogB - b) * f;
+        if (additive) {
+          /* emissive: not shaded, and fog thins the light instead of
+             tinting it, so no black halo is left around the source */
+          if (tint) { r = r * tint[0]; g = g * tint[1]; b = b * tint[2]; }
+          let k = alphaMul;
+          if (!noFog) {
+            let f = (z - fogNear) / (fogFar - fogNear);
+            if (f > 0) k *= (f > 1 ? 0 : 1 - f);
           }
-        }
-        if (additive || alphaMul < 1) {
+          if (k <= 0) continue;
           const o = buf32[idx];
-          const orr = o & 255, ogg = (o >> 8) & 255, obb = (o >> 16) & 255;
-          if (additive) { r = orr + r * alphaMul; g = ogg + g * alphaMul; b = obb + b * alphaMul; }
-          else { r = orr + (r - orr) * alphaMul; g = ogg + (g - ogg) * alphaMul; b = obb + (b - obb) * alphaMul; }
-        } else zbuf[idx] = z;
+          r = (o & 255) + r * k;
+          g = ((o >> 8) & 255) + g * k;
+          b = ((o >> 16) & 255) + b * k;
+        } else {
+          let lum = l * z;
+          if (lum < 0) lum = 0; else if (lum > 1.9) lum = 1.9;
+          r = r * lum; g = g * lum; b = b * lum;
+          if (tint) { r = r * tint[0]; g = g * tint[1]; b = b * tint[2]; }
+          if (!noFog) {
+            let f = (z - fogNear) / (fogFar - fogNear);
+            if (f > 0) {
+              if (f > 1) f = 1;
+              r += (fogR - r) * f; g += (fogG - g) * f; b += (fogB - b) * f;
+            }
+          }
+          if (alphaMul < 1) {
+            const o = buf32[idx];
+            const orr = o & 255, ogg = (o >> 8) & 255, obb = (o >> 16) & 255;
+            r = orr + (r - orr) * alphaMul; g = ogg + (g - ogg) * alphaMul; b = obb + (b - obb) * alphaMul;
+          } else zbuf[idx] = z;
+        }
         buf32[idx] = 0xff000000 | ((b > 255 ? 255 : b) << 16) | ((g > 255 ? 255 : g) << 8) | (r > 255 ? 255 : r);
       }
     }

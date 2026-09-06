@@ -85,6 +85,10 @@ const Assets = (() => {
         const idx = d[rasterOffset + srcRow * stride + x];
         const p = paletteOffset + idx * 4;
         out[o++] = d[p + 2]; out[o++] = d[p + 1]; out[o++] = d[p];
+        /* Two keying conventions live in these atlases: cut-out cells leave
+           their surround on palette index 0, glow cells paint theirs pure
+           black.  Both are recorded here - alpha 0 marks index 0 - and which
+           one applies is decided per polygon (see Micro3D.classifyBlend). */
         out[o++] = idx === 0 ? 0 : 255;
       }
     }

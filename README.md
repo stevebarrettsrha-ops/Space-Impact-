@@ -82,6 +82,20 @@ bit-packed vertex blocks, 7/7/1 packed unit normals and bit-packed polygon indic
 hierarchy; `js/gfx.js` draws them with a perspective-correct, z-buffered software
 rasteriser into a 240×320 framebuffer, with depth fog for the water.
 
+### Lights, and the two keying conventions
+
+The atlases mix two kinds of transparency, and getting them wrong is what puts a black
+box around every light. Cut-out cells — the algae — leave their surround on palette
+index 0. Glow cells — station lights, engine exhaust, laser bolts, explosions, the
+S.T.R.E.A.M. portal — paint theirs pure black, because the handset blended black away.
+Index 0 is *white* in both atlases, and inside a glow cell it is the hot core, so it
+cannot be keyed there either.
+
+`Micro3D.classifyBlend` therefore sorts every polygon once at load time by looking at
+the texels it actually covers, and tags it opaque, cut-out or additive; the rasteriser
+drops index 0 for cut-outs and black for glows, and lets fog thin an emissive surface
+rather than tint it, so no halo is left behind.
+
 ### Data
 
 | File | Used for |
