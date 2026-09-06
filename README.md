@@ -101,6 +101,15 @@ Three things changed once the buffer stopped being 240×320.
   so the four taps are clamped to each polygon's own texel box — it smooths a hull or a
   rock face without ever fetching a neighbour's art. Cut-outs and glows stay on nearest:
   filtering a keyed edge would drag the key colour into the picture.
+* **Text is set at the display's real resolution.** The 2D layer is drawn straight onto
+  the visible canvas with the logical grid as a transform, rather than into the low
+  resolution surface and blown up with it. That let the handset's own 11x16 display face
+  go: at this size its "a" and "n" are near enough the same shape that a menu item is
+  guesswork. Menus, the HUD and the conversations are now set in a hinted, anti-aliased
+  interface face — with the one pixel shadow the original glyphs carried built in, so it
+  still holds up over the water — while sprites, portraits and the sector stay pixel
+  exact beside it. The measuring, wrapping and drawing API did not change, so every
+  hand-placed coordinate in the interface still lands where it did.
 * **Particles are round and blended.** Bubbles, marine snow and sparks were flat squares
   of solid colour; at modern resolutions they read as confetti. They are now soft discs
   composited over what is behind them.
@@ -176,7 +185,7 @@ rather than tint it, so no halo is left behind.
 `en/` mirrors `ru/` exactly: 52 files, 1,049 strings, in the same
 `DataOutputStream.writeUTF` record format (2-byte big-endian length + UTF-8), index for
 index. English is the default; the Russian pack is still selectable from
-**System → Settings → Language**, and the bitmap font carries both alphabets.
+**System → Settings → Language**, and the interface face covers both alphabets.
 
 Reload times for weapons are the one thing not stored numerically in `equipment.txt` — the
 item descriptions state them in words ("long reload", "improved", "short"), so they are
@@ -189,7 +198,7 @@ index.html        shell, styling, touch controls
 js/assets.js      de-obfuscation and the PNG / BMP / .lang loaders
 js/model.js       Mascot Capsule Micro3D v3 (.mbac) parser
 js/gfx.js         software rasteriser, depth fog, projection
-js/ui2d.js        the original bitmap font and the UI widgets
+js/ui2d.js        text, the UI widgets and the portrait compositor
 js/data.js        the txt/ tables and language lookups
 js/world.js       player, ship, economy, job board, medals, saves
 js/audio.js       WebAudio sound design (the AMR/MIDI cues cannot be decoded in a browser)

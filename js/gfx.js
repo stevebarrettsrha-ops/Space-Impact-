@@ -23,7 +23,11 @@ const Gfx = (() => {
   const PAGE_WIDE = 1.0;         /* widest a 2D page is allowed to get */
   const PAGE_TALL = 0.62;        /* and the tallest */
 
-  let view, vctx, surface, ctx, img, buf32, zbuf;
+  /* ctx is the 2D layer and lives on the visible canvas at its full device
+     resolution, so text is set by the browser at native size instead of being
+     drawn into the low resolution surface and blown up with it.  sctx exists
+     only to push the rasteriser's buffer into that surface. */
+  let view, ctx, surface, sctx, img, buf32, zbuf;
   let W = SCR_W, H = SCR_H;
   let scale = 1, upscale = 1;
   let pageW = SCR_W, pageH = SCR_H, pageX = 0, pageY = 0;
@@ -35,14 +39,14 @@ const Gfx = (() => {
   /* ---------------------------------------------------------------- setup */
   function init(cv) {
     view = cv;
-    vctx = view.getContext('2d', { alpha: false });
+    /* both contexts are handed out once and kept for the life of the game;
+       their canvases are only ever resized, never re-created */
+    ctx = view.getContext('2d', { alpha: false });
     surface = document.createElement('canvas');
     surface.width = W; surface.height = H;
-    /* the 2D context is handed out once and kept for the life of the game,
-       so the surface is only ever resized - never re-created */
-    ctx = surface.getContext('2d', { alpha: false });
-    ctx.imageSmoothingEnabled = false;
-    img = ctx.createImageData(W, H);
+    sctx = surface.getContext('2d', { alpha: false });
+    sctx.imageSmoothingEnabled = false;
+    img = sctx.createImageData(W, H);
     buf32 = new Uint32Array(img.data.buffer);
     zbuf = new Float32Array(W * H);
     resize();
@@ -57,10 +61,9 @@ const Gfx = (() => {
   function alloc(w, h) {
     if (w === W && h === H && img) return;
     W = w; H = h;
-    surface.width = w; surface.height = h;   /* this also resets the ctx state */
-    held = 0;
-    ctx.imageSmoothingEnabled = false;
-    img = ctx.createImageData(w, h);
+    surface.width = w; surface.height = h;
+    sctx.imageSmoothingEnabled = false;
+    img = sctx.createImageData(w, h);
     buf32 = new Uint32Array(img.data.buffer);
     zbuf = new Float32Array(w * h);
   }
@@ -71,7 +74,9 @@ const Gfx = (() => {
      transform, a clip and the SCR_W / SCR_H the layout code reads, so the
      screens keep their hand-placed coordinates whatever the window is. */
   function applyRegion() {
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    /* logical units in, device pixels out */
+    ctx.setTransform(upscale, 0, 0, upscale, 0, 0);
+    ctx.imageSmoothingEnabled = false;      /* sprites stay pixel art */
     if (region === 'page') {
       SCR_W = pageW; SCR_H = pageH;
       ctx.translate(pageX, pageY);
@@ -156,14 +161,14 @@ const Gfx = (() => {
     if (region === 'page') { SCR_W = pageW; SCR_H = pageH; } else { SCR_W = bw; SCR_H = bh; }
 
     const cw = bw * n, ch = bh * n;
-    if (view.width !== cw || view.height !== ch) { view.width = cw; view.height = ch; }
-    vctx.imageSmoothingEnabled = false;
+    if (view.width !== cw || view.height !== ch) { view.width = cw; view.height = ch; held = 0; }
+    ctx.imageSmoothingEnabled = false;
     const w = cw / dpr, h = ch / dpr;
     view.style.width = w + 'px';
     view.style.height = h + 'px';
     view.style.imageRendering = 'pixelated';
     scale = w / bw;
-    present();
+    sync();
 
     /* Size the touch controls from the room they actually have.  A cluster
        is a stick (or fire button, 0.66 of it) beside a column of two keys,
@@ -588,14 +593,24 @@ const Gfx = (() => {
     return { x: W / 2 + X * iz, y: H / 2 - Y * iz, z: Z };
   }
 
-  function flush() { ctx.putImageData(img, 0, 0); }
-  function context() { return ctx; }
-  /* called once a frame, after the HUD has been drawn on the surface */
-  function present() {
-    if (!vctx) return;
+  /* Hand the rasteriser's buffer to the display.  This is the boundary
+     between the two layers: everything 3D has been drawn by now, everything
+     2D is drawn after it, straight onto the canvas at device resolution.
+     The copy has to escape whatever region is live - it always covers the
+     whole display - so the context is unwound and re-applied around it. */
+  function flush() {
+    sctx.putImageData(img, 0, 0);
+    const r = region;
+    while (held > 0) { ctx.restore(); held--; }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.imageSmoothingEnabled = false;
     /* an exact NxN block copy - the only scaling in the whole pipeline */
-    vctx.drawImage(surface, 0, 0, W, H, 0, 0, W * upscale, H * upscale);
+    ctx.drawImage(surface, 0, 0, W, H, 0, 0, W * upscale, H * upscale);
+    region = r;
+    sync();
   }
+  function context() { return ctx; }
+  function present() { }
 
   return {
     init, resize, screenScale, screenLayout, context, flush, present, clear3D, clearTo, clearGradient, setCamera, setFog, fogColour,
