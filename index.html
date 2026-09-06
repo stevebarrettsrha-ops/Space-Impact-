@@ -26,10 +26,13 @@
   }
   #frame.bare { padding:0; border:0; border-radius:0; box-shadow:none; background:none; }
 
-  /* Sized in JS: always a uniform scale, always exactly 3:4. */
+  /* Sized in JS: always a uniform scale, always exactly 3:4.  The backing
+     store is a whole-number blow-up of the 240x320 surface, and
+     image-rendering is set from JS - pixelated when that lands on the device
+     pixel grid, otherwise auto so the compositor closes the last small gap. */
   canvas#screen {
     display:block; background:#04121b; border-radius:3px; touch-action:none;
-    image-rendering:pixelated; image-rendering:crisp-edges;
+    image-rendering:pixelated;
   }
   #frame.bare canvas#screen { border-radius:0; }
 
@@ -178,6 +181,8 @@
   stick.addEventListener('touchend', end, { passive: false });
   stick.addEventListener('touchcancel', end, { passive: false });
   window.addEventListener('gamelayout', reset);
+  for (const ev of ['fullscreenchange', 'webkitfullscreenchange'])
+    document.addEventListener(ev, () => setTimeout(() => Gfx.resize(), 60));
 })();
 </script>
 </body>
