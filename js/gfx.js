@@ -9,13 +9,23 @@
 const SCR_W = 240, SCR_H = 320;
 
 const Gfx = (() => {
-  let canvas, ctx, img, buf32, zbuf, W = SCR_W, H = SCR_H;
-  let scale = 2;
+  /* The game is drawn on an offscreen 240x320 surface.  Presenting it is a
+     two step affair: the surface is blown up by a whole number into the
+     visible canvas, which is nearest neighbour and therefore exact, and the
+     browser then fits that to the window.  Because every source pixel is
+     already an even NxN block, the last step only has to close a small gap,
+     so the picture fills the window and still reads as pixel art - rather
+     than the ragged 2px-here-3px-there of scaling 240x320 straight to an
+     awkward size. */
+  let view, vctx, surface, ctx, img, buf32, zbuf, W = SCR_W, H = SCR_H;
+  let scale = 2, upscale = 1;
 
   function init(cv) {
-    canvas = cv;
-    canvas.width = W; canvas.height = H;
-    ctx = canvas.getContext('2d', { alpha: false });
+    view = cv;
+    vctx = view.getContext('2d', { alpha: false });
+    surface = document.createElement('canvas');
+    surface.width = W; surface.height = H;
+    ctx = surface.getContext('2d', { alpha: false });
     ctx.imageSmoothingEnabled = false;
     img = ctx.createImageData(W, H);
     buf32 = new Uint32Array(img.data.buffer);
@@ -51,12 +61,12 @@ const Gfx = (() => {
   }
 
   function resize() {
-    if (!canvas) return;
+    if (!view) return;
     const vv = window.visualViewport;
     const vw = Math.max(64, Math.round(vv ? vv.width : window.innerWidth));
     const vh = Math.max(64, Math.round(vv ? vv.height : window.innerHeight));
     const root = document.documentElement;
-    const frame = canvas.parentElement;
+    const frame = view.parentElement;
     const touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
 
     /* on a touch device the controls need room of their own: a band under
@@ -70,15 +80,18 @@ const Gfx = (() => {
     frame.classList.remove('bare');
     let c = chromeOf(frame);
     let availW = vw - c.w - 6, availH = vh - band - c.h - 6;
-    if (Math.min(availW / W, availH / H) < 1.7) {
+    const full = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    if (full || Math.min(availW / W, availH / H) < 1.7) {
       frame.classList.add('bare');
       c = chromeOf(frame);
       availW = vw - c.w; availH = vh - band - c.h;
     }
 
+    /* fill the window; no rounding here, the crispness is bought back by
+       the whole-number upscale into the backing store below */
     let s = Math.min(availW / W, availH / H);
-    if (s >= 2) s = Math.min(MAX_SCALE, Math.floor(s));
     if (!(s > 0)) s = 0.25;
+    if (s > MAX_SCALE) s = MAX_SCALE;
 
     /* one number, both sides: height is kept a multiple of 4 so the width
        divides exactly and the ratio is 3:4 to the pixel */
@@ -89,8 +102,30 @@ const Gfx = (() => {
     const w = h * AW / AH;
 
     scale = w / W;
-    canvas.style.width = w + 'px';
-    canvas.style.height = h + 'px';
+    view.style.width = w + 'px';
+    view.style.height = h + 'px';
+
+    /* Blow the surface up by a whole number first, targeting the real
+       device pixels so the browser is only ever downsampling.  When that
+       lands exactly on the device grid, keep nearest neighbour and the
+       result is pixel perfect; otherwise let the compositor resample. */
+    const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+    const deviceScale = scale * dpr;
+    let n = Math.min(12, Math.max(1, Math.ceil(deviceScale - 0.002)));
+    while (n > 1 && W * n * H * n > 6.5e6) n--;         /* keep the blit cheap */
+    if (n !== upscale || view.width !== W * n) {
+      upscale = n;
+      view.width = W * n; view.height = H * n;
+      vctx = view.getContext('2d', { alpha: false });
+    }
+    vctx.imageSmoothingEnabled = false;                 /* the NxN blow-up is exact */
+    /* downsampling the blown-up surface is what keeps a fractional fit even,
+       so let the compositor filter it; when the backing store is smaller
+       than the device grid there is nothing to filter and nearest stays
+       sharper than a blur */
+    view.style.imageRendering = (deviceScale <= n + 0.002) ? 'auto' : 'pixelated';
+    if (Math.abs(deviceScale - n) < 0.002) view.style.imageRendering = 'pixelated';
+    present();
 
     /* Size the touch controls from the room they actually have.  A cluster
        is a stick (or fire button, 0.66 of it) beside a column of two keys,
@@ -429,9 +464,14 @@ const Gfx = (() => {
 
   function flush() { ctx.putImageData(img, 0, 0); }
   function context() { return ctx; }
+  /* called once a frame, after the HUD has been drawn on the surface */
+  function present() {
+    if (!vctx) return;
+    vctx.drawImage(surface, 0, 0, W, H, 0, 0, W * upscale, H * upscale);
+  }
 
   return {
-    init, resize, screenScale, screenLayout, context, flush, clear3D, clearTo, clearGradient, setCamera, setFog, fogColour,
+    init, resize, screenScale, screenLayout, context, flush, present, clear3D, clearTo, clearGradient, setCamera, setFog, fogColour,
     drawModel, point, project, rotMatrix, W, H,
     get zbuf() { return zbuf; }, get buf32() { return buf32; }
   };

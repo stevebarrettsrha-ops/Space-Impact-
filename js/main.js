@@ -14,7 +14,8 @@ const Input = (() => {
     Escape: 'back', Backspace: 'back',
     Digit1: 'weapon', Digit7: 'autofire', Digit3: 'boost', Digit9: 'autopilot',
     Digit0: 'action', KeyC: 'camera', Digit2: 'throttleUp', Digit8: 'throttleDown',
-    KeyX: 'sell', Tab: 'species', KeyP: 'pause', KeyH: 'help', KeyM: 'map'
+    KeyX: 'sell', Tab: 'species', KeyP: 'pause', KeyH: 'help', KeyM: 'map',
+    KeyF: 'fullscreen'
   };
   let text = '', capture = false;
   function key(e) {
@@ -179,8 +180,10 @@ const Game = (() => {
     requestAnimationFrame(frame);
     const dtms = Math.min(64, ts - last || 16); last = ts;
     const dt = dtms / 16.6667;
+    if (Input.pressed('fullscreen')) toggleFullscreen();
     update(dt);
     render();
+    Gfx.present();
     Input.endFrame();
   }
 
@@ -213,6 +216,15 @@ const Game = (() => {
       case 'travel': renderTravel(); renderOverlay(); break;
       case 'result': renderResult(); break;
     }
+  }
+
+  function toggleFullscreen() {
+    const d = document, el = d.documentElement;
+    const on = d.fullscreenElement || d.webkitFullscreenElement;
+    try {
+      if (on) (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+      else (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+    } catch (e) { }
   }
 
   /* ----------------------------------------------------------------- boot */
@@ -779,7 +791,7 @@ const Game = (() => {
       else if (a === 'save') { World.save(0); World.autosave(); showText(GameData.T(32)); }
       else if (a === 'settings') { mode = 'settings'; settingSel = 0; }
       else if (a === 'help') showText(GameData.T(18) + '\n\n' + GameData.T(19) + '\n' +
-        'Arrows / WASD - steer\nSpace - fire\n1 - switch weapon\n7 - auto fire\n3 - booster\n9 - autopilot\n0 - dock / S.T.R.E.A.M.\n2 / 8 - throttle\nC - camera\nP - pause');
+        'Arrows / WASD - steer\nSpace - fire\n1 - switch weapon\n7 - auto fire\n3 - booster\n9 - autopilot\n0 - dock / S.T.R.E.A.M.\n2 / 8 - throttle\nC - camera\nF - full screen\nP - pause');
       else if (a === 'menu') { World.autosave(); mode = 'mainmenu'; Sfx.music('intro'); }
     }
   }

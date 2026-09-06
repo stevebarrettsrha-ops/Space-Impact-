@@ -45,6 +45,7 @@ atmosphere above and crushing pressure below, trying to make a living with a har
 | 0 | dock / enter S.T.R.E.A.M. — and Help on any station screen |
 | 2 / 8 | throttle up / down |
 | C | camera (chase / cockpit) |
+| F | full screen |
 | P | pause |
 
 On phones and tablets an on-screen stick and buttons appear automatically.
@@ -54,13 +55,23 @@ On phones and tablets an on-screen stick and buttons appear automatically.
 The picture is a fixed 240×320 — the resolution Deep 3D was authored for — and is scaled
 to the window with a single uniform factor, so it can never be stretched. Both sides are
 derived from that one number, so the ratio stays exactly 3:4 rather than drifting a pixel
-either way.
+either way. It fills the window at every size, and is allowed to go under 1× so a short
+window shows the whole screen instead of clipping it.
 
-Once there is room for a whole multiple the scale snaps to an integer and the pixel art
-stays crisp (2× on a laptop, 3× at 1080p, 4× at 1440p, 6× at 4K). Below 2× it scales
-freely so a handset is filled edge to edge, and it is allowed to go under 1× so a short
-window shows the whole screen instead of clipping it. The cabinet around the screen is
-budgeted for, and dropped entirely when the window has no room to spare.
+Filling the window normally means a fractional scale, and scaling 240×320 straight to,
+say, 2.313× leaves pixel blocks 2px wide here and 3px there — visibly ragged on an 11px
+bitmap font. So presenting a frame is two steps. The game is drawn on an offscreen
+240×320 surface; that surface is blown up into the visible canvas by a **whole number**,
+which is nearest-neighbour and therefore exact; and the browser then fits that backing
+store to the window. Because every source pixel is already an even N×N block, the last
+step only closes a small gap — and the blow-up is aimed at the real device pixels, so it
+is always a downsample rather than a blur. On a 1366×768 laptop that is a 3× blow-up
+fitted to 555×740; at 1080p a 4× blow-up fitted to 789×1052; on a HiDPI display the
+factor rises to match. Where the result lands exactly on the device grid, nearest
+neighbour is kept and it is pixel perfect.
+
+`F` toggles full screen, which also drops the cabinet around the screen so the picture
+runs edge to edge.
 
 On a touch device the controls get room of their own rather than sitting on the picture:
 a band beneath the screen in portrait, the side gutters in landscape, with the stick and
