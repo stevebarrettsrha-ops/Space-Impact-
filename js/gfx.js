@@ -155,7 +155,7 @@ const Gfx = (() => {
     const tz = m[8] * px + m[9] * py + m[10] * pz + m[11];
 
     const cx = W / 2, cy2 = H / 2;
-    const amb = opts.ambient === undefined ? 0.42 : opts.ambient;
+    const amb = opts.ambient === undefined ? 0.5 : opts.ambient;
     for (let i = 0; i < n; i++) {
       const x = V[i * 3] * s, y = V[i * 3 + 1] * s, z = V[i * 3 + 2] * s;
       const X = a0 * x + a1 * y + a2 * z + tx;

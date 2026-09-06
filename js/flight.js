@@ -40,6 +40,7 @@ const Flight = (() => {
       autopilot: null,
       camera: 0,                       /* 0 chase, 1 cockpit */
       ents: [], shots: [], fx: [], bubbles: [],
+      snow: [],                        /* marine snow drifting in the beam */
       line: null,                      /* harpoon line */
       target: null,
       msg: [], msgT: 0,
@@ -56,13 +57,20 @@ const Flight = (() => {
       onDone: cfg.onDone || null,
       exitReady: false
     };
-    for (let i = 0; i < 90; i++) S.bubbles.push(newBubble(true));
+    for (let i = 0; i < 60; i++) S.bubbles.push(newBubble(true));
+    for (let i = 0; i < 150; i++) S.snow.push(newSnow());
     buildSector(cfg);
     Sfx.music('flight');
     return S;
   }
   function state() { return S; }
 
+  function newSnow() {
+    return {
+      x: S.px + rnd(-70, 70) * U, y: S.py + rnd(-60, 60) * U, z: S.pz + rnd(-70, 70) * U,
+      s: rnd(2, 5), v: rnd(-120, -40), d: rnd(0, TAU)
+    };
+  }
   function newBubble(spread) {
     return {
       x: S.px + rnd(-30 * U, 30 * U), y: S.py + (spread ? rnd(-30 * U, 30 * U) : -25 * U),
@@ -382,6 +390,7 @@ const Flight = (() => {
     updateEnts(dt);
     updateFx(dt);
     updateBubbles(dt);
+    updateSnow(dt);
     acquireTarget();
 
     if (S.hitFlash > 0) S.hitFlash -= dt;
@@ -748,6 +757,17 @@ const Flight = (() => {
       if (f.t > (f.kind === 'boom' ? 42 : 14)) S.fx.splice(i, 1);
     }
   }
+  function updateSnow(dt) {
+    for (const p of S.snow) {
+      p.d += dt * 0.01;
+      p.y += p.v * dt / 60;
+      p.x += Math.sin(p.d) * 30 * dt / 60;
+      if (Math.abs(p.y - S.py) > 65 * U || Math.hypot(p.x - S.px, p.z - S.pz) > 80 * U) {
+        const n = newSnow();
+        p.x = n.x; p.y = S.py + 60 * U; p.z = n.z; p.s = n.s;
+      }
+    }
+  }
   function updateBubbles(dt) {
     for (const b of S.bubbles) {
       b.y += b.v * dt / 60;
@@ -792,13 +812,13 @@ const Flight = (() => {
 
     /* camera */
     const shake = S.shake > 0 ? S.shake : 0;
-    const back = S.camera === 0 ? 58 * U : 2 * U;
-    const up = S.camera === 0 ? 9 * U : 5 * U;
+    const back = S.camera === 0 ? 76 * U : 2 * U;
+    const up = S.camera === 0 ? 11 * U : 5 * U;
     const f = forward();
     const cx = S.px - f.x * back + rnd(-shake, shake) * 30;
     const cy = S.py - f.y * back + up + rnd(-shake, shake) * 30;
     const cz = S.pz - f.z * back + rnd(-shake, shake) * 30;
-    Gfx.setCamera(cx, cy, cz, S.yaw, S.pitch - (S.camera === 0 ? 0.07 : 0), S.roll * 0.35, 1.02);
+    Gfx.setCamera(cx, cy, cz, S.yaw, S.pitch - (S.camera === 0 ? 0.055 : 0), S.roll * 0.35, 1.02);
 
     /* entities, far first so the painter's order plays nicely with the z buffer */
     const order = S.ents.slice().sort((a, b) =>
@@ -845,8 +865,9 @@ const Flight = (() => {
       }
     }
 
-    /* bubbles */
-    for (const b of S.bubbles) Gfx.point(b.x, b.y, b.z, b.s, 170, 210, 232);
+    /* marine snow, then the boat's own bubble trail */
+    for (const p of S.snow) Gfx.point(p.x, p.y, p.z, p.s, 150, 190, 210);
+    for (const b of S.bubbles) Gfx.point(b.x, b.y, b.z, b.s, 180, 220, 240);
 
     Gfx.flush();
     hud(ctx);
