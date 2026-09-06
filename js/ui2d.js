@@ -139,7 +139,14 @@ const UI = (() => {
     const f = Math.max(0, Math.min(1, frac));
     rect(ctx, x + 1, y + 1, Math.max(0, (w - 2) * f), h - 2, col);
   }
-  function shade(ctx, a) { ctx.fillStyle = 'rgba(2,8,14,' + a + ')'; ctx.fillRect(0, 0, SCR_W, SCR_H); }
+  /* dimming always covers the whole display, not just the page, so a menu
+     over the sector does not leave a bright ring around itself */
+  function shade(ctx, a) {
+    Gfx.pushFull();
+    ctx.fillStyle = 'rgba(2,8,14,' + a + ')';
+    ctx.fillRect(0, 0, SCR_W, SCR_H);
+    Gfx.pop();
+  }
 
   /* soft key bar at the bottom of every screen */
   function softkeys(ctx, left, right, centre) {

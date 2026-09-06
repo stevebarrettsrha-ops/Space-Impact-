@@ -36,9 +36,13 @@ const Station = (() => {
     Font.draw(ctx, title, 4, 3, C.hi);
     if (sub2) Font.drawRight(ctx, sub2, SCR_W - 4, 3, C.gold);
   }
-  const ROW = 15, LIST_Y = 20, LIST_H = SCR_H - 20 - 15;
+  const LIST_Y = 20;
+  /* the list fills whatever is between the header and the soft keys, so it
+     grows with the page instead of assuming the old 320 row screen */
+  function listH() { return SCR_H - LIST_Y - 15; }
   function listView(ctx, items, selIndex, draw, rowH) {
     const ROW = rowH || 15;
+    const LIST_H = listH();
     const rows = Math.floor(LIST_H / ROW);
     if (selIndex < scroll) scroll = selIndex;
     if (selIndex >= scroll + rows) scroll = selIndex - rows + 1;
@@ -226,7 +230,9 @@ const Station = (() => {
       }
     }
     Gfx.flush();
-    ctx.fillStyle = 'rgba(4,16,26,0.55)'; ctx.fillRect(0, 0, SCR_W, SCR_H);
+    /* the orbit fills the whole display behind the console, so the veil has
+       to as well or the page would read as a hole in it */
+    UI.shade(ctx, 0.55);
     header(ctx, st.name, GameData.T(44) + ' ' + st.tech);
     Font.draw(ctx, GameData.T(World.isRebel(st.id) ? 237 : 236), 4, 20,
       World.isRebel(st.id) ? C.good : C.hi);

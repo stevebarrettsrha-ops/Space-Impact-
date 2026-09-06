@@ -388,6 +388,7 @@ const Flight = (() => {
     updateShots(dt);
     updateLine(dt);
     updateEnts(dt);
+    collide(dt);
     updateFx(dt);
     updateBubbles(dt);
     updateSnow(dt);
@@ -476,6 +477,14 @@ const Flight = (() => {
         } else {
           if (Math.hypot(S.px - s.x, S.py - s.y, S.pz - s.z) < 20 * U) { damagePlayer(s.dmg, 'hit'); gone = true; }
         }
+        /* whoever fired it, a bolt stops at the station hull instead of
+           sailing straight through the middle of it */
+        if (!gone && S.station) {
+          const st = S.station;
+          if (Math.hypot(st.x - s.x, st.y - s.y, st.z - s.z) < st.r * 0.78) {
+            sparks(s.x, s.y, s.z); gone = true;
+          }
+        }
       }
       if (gone) {
         if (s.kind === 'torpedo') boom(s.x, s.y, s.z, 1.6);
@@ -548,6 +557,87 @@ const Flight = (() => {
     Sfx.play('pickup');
     toast(GameData.T(10 + 0) && GameData.goodName(e.species));
     if (S.objective === 'fish' && (S.objectiveSpecies === undefined || S.objectiveSpecies === e.species)) progress();
+  }
+
+  /* ------------------------------------------------------------- collision --
+     The boat is a sphere and so is everything solid out there.  Anything it
+     runs into now stops it at the contact point and, if it was moving, costs
+     hull and shakes the cabin.  Without this the sub flew straight through
+     stations, wrecks, ships and whales, which is what made the sector read as
+     a painted backdrop rather than a place. */
+  const PLAYER_R = 9 * U;
+
+  function solidRadius(e) {
+    if (!e || e.dead || !e.r) return 0;
+    switch (e.kind) {
+      case 'gate': return 0;                      /* a ring you fly through */
+      case 'waypoint': return 0;                  /* a marker, not a thing */
+      case 'crate': case 'capsule': return 0;     /* collected, not bumped */
+      case 'mine': return 0;                      /* has its own trigger */
+      case 'fish': {
+        const c = GameData.creatures[e.species];
+        return c && c.algae ? 0 : e.r;            /* kelp bends out of the way */
+      }
+      case 'station': return e.r * 0.78;          /* the hull, inside the bay */
+      default: return e.r;
+    }
+  }
+
+  function collide(dt) {
+    for (let i = 0; i < S.ents.length; i++) {
+      const e = S.ents[i];
+      const er = solidRadius(e);
+      if (!er) continue;
+      const rr = er + PLAYER_R;
+      let dx = S.px - e.x, dy = S.py - e.y, dz = S.pz - e.z;
+      const d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 >= rr * rr) { e.contact = false; continue; }
+      const resting = e.contact === true;      /* already leaning on it */
+      e.contact = true;
+      let d = Math.sqrt(d2);
+      if (d < 1e-3) { dx = 0; dy = 1; dz = 0; d = 1; }
+      const nx = dx / d, ny = dy / d, nz = dz / d;
+      /* put the boat back on the outside of the shell */
+      S.px = e.x + nx * rr; S.py = e.y + ny * rr; S.pz = e.z + nz * rr;
+      /* how hard the nose was driving into it */
+      const closing = -(S.vx * nx + S.vy * ny + S.vz * nz);
+      /* everything but the station gives a little, so a shoal is shouldered
+         aside instead of pinning the player in place */
+      if (e.kind !== 'station') {
+        const back = Math.min(rr * 0.4, 14 * U * dt);
+        e.x -= nx * back; e.y -= ny * back; e.z -= nz * back;
+        if (e.kind === 'fish') { e.panic = Math.max(e.panic, 90); e.hooked = false; }
+        if (e.kind === 'ship' && closing > 0) e.aggro = Math.max(e.aggro || 0, 200);
+      }
+      /* the hit lands once, when the two first touch: scraping along a hull
+         you are already pressed against costs nothing but progress */
+      if (resting || closing <= 200) continue;
+      const mass = e.kind === 'station' ? 1.7 : e.kind === 'ship' ? 1.15
+        : e.kind === 'trash' ? 0.55 : 0.75;
+      const dmg = Math.min(26, (closing / 3600) * mass * 7);
+      if (dmg < 0.5) continue;
+      damagePlayer(dmg, 'hit');
+      S.throttle = Math.min(S.throttle, 0.3);          /* the crash stalls you */
+      S.shake = Math.min(11, S.shake + Math.min(6, dmg));
+      sparks(S.px - nx * PLAYER_R, S.py - ny * PLAYER_R, S.pz - nz * PLAYER_R);
+      /* the other party takes the same knock, unless it is the station */
+      if (e.hp !== undefined && e.hp < 1e8) hitEntity(e, dmg * 0.6, null);
+    }
+    /* traffic keeps out of the station too, so nothing is seen sliding
+       through the hull it is supposed to be docking at */
+    const st = S.station;
+    if (!st) return;
+    const sr = st.r * 0.78;
+    for (let i = 0; i < S.ents.length; i++) {
+      const e = S.ents[i];
+      if (e.dead || e === st || (e.kind !== 'ship' && e.kind !== 'trash')) continue;
+      const rr = sr + (e.r || 0);
+      const dx = e.x - st.x, dy = e.y - st.y, dz = e.z - st.z;
+      const d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 >= rr * rr || d2 < 1e-6) continue;
+      const k = rr / Math.sqrt(d2);
+      e.x = st.x + dx * k; e.y = st.y + dy * k; e.z = st.z + dz * k;
+    }
   }
 
   /* ---------------------------------------------------------------- damage */
@@ -797,7 +887,13 @@ const Flight = (() => {
 
   /* ---------------------------------------------------------------- render */
   const FOG_SHALLOW = [22, 78, 104], FOG_DEEP = [2, 10, 22];
+  /* the sector is full bleed: it pushes its own region so it covers the whole
+     display, whatever page a menu on top of it is using */
   function render(ctx) {
+    Gfx.pushFull();
+    try { renderSector(ctx); } finally { Gfx.pop(); }
+  }
+  function renderSector(ctx) {
     const dm = clamp(S.depth / 9000, 0, 1);
     const fr = Math.round(FOG_SHALLOW[0] + (FOG_DEEP[0] - FOG_SHALLOW[0]) * dm);
     const fg = Math.round(FOG_SHALLOW[1] + (FOG_DEEP[1] - FOG_SHALLOW[1]) * dm);

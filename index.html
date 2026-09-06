@@ -16,25 +16,19 @@
     padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right);
   }
 
-  /* The cabinet around the screen. Gfx.resize() budgets for this padding and
-     strips it (.bare) as soon as the window has no room to spare. */
-  #frame {
-    position:relative; padding:10px; border-radius:10px;
-    background:linear-gradient(160deg,#0d2735,#04121b);
-    box-shadow:0 24px 60px rgba(0,0,0,.8), inset 0 1px 0 rgba(120,200,230,.12);
-    border:1px solid #1b4759;
-  }
+  /* The screen reaches the edges of the window now, so the cabinet around it
+     carries no decoration of its own; the surround the game paints inside the
+     framebuffer takes its place. */
+  #frame { position:relative; }
   #frame.bare { padding:0; border:0; border-radius:0; box-shadow:none; background:none; }
 
-  /* Sized in JS: always a uniform scale, always exactly 3:4.  The backing
-     store is a whole-number blow-up of the 240x320 surface, and
-     image-rendering is set from JS - pixelated when that lands on the device
-     pixel grid, otherwise auto so the compositor closes the last small gap. */
+  /* Sized in JS.  The backing store is exactly (logical x N) device pixels
+     and the CSS box is that divided by the device pixel ratio, so one source
+     pixel lands on a whole number of screen pixels and nothing is resampled. */
   canvas#screen {
-    display:block; background:#04121b; border-radius:3px; touch-action:none;
+    display:block; background:#04121b; touch-action:none;
     image-rendering:pixelated;
   }
-  #frame.bare canvas#screen { border-radius:0; }
 
   #fatal {
     display:none; position:fixed; inset:16px; padding:18px; overflow:auto;
