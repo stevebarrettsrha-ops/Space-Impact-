@@ -123,6 +123,7 @@ const Game = (() => {
 
   async function boot(canvas) {
     Gfx.init(canvas);
+    try { const d = localStorage.getItem('deep.detail'); if (d) Gfx.setDetail(d); } catch (e) { }
     ctx = Gfx.context();
     bootMsg = 'DECODING ASSETS';
     requestAnimationFrame(frame);
@@ -182,8 +183,11 @@ const Game = (() => {
     const dt = dtms / 16.6667;
     if (Input.pressed('fullscreen')) toggleFullscreen();
     update(dt);
+    const t0 = performance.now();
     render();
     Gfx.present();
+    /* what the frame actually cost is what sets the sector's resolution */
+    Gfx.autoScale(performance.now() - t0, dtms);
     Input.endFrame();
   }
 
@@ -813,7 +817,7 @@ const Game = (() => {
   }
 
   /* ------------------------------------------------------------- settings */
-  const SET = [[6, 'music'], [12, 'autofire'], [13, 'invert'], [11, 'lang']];
+  const SET = [[6, 'music'], [12, 'autofire'], [13, 'invert'], ['Detail', 'detail'], [11, 'lang']];
   function openSettings() { mode = 'settings'; settingSel = 0; }
   function updateSettings() {
     const W = World.state();
@@ -826,8 +830,15 @@ const Game = (() => {
       if (a === 'music') { const on = !Sfx.enabled.music; Sfx.setMusic(on); if (W) W.music = on; if (on) Sfx.music(lastMode === 'flight' ? 'flight' : 'station'); }
       else if (a === 'autofire' && W) W.autofire = !W.autofire;
       else if (a === 'invert' && W) W.invert = !W.invert;
+      else if (a === 'detail') cycleDetail();
       else if (a === 'lang') switchLanguage();
     }
+  }
+  const DETAIL = ['auto', 'balanced', 'native'];
+  function cycleDetail() {
+    const next = DETAIL[(DETAIL.indexOf(Gfx.detail) + 1) % DETAIL.length];
+    Gfx.setDetail(next);
+    try { localStorage.setItem('deep.detail', next); } catch (e) { }
   }
   async function switchLanguage() {
     const next = GameData.D.langDir === 'en' ? 'ru' : 'en';
@@ -838,17 +849,19 @@ const Game = (() => {
   function renderSettings() {
     if (World.state()) { if (lastMode === 'flight') Flight.render(ctx); else Station.render(ctx); UI.shade(ctx, 0.75); }
     else { Gfx.clearTo(5, 18, 28); Gfx.flush(); }
-    UI.panel(ctx, 20, 70, SCR_W - 40, 120, GameData.T(3));
+    UI.panel(ctx, 20, 66, SCR_W - 40, 132, GameData.T(3));
     const W = World.state();
     for (let i = 0; i < SET.length; i++) {
-      const y = 92 + i * 20;
+      const y = 88 + i * 20;
       if (i === settingSel) UI.rect(ctx, 26, y - 3, SCR_W - 52, 17, '#0e3145');
-      Font.draw(ctx, GameData.T(SET[i][0]), 32, y, i === settingSel ? UI.COL.hi : UI.COL.text);
+      const label = typeof SET[i][0] === 'number' ? GameData.T(SET[i][0]) : SET[i][0];
+      Font.draw(ctx, label, 32, y, i === settingSel ? UI.COL.hi : UI.COL.text);
       let v = '';
       const a = SET[i][1];
       if (a === 'music') v = GameData.T(Sfx.enabled.music ? 14 : 15);
       else if (a === 'autofire') v = GameData.T(W && W.autofire ? 14 : 15);
       else if (a === 'invert') v = GameData.T(W && W.invert ? 14 : 15);
+      else if (a === 'detail') v = { auto: 'AUTO', balanced: 'BALANCED', native: 'NATIVE' }[Gfx.detail];
       else if (a === 'lang') v = (GameData.D.langDir || 'en').toUpperCase();
       Font.drawRight(ctx, v, SCR_W - 32, y, UI.COL.gold);
     }

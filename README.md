@@ -93,6 +93,31 @@ the screen in portrait, with the stick and buttons sized from the space actually
 available. In landscape the picture now runs edge to edge, so they overlay it at reduced
 opacity, the way a modern handheld game does.
 
+## How much the sector is drawn at
+
+The interface grid and the sector's resolution are two different things. The interface is
+placed on the layout grid described above, near 320 rows, because that is what its
+hand-placed coordinates were drawn for. The sector has no such constraint, so it is
+rasterised at `dw/k` by `dh/k` device pixels for an integer **k** — presenting it stays an
+exact k×k block copy, the cheapest thing a canvas can do, which is what lets a big display
+afford a big buffer at all. **k = 1 is the sector drawn pixel for pixel with the display.**
+
+k starts from a pixel budget and is then walked up or down from the frame times the
+machine actually produces: a step that ran long is not tried again until a periodic
+re-probe, and a step up has to be earned over several windows, so the picture settles
+instead of hunting. Measured here, all at 60fps:
+
+| window | sector buffer | vs. drawing it on the layout grid |
+|---|---|---|
+| 1366×768 | 1365×768 (k=1, native) | 3.0× the linear resolution |
+| 1920×1080 | 960×540 (k=2) | 1.5× |
+| 2560×1440 | 1280×720 (k=2) | 2.5× |
+| 3840×2160 | 548×308 – 640×360 (k=6–7) | up to 1.2× |
+| 390×844 @3× | 390×844 (k=1, native) | 2.0× |
+
+**Settings → Detail** pins it: `AUTO` follows the frame times, `BALANCED` holds the budget
+value, `NATIVE` forces k = 1. The choice is remembered.
+
 ## Rendering for a modern display
 
 Three things changed once the buffer stopped being 240×320.

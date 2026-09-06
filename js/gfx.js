@@ -28,7 +28,15 @@ const Gfx = (() => {
      drawn into the low resolution surface and blown up with it.  sctx exists
      only to push the rasteriser's buffer into that surface. */
   let view, ctx, surface, sctx, img, buf32, zbuf;
+  /* Two grids, deliberately separate.  lw x lh is the layout grid the
+     interface is placed on, and upscale turns it into device pixels.  W x H
+     is what the rasteriser actually draws the sector at, which is picked from
+     what the machine can keep up with rather than from the layout - so the
+     models get the display's detail instead of the interface's coarseness.
+     rsx / rsy convert between the two. */
   let W = SCR_W, H = SCR_H;
+  let lw = SCR_W, lh = SCR_H, rsx = 1, rsy = 1;
+  let rk = 1;                    /* the sector is drawn at 1/rk of the device grid */
   let scale = 1, upscale = 1;
   let pageW = SCR_W, pageH = SCR_H, pageX = 0, pageY = 0;
   let region = 'full';
@@ -61,6 +69,7 @@ const Gfx = (() => {
   function alloc(w, h) {
     if (w === W && h === H && img) return;
     W = w; H = h;
+    rsx = W / lw; rsy = H / lh;
     surface.width = w; surface.height = h;
     sctx.imageSmoothingEnabled = false;
     img = sctx.createImageData(w, h);
@@ -81,7 +90,7 @@ const Gfx = (() => {
       SCR_W = pageW; SCR_H = pageH;
       ctx.translate(pageX, pageY);
       ctx.beginPath(); ctx.rect(0, 0, pageW, pageH); ctx.clip();
-    } else { SCR_W = W; SCR_H = H; }
+    } else { SCR_W = lw; SCR_H = lh; }
   }
   /* A clip cannot be widened again once it is set, so every change unwinds
      the context back to its clean state and re-applies from scratch.  Only
@@ -95,6 +104,73 @@ const Gfx = (() => {
   function pushFull() { rstack.push(region); region = 'full'; sync(); }
   function pop() { region = rstack.pop() || 'full'; sync(); }
   function pageRect() { return { x: pageX, y: pageY, w: pageW, h: pageH }; }
+
+  /* ---------------------------------------------------------- render scale
+     The sector buffer is re-sized from the frame times this machine actually
+     produces: trimmed when a frame runs long, handed back when there is room.
+     Both ends are bounded, and a change has to be worth a reallocation before
+     it is made, so the picture does not breathe. */
+  /* ---------------------------------------------------------- render scale
+     The sector buffer is a whole fraction of the device grid: dw/k by dh/k
+     for an integer k, so presenting it stays an exact k-by-k block copy - the
+     cheapest thing a canvas can do, and the reason a big display can afford a
+     big buffer at all.  k is picked from a pixel budget and then walked up or
+     down from the frame times this machine actually produces, so a fast
+     desktop ends up rasterising at its own resolution and a phone does not
+     grind.  k = 1 is the sector drawn pixel for pixel with the display. */
+  const RENDER_BUDGET = 520000;
+  const K_MAX = 12;
+  let kPinned = false, devPix = [0, 0];
+  let costSum = 0, frameSum = 0, costN = 0;
+  /* hysteresis: a step that turned out to be too slow is not tried again, and
+     a step up has to be earned over several windows, so the picture settles
+     instead of hunting */
+  let fastRun = 0, noBelow = 1, probe = 0;
+
+  function allocRender(dw, dh) {
+    devPix = [dw, dh];
+    alloc(Math.max(120, Math.ceil(dw / rk)), Math.max(120, Math.ceil(dh / rk)));
+  }
+
+  /* Frame interval is the honest signal - it takes in the compositor as well
+     as the rasteriser - but it is pinned to the refresh rate while there is
+     room to spare, so stepping up also asks that the frame itself was cheap. */
+  /* 'auto' lets the frame times decide; the other two pin it, for anyone who
+     would rather have the detail than the headroom or the other way round */
+  let detail = 'auto';
+  function setDetail(m) {
+    detail = (m === 'native' || m === 'balanced') ? m : 'auto';
+    if (detail !== 'auto') {
+      rk = 1;
+      if (detail === 'balanced')
+        while (rk < K_MAX && (devPix[0] / rk) * (devPix[1] / rk) > RENDER_BUDGET) rk++;
+    }
+    noBelow = 1; fastRun = 0; probe = 0;
+    if (devPix[0]) allocRender(devPix[0], devPix[1]);
+  }
+
+  function autoScale(ms, frameMs) {
+    if (detail !== 'auto') return;
+    costSum += ms; frameSum += frameMs || ms; costN++;
+    if (costN < 30) return;
+    const cost = costSum / costN, frame = frameSum / costN;
+    costSum = 0; frameSum = 0; costN = 0;
+    if (probe > 0) probe--;
+    if (frame > 21.5 || cost > 15) {
+      if (rk >= K_MAX) return;
+      rk++; noBelow = rk; fastRun = 0; probe = 24;
+    } else if (frame < 17.6 && cost < 7) {
+      if (++fastRun < 3) return;
+      /* a step that was too slow is retried now and then, in case whatever
+         was competing for the machine has gone away */
+      if (rk <= noBelow) {
+        if (probe > 0 || noBelow <= 1) return;
+        noBelow--;
+      }
+      rk--; fastRun = 0;
+    } else { fastRun = 0; return; }
+    allocRender(devPix[0], devPix[1]);
+  }
 
   function chromeOf(el) {
     const cs = getComputedStyle(el), n = v => parseFloat(v) || 0;
@@ -152,7 +228,21 @@ const Gfx = (() => {
     bw = Math.max(60, Math.floor(devW / n));
     bh = Math.max(60, Math.floor(devH / n));
     upscale = n;
-    alloc(bw, bh);
+    lw = bw; lh = bh;
+
+    /* The sector is rasterised at a share of the device grid rather than at
+       the layout grid, so the models carry the display's detail.  The share
+       starts from a pixel budget and is then trimmed or handed back by
+       autoScale from the frame times actually measured on this machine. */
+    const dw = bw * n, dh = bh * n;
+    if (!kPinned) {
+      rk = 1;
+      if (detail !== 'native')
+        while (rk < K_MAX && (dw / rk) * (dh / rk) > RENDER_BUDGET) rk++;
+      kPinned = true;
+    }
+    if (devPix[0] !== dw || devPix[1] !== dh) { noBelow = 1; fastRun = 0; probe = 0; }
+    allocRender(dw, dh);
 
     pageW = Math.min(bw, Math.round(bh * PAGE_WIDE));
     pageH = Math.min(bh, Math.round(pageW / PAGE_TALL));
@@ -225,7 +315,7 @@ const Gfx = (() => {
   }
   function clearTo(r, g, b) {
     const c = (255 << 24) | (b << 16) | (g << 8) | r;
-    if (region === 'page' && (pageW < W || pageH < H)) {
+    if (region === 'page' && (pageW < lw || pageH < lh)) {
       /* the surround is the same water, further off: it falls away from the
          page and darkens towards the abyss, so the console reads as a lit
          window rather than as a strip of dead black */
@@ -241,26 +331,20 @@ const Gfx = (() => {
           buf32[idx] = (255 << 24) | (((b * k) | 0) << 16) | (((g * k) | 0) << 8) | ((r * k) | 0);
         }
       }
-      for (let y = pageY; y < pageY + pageH; y++) span(c, y, pageX, pageX + pageW);
-      const edge = (255 << 24) | (109 << 16) | (86 << 8) | 33;
-      const glow = (255 << 24) | (58 << 16) | (44 << 8) | 16;
-      span(edge, pageY - 1, pageX - 1, pageX + pageW + 1);
-      span(edge, pageY + pageH, pageX - 1, pageX + pageW + 1);
-      span(glow, pageY - 2, pageX - 2, pageX + pageW + 2);
-      span(glow, pageY + pageH + 1, pageX - 2, pageX + pageW + 2);
-      for (let y = pageY; y < pageY + pageH; y++) {
-        span(edge, y, pageX - 1, pageX);
-        span(edge, y, pageX + pageW, pageX + pageW + 1);
-        span(glow, y, pageX - 2, pageX - 1);
-        span(glow, y, pageX + pageW + 1, pageX + pageW + 2);
-      }
+      const px0 = Math.round(pageX * rsx), py0 = Math.round(pageY * rsy);
+      const px1 = Math.round((pageX + pageW) * rsx), py1 = Math.round((pageY + pageH) * rsy);
+      for (let y = py0; y < py1; y++) span(c, y, px0, px1);
+      /* the frame around it is drawn on the 2D layer instead, where a hairline
+         stays a hairline whatever the sector buffer is being scaled by */
+      framePending = true;
     } else buf32.fill(c);
     zbuf.fill(1e30);
   }
   /* the water column: brighter towards the surface, black towards the abyss */
   function clearGradient(top, bot, horizon) {
+    const hz = horizon * rsy;
     for (let y = 0; y < H; y++) {
-      let t = (y - horizon) / H + 0.5;
+      let t = (y - hz) / H + 0.5;
       t = t < 0 ? 0 : t > 1 ? 1 : t;
       const r = (top[0] + (bot[0] - top[0]) * t) | 0;
       const g = (top[1] + (bot[1] - top[1]) * t) | 0;
@@ -605,7 +689,7 @@ const Gfx = (() => {
     const Z = m[8] * wx + m[9] * wy + m[10] * wz + m[11];
     if (Z < 1) return null;
     const iz = focal / Z;
-    return { x: W / 2 + X * iz, y: H / 2 - Y * iz, z: Z };
+    return { x: (W / 2 + X * iz) / rsx, y: (H / 2 - Y * iz) / rsy, z: Z };
   }
 
   /* Hand the rasteriser's buffer to the display.  This is the boundary
@@ -613,16 +697,33 @@ const Gfx = (() => {
      2D is drawn after it, straight onto the canvas at device resolution.
      The copy has to escape whatever region is live - it always covers the
      whole display - so the context is unwound and re-applied around it. */
+  let framePending = false;
   function flush() {
     sctx.putImageData(img, 0, 0);
     const r = region;
     while (held > 0) { ctx.restore(); held--; }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    /* an exact k-by-k block copy; it may overshoot the canvas by up to k-1
+       device pixels, which the canvas clips */
     ctx.imageSmoothingEnabled = false;
-    /* an exact NxN block copy - the only scaling in the whole pipeline */
-    ctx.drawImage(surface, 0, 0, W, H, 0, 0, W * upscale, H * upscale);
+    ctx.drawImage(surface, 0, 0, W, H, 0, 0, W * rk, H * rk);
     region = r;
     sync();
+    if (framePending) { framePending = false; drawPageFrame(); }
+  }
+  /* the console's edge, at device precision */
+  function drawPageFrame() {
+    const n = upscale;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.strokeStyle = 'rgba(58,110,138,0.95)';
+    ctx.lineWidth = Math.max(1, n * 0.5);
+    ctx.strokeRect(pageX * n - ctx.lineWidth / 2, pageY * n - ctx.lineWidth / 2,
+      pageW * n + ctx.lineWidth, pageH * n + ctx.lineWidth);
+    ctx.strokeStyle = 'rgba(24,58,76,0.9)';
+    ctx.lineWidth = Math.max(1, n * 0.5);
+    ctx.strokeRect(pageX * n - n, pageY * n - n, pageW * n + 2 * n, pageH * n + 2 * n);
+    ctx.restore();
   }
   function context() { return ctx; }
   function present() { }
@@ -630,8 +731,11 @@ const Gfx = (() => {
   return {
     init, resize, screenScale, screenLayout, context, flush, present, clear3D, clearTo, clearGradient, setCamera, setFog, fogColour,
     drawModel, point, project, rotMatrix,
-    pushPage, pushFull, pop, pageRect, setFilter, setLamp,
+    pushPage, pushFull, pop, pageRect, setFilter, setLamp, autoScale, setDetail,
+    get detail() { return detail; },
+    get renderScale() { return 1 / rk; },
     get W() { return W; }, get H() { return H; },
+    get lw() { return lw; }, get lh() { return lh; },
     get zbuf() { return zbuf; }, get buf32() { return buf32; }
   };
 })();
