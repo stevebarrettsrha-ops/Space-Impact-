@@ -4,86 +4,55 @@
    ========================================================================== */
 'use strict';
 
+/* ----------------------------------------------------------------------------
+   Text.  The handset's own 11x16 sheet is a stylised display face - its "a"
+   and "n" are all but the same shape at this size, which makes a menu item
+   guesswork.  Since the 2D layer is now drawn at the display's real
+   resolution rather than into the low resolution surface, text can be set
+   with a proper typeface instead: hinted, anti-aliased and readable, while
+   sprites and the sector stay pixel exact beside it.  The API is unchanged,
+   so every hand-placed coordinate in the interface still lands where it did.
+   -------------------------------------------------------------------------- */
 const Font = (() => {
-  /* The sheet is 176x176: 16 columns of 11px and 11 rows of 16px, holding
-     codes 32..127 followed by the Cyrillic block and a row of accents. */
-  const CW = 11, CH = 16, COLS = 16;
-  let sheet = null, widths = null, top = 0, ink = CH, tints = new Map();
+  const SIZE = 11;
+  const FACE = '600 ' + SIZE + 'px system-ui, "Segoe UI", Roboto, "Helvetica Neue", ' +
+               '"DejaVu Sans", Arial, sans-serif';
+  const SHADOW = 'rgba(1,10,16,0.85)';
+  const widths = new Map();
+  let mc = null;
 
-  function build(img) {
-    sheet = img;
-    const c = document.createElement('canvas');
-    c.width = img.width; c.height = img.height;
-    const x = c.getContext('2d');
-    x.drawImage(img, 0, 0);
-    const d = x.getImageData(0, 0, img.width, img.height).data;
-    const rows = Math.floor(img.height / CH);
-    widths = new Uint8Array(COLS * rows);
-    let minY = CH, maxY = 0;
-    for (let g = 0; g < COLS * rows; g++) {
-      const gx = (g % COLS) * CW, gy = ((g / COLS) | 0) * CH;
-      let w = 0;
-      for (let yy = 0; yy < CH; yy++)
-        for (let xx = 0; xx < CW; xx++)
-          if (d[((gy + yy) * img.width + gx + xx) * 4 + 3] > 0) {
-            if (xx + 1 > w) w = xx + 1;
-            if (yy < minY) minY = yy;
-            if (yy > maxY) maxY = yy;
-          }
-      widths[g] = w || 4;
+  function metrics() {
+    if (!mc) {
+      mc = document.createElement('canvas').getContext('2d');
+      mc.font = FACE;
     }
-    top = minY; ink = maxY - minY + 1;
-    Font.height = ink;
-    tints.clear();
+    return mc;
   }
-
-  function tinted(colour) {
-    let t = tints.get(colour);
-    if (t) return t;
-    const c = document.createElement('canvas');
-    c.width = sheet.width; c.height = sheet.height;
-    const x = c.getContext('2d');
-    x.drawImage(sheet, 0, 0);
-    x.globalCompositeOperation = 'source-in';
-    x.fillStyle = colour;
-    x.fillRect(0, 0, c.width, c.height);
-    tints.set(colour, c);
-    return c;
-  }
-
-  function glyph(ch) {
-    const code = ch.charCodeAt(0);
-    if (code >= 32 && code <= 127) return code - 32;
-    if (code >= 0x410 && code <= 0x44f) return 96 + (code - 0x410);   /* Cyrillic block */
-    if (code === 0xae) return 160;                                    /* (R) */
-    if (code === 0xa9) return 161;                                    /* (C) */
-    if (code === 0x2122) return 162;                                  /* TM  */
-    if (code === 0x2014 || code === 0x2013) return 13;                /* dashes */
-    if (code === 0x2019 || code === 0x2018) return 7;
-    if (code === 0x201c || code === 0x201d) return 2;
-    if (code === 0xfc) return 'u'.charCodeAt(0) - 32;
-    if (code === 0xf6) return 'o'.charCodeAt(0) - 32;
-    if (code === 0xe4) return 'a'.charCodeAt(0) - 32;
-    return 31;                                                        /* '?' */
-  }
+  /* kept so the loader can still hand over the original sheet */
+  function build() { widths.clear(); }
 
   function measure(s) {
-    let w = 0;
-    for (let i = 0; i < s.length; i++) w += widths[glyph(s[i])] + 1;
-    return w ? w - 1 : 0;
+    s = String(s);
+    let w = widths.get(s);
+    if (w === undefined) {
+      w = Math.round(metrics().measureText(s).width);
+      if (widths.size > 4000) widths.clear();
+      widths.set(s, w);
+    }
+    return w;
   }
 
   function draw(ctx, s, x, y, colour) {
-    const sh = tinted(colour || '#ffffff');
-    let cx = Math.round(x);
-    const yy = Math.round(y);
-    for (let i = 0; i < s.length; i++) {
-      const g = glyph(s[i]), w = widths[g];
-      if (s[i] !== ' ')
-        ctx.drawImage(sh, (g % COLS) * CW, ((g / COLS) | 0) * CH + top, CW, ink, cx, yy, CW, ink);
-      cx += w + 1;
-    }
-    return cx - x;
+    s = String(s);
+    ctx.font = FACE;
+    ctx.textBaseline = 'top';
+    /* the original glyphs carried their own outline; a one pixel shadow keeps
+       the same weight against the water without hurting legibility */
+    ctx.fillStyle = SHADOW;
+    ctx.fillText(s, Math.round(x) + 1, Math.round(y));
+    ctx.fillStyle = colour || '#ffffff';
+    ctx.fillText(s, Math.round(x), Math.round(y) - 1);
+    return measure(s);
   }
   function drawCentre(ctx, s, cx, y, colour) { return draw(ctx, s, Math.round(cx - measure(s) / 2), y, colour); }
   function drawRight(ctx, s, rx, y, colour) { return draw(ctx, s, rx - measure(s), y, colour); }
@@ -103,7 +72,7 @@ const Font = (() => {
     return out;
   }
   const height = 11;
-  return { build, draw, drawCentre, drawRight, measure, wrap, height, glyph, tinted };
+  return { build, draw, drawCentre, drawRight, measure, wrap, height };
 })();
 
 const UI = (() => {
@@ -139,7 +108,14 @@ const UI = (() => {
     const f = Math.max(0, Math.min(1, frac));
     rect(ctx, x + 1, y + 1, Math.max(0, (w - 2) * f), h - 2, col);
   }
-  function shade(ctx, a) { ctx.fillStyle = 'rgba(2,8,14,' + a + ')'; ctx.fillRect(0, 0, SCR_W, SCR_H); }
+  /* dimming always covers the whole display, not just the page, so a menu
+     over the sector does not leave a bright ring around itself */
+  function shade(ctx, a) {
+    Gfx.pushFull();
+    ctx.fillStyle = 'rgba(2,8,14,' + a + ')';
+    ctx.fillRect(0, 0, SCR_W, SCR_H);
+    Gfx.pop();
+  }
 
   /* soft key bar at the bottom of every screen */
   function softkeys(ctx, left, right, centre) {

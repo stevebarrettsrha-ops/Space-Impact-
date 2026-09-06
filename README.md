@@ -52,31 +52,74 @@ On phones and tablets an on-screen stick and buttons appear automatically.
 
 ## Fitting the screen
 
-The picture is a fixed 240×320 — the resolution Deep 3D was authored for — and is scaled
-to the window with a single uniform factor, so it can never be stretched. Both sides are
-derived from that one number, so the ratio stays exactly 3:4 rather than drifting a pixel
-either way. It fills the window at every size, and is allowed to go under 1× so a short
-window shows the whole screen instead of clipping it.
+The handset ran at a fixed 240×320. Here the framebuffer follows the window instead of
+the other way round, because a fixed buffer can only ever be *either* sharp *or* full
+screen: a whole-number scale leaves the window unfilled, and a fractional one softens
+every letter.
 
-Filling the window normally means a fractional scale, and scaling 240×320 straight to,
-say, 2.313× leaves pixel blocks 2px wide here and 3px there — visibly ragged on an 11px
-bitmap font. So presenting a frame is two steps. The game is drawn on an offscreen
-240×320 surface; that surface is blown up into the visible canvas by a **whole number**,
-which is nearest-neighbour and therefore exact; and the browser then fits that backing
-store to the window. Because every source pixel is already an even N×N block, the last
-step only closes a small gap — and the blow-up is aimed at the real device pixels, so it
-is always a downsample rather than a blur. On a 1366×768 laptop that is a 3× blow-up
-fitted to 555×740; at 1080p a 4× blow-up fitted to 789×1052; on a HiDPI display the
-factor rises to match. Where the result lands exactly on the device grid, nearest
-neighbour is kept and it is pixel perfect.
+So on every resize the game picks one integer **N** and a logical buffer that tiles the
+display exactly: the canvas backing store is `bufW×N` by `bufH×N` device pixels, the CSS
+box is that divided by the device pixel ratio, and presenting a frame is a plain N×N
+block copy. There is no fractional scaling anywhere in the pipeline, so nothing is ever
+resampled — text, portraits and sprites are pixel exact at any size — and because the
+buffer is chosen from the window, the picture reaches all four edges.
 
-`F` toggles full screen, which also drops the cabinet around the screen so the picture
-runs edge to edge.
+N is aimed at roughly 320 logical rows, so a letter is always about the same share of the
+screen; it is raised if the buffer would cost the software rasteriser more than it can
+afford, and lowered again if a tall narrow window would be left with fewer columns than
+the interface was drawn for. A very dense display has its target halved rather than
+blitting fifteen million pixels a frame — the ratio stays whole, so the browser's own
+upscale is still exact.
 
-On a touch device the controls get room of their own rather than sitting on the picture:
-a band beneath the screen in portrait, the side gutters in landscape, with the stick and
-buttons sized from the space actually available. They only overlay the picture — and then
-at reduced opacity — when there is nowhere else for them to go.
+| window | buffer | backing store | logical |
+|---|---|---|---|
+| 1366×768 | ×3 | 1365×768 | 455×256 |
+| 1920×1080 | ×3 | 1920×1080 | 640×360 |
+| 2560×1440 | ×5 | 2560×1440 | 512×288 |
+| 3840×2160 | ×7 | 3836×2156 | 548×308 |
+| 390×844 @3× (portrait, touch band) | ×5 | 1170×1970 | 234×394 |
+
+The sector is drawn full bleed, so the water and the boat use the whole display. The 2D
+screens — menus, the station, conversations — are laid out inside a centred **page** kept
+near the proportions they were drawn for, with the surround painted as the same water
+further off. Everything reads `SCR_W` / `SCR_H`, which report the page while a screen is
+being drawn and the whole buffer while the sector is, so the hand-placed coordinates of
+the original interface still land where they should.
+
+`F` toggles full screen.
+
+On a touch device the controls get room of their own where there is any: a band beneath
+the screen in portrait, with the stick and buttons sized from the space actually
+available. In landscape the picture now runs edge to edge, so they overlay it at reduced
+opacity, the way a modern handheld game does.
+
+## Rendering for a modern display
+
+Three things changed once the buffer stopped being 240×320.
+
+* **Solid surfaces are sampled bilinearly.** The atlases pack many sprites side by side,
+  so the four taps are clamped to each polygon's own texel box — it smooths a hull or a
+  rock face without ever fetching a neighbour's art. Cut-outs and glows stay on nearest:
+  filtering a keyed edge would drag the key colour into the picture.
+* **Text is set at the display's real resolution.** The 2D layer is drawn straight onto
+  the visible canvas with the logical grid as a transform, rather than into the low
+  resolution surface and blown up with it. That let the handset's own 11x16 display face
+  go: at this size its "a" and "n" are near enough the same shape that a menu item is
+  guesswork. Menus, the HUD and the conversations are now set in a hinted, anti-aliased
+  interface face — with the one pixel shadow the original glyphs carried built in, so it
+  still holds up over the water — while sprites, portraits and the sector stay pixel
+  exact beside it. The measuring, wrapping and drawing API did not change, so every
+  hand-placed coordinate in the interface still lands where it did.
+* **Particles are round and blended.** Bubbles, marine snow and sparks were flat squares
+  of solid colour; at modern resolutions they read as confetti. They are now soft discs
+  composited over what is behind them.
+* **Everything solid collides.** The boat is a sphere and so is every station, wreck,
+  ship and whale; running into one stops the boat at the contact point, costs hull in
+  proportion to how hard the nose was driving in, and stalls the throttle. The hit lands
+  once, on contact, so scraping along a hull you are already pressed against costs
+  nothing but progress. Kelp, gates and waypoints are deliberately not solid — you swim
+  through the first and fly through the others. Traffic is kept out of the station hull,
+  and bolts stop at it instead of sailing through the middle.
 
 ## Running
 
@@ -142,7 +185,7 @@ rather than tint it, so no halo is left behind.
 `en/` mirrors `ru/` exactly: 52 files, 1,049 strings, in the same
 `DataOutputStream.writeUTF` record format (2-byte big-endian length + UTF-8), index for
 index. English is the default; the Russian pack is still selectable from
-**System → Settings → Language**, and the bitmap font carries both alphabets.
+**System → Settings → Language**, and the interface face covers both alphabets.
 
 Reload times for weapons are the one thing not stored numerically in `equipment.txt` — the
 item descriptions state them in words ("long reload", "improved", "short"), so they are
@@ -155,7 +198,7 @@ index.html        shell, styling, touch controls
 js/assets.js      de-obfuscation and the PNG / BMP / .lang loaders
 js/model.js       Mascot Capsule Micro3D v3 (.mbac) parser
 js/gfx.js         software rasteriser, depth fog, projection
-js/ui2d.js        the original bitmap font and the UI widgets
+js/ui2d.js        text, the UI widgets and the portrait compositor
 js/data.js        the txt/ tables and language lookups
 js/world.js       player, ship, economy, job board, medals, saves
 js/audio.js       WebAudio sound design (the AMR/MIDI cues cannot be decoded in a browser)

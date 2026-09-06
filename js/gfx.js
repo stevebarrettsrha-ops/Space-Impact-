@@ -1,33 +1,52 @@
 /* ============================================================================
    Software renderer: bitmap font, sprite blitting and a perspective correct
-   z-buffered triangle rasteriser with depth fog.  The internal framebuffer is
-   240x320 - the resolution Deep 3D was authored for - and is scaled up with
-   nearest neighbour so the original pixel art stays crisp.
+   z-buffered triangle rasteriser with depth fog.  The framebuffer follows the
+   window rather than the other way round, and is presented with a whole
+   number block copy, so the picture fills the display and stays exact.
    ========================================================================== */
 'use strict';
 
-const SCR_W = 240, SCR_H = 320;
+/* The logical framebuffer.  On the handset this was a fixed 240x320; here it
+   is re-chosen on every resize so one logical pixel is a whole number of
+   device pixels and the buffer covers the whole window.  Nothing is ever
+   resampled, which is what keeps letters and sprites sharp, and the picture
+   is as large as the display allows.  The 2D screens are laid out inside a
+   centred "page" of roughly the original proportions so their design still
+   reads on a wide monitor, while the sector fills the glass edge to edge. */
+let SCR_W = 240, SCR_H = 320;
 
 const Gfx = (() => {
-  /* The game is drawn on an offscreen 240x320 surface.  Presenting it is a
-     two step affair: the surface is blown up by a whole number into the
-     visible canvas, which is nearest neighbour and therefore exact, and the
-     browser then fits that to the window.  Because every source pixel is
-     already an even NxN block, the last step only has to close a small gap,
-     so the picture fills the window and still reads as pixel art - rather
-     than the ragged 2px-here-3px-there of scaling 240x320 straight to an
-     awkward size. */
-  let view, vctx, surface, ctx, img, buf32, zbuf, W = SCR_W, H = SCR_H;
-  let scale = 2, upscale = 1;
+  const TARGET_H = 320;          /* logical rows we aim for */
+  const MAX_PIXELS = 250000;     /* what the software rasteriser can afford */
+  const MAX_DEVICE = 9.5e6;      /* and what the compositor will blit for free */
+  const MIN_COLS = 200;          /* fewest logical columns the layout wants */
+  const PAGE_WIDE = 1.0;         /* widest a 2D page is allowed to get */
+  const PAGE_TALL = 0.62;        /* and the tallest */
 
+  /* ctx is the 2D layer and lives on the visible canvas at its full device
+     resolution, so text is set by the browser at native size instead of being
+     drawn into the low resolution surface and blown up with it.  sctx exists
+     only to push the rasteriser's buffer into that surface. */
+  let view, ctx, surface, sctx, img, buf32, zbuf;
+  let W = SCR_W, H = SCR_H;
+  let scale = 1, upscale = 1;
+  let pageW = SCR_W, pageH = SCR_H, pageX = 0, pageY = 0;
+  let region = 'full';
+  const rstack = [];
+  let held = 0;                  /* saved context levels we own */
+  let layout = 'desktop';
+
+  /* ---------------------------------------------------------------- setup */
   function init(cv) {
     view = cv;
-    vctx = view.getContext('2d', { alpha: false });
+    /* both contexts are handed out once and kept for the life of the game;
+       their canvases are only ever resized, never re-created */
+    ctx = view.getContext('2d', { alpha: false });
     surface = document.createElement('canvas');
     surface.width = W; surface.height = H;
-    ctx = surface.getContext('2d', { alpha: false });
-    ctx.imageSmoothingEnabled = false;
-    img = ctx.createImageData(W, H);
+    sctx = surface.getContext('2d', { alpha: false });
+    sctx.imageSmoothingEnabled = false;
+    img = sctx.createImageData(W, H);
     buf32 = new Uint32Array(img.data.buffer);
     zbuf = new Float32Array(W * H);
     resize();
@@ -38,19 +57,44 @@ const Gfx = (() => {
       window.visualViewport.addEventListener('scroll', resize);
     }
   }
-  /* --------------------------------------------------------------------
-     Fitting the 240x320 screen to the window.
 
-     The scale is always uniform, so the picture can never be stretched, and
-     both sides are derived from one number so the ratio stays exactly 3:4
-     instead of drifting by a pixel.  Once there is room for a whole multiple
-     the scale snaps to an integer and the art stays crisp; below that it
-     scales freely so a handset is still filled, and it is allowed to go
-     under 1x so the game fits a short window rather than being clipped.
-     -------------------------------------------------------------------- */
-  const AW = 3, AH = 4;                          /* 240x320 reduced */
-  const MAX_SCALE = 8;
-  let layout = 'desktop';
+  function alloc(w, h) {
+    if (w === W && h === H && img) return;
+    W = w; H = h;
+    surface.width = w; surface.height = h;
+    sctx.imageSmoothingEnabled = false;
+    img = sctx.createImageData(w, h);
+    buf32 = new Uint32Array(img.data.buffer);
+    zbuf = new Float32Array(w * h);
+  }
+
+  /* ------------------------------------------------------------- regions --
+     Everything is drawn either full bleed (the sector, the HUD) or inside the
+     page (menus, the station, dialogue boxes).  Pushing a region sets the 2D
+     transform, a clip and the SCR_W / SCR_H the layout code reads, so the
+     screens keep their hand-placed coordinates whatever the window is. */
+  function applyRegion() {
+    /* logical units in, device pixels out */
+    ctx.setTransform(upscale, 0, 0, upscale, 0, 0);
+    ctx.imageSmoothingEnabled = false;      /* sprites stay pixel art */
+    if (region === 'page') {
+      SCR_W = pageW; SCR_H = pageH;
+      ctx.translate(pageX, pageY);
+      ctx.beginPath(); ctx.rect(0, 0, pageW, pageH); ctx.clip();
+    } else { SCR_W = W; SCR_H = H; }
+  }
+  /* A clip cannot be widened again once it is set, so every change unwinds
+     the context back to its clean state and re-applies from scratch.  Only
+     one region is ever live, so a single saved level is enough. */
+  function sync() {
+    while (held > 0) { ctx.restore(); held--; }
+    ctx.save(); held = 1;
+    applyRegion();
+  }
+  function pushPage() { rstack.push(region); region = 'page'; sync(); }
+  function pushFull() { rstack.push(region); region = 'full'; sync(); }
+  function pop() { region = rstack.pop() || 'full'; sync(); }
+  function pageRect() { return { x: pageX, y: pageY, w: pageW, h: pageH }; }
 
   function chromeOf(el) {
     const cs = getComputedStyle(el), n = v => parseFloat(v) || 0;
@@ -60,6 +104,13 @@ const Gfx = (() => {
     };
   }
 
+  /* --------------------------------------------------------------- fitting
+     One integer N is picked so that N logical pixels tile the display grid
+     exactly: the backing store is (bufW*N) x (bufH*N) device pixels, the CSS
+     box is that divided by the device pixel ratio, and the blit from the
+     surface is a clean NxN block copy.  No fractional scaling anywhere, so
+     nothing is ever blurred - and because the logical size follows the window
+     instead of the other way round, the game fills the screen. */
   function resize() {
     if (!view) return;
     const vv = window.visualViewport;
@@ -75,57 +126,49 @@ const Gfx = (() => {
     const band = layout === 'portrait'
       ? Math.round(Math.min(190, Math.max(96, vh * 0.22))) : 0;
 
-    /* the frame's own padding and border come out of the budget, and are
-       dropped altogether when there is no room to spare for decoration */
-    frame.classList.remove('bare');
-    let c = chromeOf(frame);
-    let availW = vw - c.w - 6, availH = vh - band - c.h - 6;
-    const full = !!(document.fullscreenElement || document.webkitFullscreenElement);
-    if (full || Math.min(availW / W, availH / H) < 1.7) {
-      frame.classList.add('bare');
-      c = chromeOf(frame);
-      availW = vw - c.w; availH = vh - band - c.h;
-    }
+    /* the picture now reaches the edges, so the frame keeps no decoration */
+    frame.classList.add('bare');
+    const c = chromeOf(frame);
+    const availW = Math.max(120, vw - c.w), availH = Math.max(160, vh - band - c.h);
 
-    /* fill the window; no rounding here, the crispness is bought back by
-       the whole-number upscale into the backing store below */
-    let s = Math.min(availW / W, availH / H);
-    if (!(s > 0)) s = 0.25;
-    if (s > MAX_SCALE) s = MAX_SCALE;
+    /* A very dense display can ask for more pixels than a canvas blit wants
+       to move; halving the target keeps the ratio a whole number, so the
+       browser's own upscale is still an exact block copy. */
+    const real = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+    let dpr = real;
+    while (dpr > 0.3 && availW * dpr * availH * dpr > MAX_DEVICE) dpr /= 2;
+    const devW = Math.max(120, Math.floor(availW * dpr));
+    const devH = Math.max(160, Math.floor(availH * dpr));
 
-    /* one number, both sides: height is kept a multiple of 4 so the width
-       divides exactly and the ratio is 3:4 to the pixel */
-    let h = Math.max(AH, Math.round(H * s / AH) * AH);
-    const capW = Math.floor(availW * AH / AW / AH) * AH;
-    const capH = Math.floor(availH / AH) * AH;
-    h = Math.max(AH, Math.min(h, capW, capH));
-    const w = h * AW / AH;
+    let n = Math.max(1, Math.min(10, Math.round(devH / TARGET_H)));
+    while (n < 16 && (devW / n) * (devH / n) > MAX_PIXELS) n++;
+    /* a tall narrow window would otherwise be left with fewer columns than
+       the interface was drawn for, so trade a little sharpness back for room */
+    while (n > 1 && devW / n < MIN_COLS && (devW / (n - 1)) * (devH / (n - 1)) <= MAX_PIXELS) n--;
+    let bw = Math.max(120, Math.floor(devW / n));
+    let bh = Math.max(120, Math.floor(devH / n));
+    /* the minimums must never push the backing store past the window */
+    n = Math.max(1, Math.min(n, Math.floor(devW / bw) || 1, Math.floor(devH / bh) || 1));
+    bw = Math.max(60, Math.floor(devW / n));
+    bh = Math.max(60, Math.floor(devH / n));
+    upscale = n;
+    alloc(bw, bh);
 
-    scale = w / W;
+    pageW = Math.min(bw, Math.round(bh * PAGE_WIDE));
+    pageH = Math.min(bh, Math.round(pageW / PAGE_TALL));
+    pageX = (bw - pageW) >> 1;
+    pageY = (bh - pageH) >> 1;
+    if (region === 'page') { SCR_W = pageW; SCR_H = pageH; } else { SCR_W = bw; SCR_H = bh; }
+
+    const cw = bw * n, ch = bh * n;
+    if (view.width !== cw || view.height !== ch) { view.width = cw; view.height = ch; held = 0; }
+    ctx.imageSmoothingEnabled = false;
+    const w = cw / dpr, h = ch / dpr;
     view.style.width = w + 'px';
     view.style.height = h + 'px';
-
-    /* Blow the surface up by a whole number first, targeting the real
-       device pixels so the browser is only ever downsampling.  When that
-       lands exactly on the device grid, keep nearest neighbour and the
-       result is pixel perfect; otherwise let the compositor resample. */
-    const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
-    const deviceScale = scale * dpr;
-    let n = Math.min(12, Math.max(1, Math.ceil(deviceScale - 0.002)));
-    while (n > 1 && W * n * H * n > 6.5e6) n--;         /* keep the blit cheap */
-    if (n !== upscale || view.width !== W * n) {
-      upscale = n;
-      view.width = W * n; view.height = H * n;
-      vctx = view.getContext('2d', { alpha: false });
-    }
-    vctx.imageSmoothingEnabled = false;                 /* the NxN blow-up is exact */
-    /* downsampling the blown-up surface is what keeps a fractional fit even,
-       so let the compositor filter it; when the backing store is smaller
-       than the device grid there is nothing to filter and nearest stays
-       sharper than a blur */
-    view.style.imageRendering = (deviceScale <= n + 0.002) ? 'auto' : 'pixelated';
-    if (Math.abs(deviceScale - n) < 0.002) view.style.imageRendering = 'pixelated';
-    present();
+    view.style.imageRendering = 'pixelated';
+    scale = w / bw;
+    sync();
 
     /* Size the touch controls from the room they actually have.  A cluster
        is a stick (or fire button, 0.66 of it) beside a column of two keys,
@@ -172,8 +215,46 @@ const Gfx = (() => {
     buf32.fill(fogPacked);
     zbuf.fill(1e30);
   }
+  /* Filling the screen honours the current region: inside a page the surround
+     gets a darker wash of the same colour and a hairline edge, so a menu on a
+     wide monitor reads as a lit panel rather than a stripe of nothing. */
+  function span(c, y, x0, x1) {
+    if (y < 0 || y >= H) return;
+    const a = x0 < 0 ? 0 : x0, b2 = x1 > W ? W : x1;
+    if (b2 > a) buf32.fill(c, y * W + a, y * W + b2);
+  }
   function clearTo(r, g, b) {
-    buf32.fill((255 << 24) | (b << 16) | (g << 8) | r);
+    const c = (255 << 24) | (b << 16) | (g << 8) | r;
+    if (region === 'page' && (pageW < W || pageH < H)) {
+      /* the surround is the same water, further off: it falls away from the
+         page and darkens towards the abyss, so the console reads as a lit
+         window rather than as a strip of dead black */
+      const cx = W * 0.5, cy = H * 0.5, dmax = Math.hypot(cx, cy) || 1;
+      for (let y = 0; y < H; y++) {
+        const dy = (y - cy) / dmax;
+        const lift = 0.62 + 0.38 * (1 - y / (H - 1 || 1));
+        let idx = y * W;
+        for (let x = 0; x < W; x++, idx++) {
+          const dx = (x - cx) / dmax;
+          let k = (0.66 - 0.52 * Math.sqrt(dx * dx + dy * dy)) * lift;
+          if (k < 0.05) k = 0.05;
+          buf32[idx] = (255 << 24) | (((b * k) | 0) << 16) | (((g * k) | 0) << 8) | ((r * k) | 0);
+        }
+      }
+      for (let y = pageY; y < pageY + pageH; y++) span(c, y, pageX, pageX + pageW);
+      const edge = (255 << 24) | (109 << 16) | (86 << 8) | 33;
+      const glow = (255 << 24) | (58 << 16) | (44 << 8) | 16;
+      span(edge, pageY - 1, pageX - 1, pageX + pageW + 1);
+      span(edge, pageY + pageH, pageX - 1, pageX + pageW + 1);
+      span(glow, pageY - 2, pageX - 2, pageX + pageW + 2);
+      span(glow, pageY + pageH + 1, pageX - 2, pageX + pageW + 2);
+      for (let y = pageY; y < pageY + pageH; y++) {
+        span(edge, y, pageX - 1, pageX);
+        span(edge, y, pageX + pageW, pageX + pageW + 1);
+        span(glow, y, pageX - 2, pageX - 1);
+        span(glow, y, pageX + pageW + 1, pageX + pageW + 2);
+      }
+    } else buf32.fill(c);
     zbuf.fill(1e30);
   }
   /* the water column: brighter towards the surface, black towards the abyss */
@@ -249,6 +330,8 @@ const Gfx = (() => {
   }
 
   const KEY = 30;                      /* r+g+b at or below this is black */
+  let filter = true;                   /* bilinear sampling on solid surfaces */
+  function setFilter(v) { filter = !!v; }
   const LIGHT = [0.35, 0.75, -0.55];
   (function () {
     const l = Math.hypot(LIGHT[0], LIGHT[1], LIGHT[2]);
@@ -333,6 +416,7 @@ const Gfx = (() => {
 
     const dy02 = y2 - y0 || 1e-6, dy01 = y1 - y0 || 1e-6, dy12 = y2 - y1 || 1e-6;
     const texW = tex ? tex.w : 0, texH = tex ? tex.h : 0, td = tex ? tex.data : null;
+    const mw = texW - 1, mh = texH - 1;
     /* 0 opaque, 1 black cut out, 2 black cut out and added as light */
     const mode = opts.additive ? 2 : (T.blend | 0);
     const additive = mode === 2;
@@ -341,6 +425,22 @@ const Gfx = (() => {
     const noFog = !!opts.noFog;
     const alphaMul = opts.alpha === undefined ? 1 : opts.alpha;
     const flat = opts.flatColour;
+    /* Solid surfaces are sampled bilinearly.  The atlases pack many sprites
+       side by side, so the four taps are clamped to the polygon's own texel
+       box - it smooths the surface without ever fetching a neighbour's art.
+       Cut-outs and glows stay on nearest: filtering a keyed edge would drag
+       the key colour into the picture. */
+    const smooth = filter && mode === 0 && td && !flat;
+    let bu0 = 0, bu1 = 0, bv0 = 0, bv1 = 0;
+    if (smooth) {
+      if (T.bu0 === undefined) {
+        const a1 = Math.min(T.ua, T.ub, T.uc), a2 = Math.max(T.ua, T.ub, T.uc);
+        const b1 = Math.min(T.va, T.vb, T.vc), b2 = Math.max(T.va, T.vb, T.vc);
+        T.bu0 = Math.floor(a1); T.bu1 = Math.max(T.bu0, Math.ceil(a2) - 1);
+        T.bv0 = Math.floor(b1); T.bv1 = Math.max(T.bv0, Math.ceil(b2) - 1);
+      }
+      bu0 = T.bu0; bu1 = T.bu1; bv0 = T.bv0; bv1 = T.bv1;
+    }
 
     for (let y = yStart; y <= yEnd; y++) {
       const ty = (y + 0.5);
@@ -374,6 +474,23 @@ const Gfx = (() => {
         if (z >= zbuf[idx]) continue;
         let r, g, b;
         if (flat) { r = flat[0]; g = flat[1]; b = flat[2]; }
+        else if (smooth) {
+          const fu = u * z - 0.5, fv = v * z - 0.5;
+          const iu = Math.floor(fu), iv = Math.floor(fv);
+          const au = fu - iu, av = fv - iv;
+          let ua2 = iu < bu0 ? bu0 : iu > bu1 ? bu1 : iu;
+          let ub2 = iu + 1 < bu0 ? bu0 : iu + 1 > bu1 ? bu1 : iu + 1;
+          let va2 = iv < bv0 ? bv0 : iv > bv1 ? bv1 : iv;
+          let vb2 = iv + 1 < bv0 ? bv0 : iv + 1 > bv1 ? bv1 : iv + 1;
+          ua2 &= mw; ub2 &= mw;
+          va2 = (va2 & mh) * texW; vb2 = (vb2 & mh) * texW;
+          const pa = (va2 + ua2) << 2, pb = (va2 + ub2) << 2;
+          const pc = (vb2 + ua2) << 2, pd = (vb2 + ub2) << 2;
+          const k11 = au * av, k01 = (1 - au) * av, k10 = au * (1 - av), k00 = (1 - au) * (1 - av);
+          r = td[pa] * k00 + td[pb] * k10 + td[pc] * k01 + td[pd] * k11;
+          g = td[pa + 1] * k00 + td[pb + 1] * k10 + td[pc + 1] * k01 + td[pd + 1] * k11;
+          b = td[pa + 2] * k00 + td[pb + 2] * k10 + td[pc + 2] * k01 + td[pd + 2] * k11;
+        }
         else {
           const tu = (u * z) | 0, tv = (v * z) | 0;
           const p = (((tv & (texH - 1)) * texW) + (tu & (texW - 1))) << 2;
@@ -423,7 +540,11 @@ const Gfx = (() => {
     }
   }
 
-  /* point sprite / particle -------------------------------------------- */
+  /* point sprite / particle ---------------------------------------------
+     Bubbles, marine snow and sparks used to be flat squares of solid colour.
+     They are now round, soft edged and blended over what is behind them, so
+     at the resolutions a modern display asks for they read as motes in the
+     beam rather than as chunks of confetti. */
   function point(wx, wy, wz, size, r, g, b, fade) {
     const m = camM;
     const X = m[0] * wx + m[1] * wy + m[2] * wz + m[3];
@@ -431,23 +552,33 @@ const Gfx = (() => {
     const Z = m[8] * wx + m[9] * wy + m[10] * wz + m[11];
     if (Z < 8) return;
     const iz = focal / Z;
-    const px = (W / 2 + X * iz) | 0, py = (H / 2 - Y * iz) | 0;
-    let s = Math.max(1, (size * iz) | 0);
-    if (s > 40) s = 40;
+    const cxp = W / 2 + X * iz, cyp = H / 2 - Y * iz;
+    let s = size * iz;
+    if (s < 1) s = 1; else if (s > 64) s = 64;
     let f = 1;
     if (fade !== false) {
       f = 1 - (Z - fogNear) / (fogFar - fogNear);
       if (f <= 0) return; if (f > 1) f = 1;
     }
-    const rr = r * f + fogR * (1 - f), gg = g * f + fogG * (1 - f), bb = b * f + fogB * (1 - f);
-    const col = 0xff000000 | (bb << 16) | (gg << 8) | rr;
-    const h = s >> 1;
-    for (let y = py - h; y <= py - h + s - 1; y++) {
-      if (y < 0 || y >= H) continue;
-      for (let x = px - h; x <= px - h + s - 1; x++) {
-        if (x < 0 || x >= W) continue;
-        const idx = y * W + x;
-        if (Z < zbuf[idx]) buf32[idx] = col;
+    const rad = s * 0.5, inv = 1 / (rad * rad);
+    const x0 = Math.max(0, Math.floor(cxp - rad)), x1 = Math.min(W - 1, Math.ceil(cxp + rad));
+    const y0 = Math.max(0, Math.floor(cyp - rad)), y1 = Math.min(H - 1, Math.ceil(cyp + rad));
+    for (let y = y0; y <= y1; y++) {
+      const dy = y + 0.5 - cyp;
+      let idx = y * W + x0;
+      for (let x = x0; x <= x1; x++, idx++) {
+        const dx = x + 0.5 - cxp;
+        const q = (dx * dx + dy * dy) * inv;
+        if (q >= 1) continue;
+        if (Z >= zbuf[idx]) continue;
+        /* solid core, falling away to nothing at the rim */
+        let k = f * (1 - q * q);
+        if (k <= 0.004) continue;
+        if (k > 1) k = 1;
+        const o = buf32[idx];
+        const or2 = o & 255, og = (o >> 8) & 255, ob = (o >> 16) & 255;
+        const rr = or2 + (r - or2) * k, gg = og + (g - og) * k, bb = ob + (b - ob) * k;
+        buf32[idx] = 0xff000000 | ((bb | 0) << 16) | ((gg | 0) << 8) | (rr | 0);
       }
     }
   }
@@ -462,17 +593,30 @@ const Gfx = (() => {
     return { x: W / 2 + X * iz, y: H / 2 - Y * iz, z: Z };
   }
 
-  function flush() { ctx.putImageData(img, 0, 0); }
-  function context() { return ctx; }
-  /* called once a frame, after the HUD has been drawn on the surface */
-  function present() {
-    if (!vctx) return;
-    vctx.drawImage(surface, 0, 0, W, H, 0, 0, W * upscale, H * upscale);
+  /* Hand the rasteriser's buffer to the display.  This is the boundary
+     between the two layers: everything 3D has been drawn by now, everything
+     2D is drawn after it, straight onto the canvas at device resolution.
+     The copy has to escape whatever region is live - it always covers the
+     whole display - so the context is unwound and re-applied around it. */
+  function flush() {
+    sctx.putImageData(img, 0, 0);
+    const r = region;
+    while (held > 0) { ctx.restore(); held--; }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    /* an exact NxN block copy - the only scaling in the whole pipeline */
+    ctx.drawImage(surface, 0, 0, W, H, 0, 0, W * upscale, H * upscale);
+    region = r;
+    sync();
   }
+  function context() { return ctx; }
+  function present() { }
 
   return {
     init, resize, screenScale, screenLayout, context, flush, present, clear3D, clearTo, clearGradient, setCamera, setFog, fogColour,
-    drawModel, point, project, rotMatrix, W, H,
+    drawModel, point, project, rotMatrix,
+    pushPage, pushFull, pop, pageRect, setFilter,
+    get W() { return W; }, get H() { return H; },
     get zbuf() { return zbuf; }, get buf32() { return buf32; }
   };
 })();

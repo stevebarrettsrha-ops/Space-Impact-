@@ -203,6 +203,10 @@ const Game = (() => {
     }
   }
   function render() {
+    /* Every 2D screen is laid out inside the centred page; the sector pushes
+       its own full bleed region while it draws, then hands the page back for
+       whatever conversation or menu is sitting on top of it. */
+    Gfx.pushPage();
     switch (mode) {
       case 'boot': renderBoot(); break;
       case 'splash': renderSplash(); break;
@@ -216,6 +220,7 @@ const Game = (() => {
       case 'travel': renderTravel(); renderOverlay(); break;
       case 'result': renderResult(); break;
     }
+    Gfx.pop();
   }
 
   function toggleFullscreen() {
@@ -356,7 +361,7 @@ const Game = (() => {
       for (let k = -4; k <= 4; k++) {
         if (!k) continue;
         const id = (newGame.face + k + 1000) % 1000;
-        Portrait.draw(ctx, id, SCR_W / 2 - 20 + k * 26 - 4, 148, 26);
+        Portrait.draw(ctx, id, SCR_W / 2 - 13 + k * 26, 148, 26);
       }
       Font.drawCentre(ctx, GameData.T(302), SCR_W / 2, 190, UI.COL.dim);
       Font.drawCentre(ctx, newGame.name, SCR_W / 2, SCR_H - 40, UI.COL.gold);
