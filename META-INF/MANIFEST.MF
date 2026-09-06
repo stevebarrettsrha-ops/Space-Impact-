@@ -1,0 +1,12 @@
+Manifest-Version: 1.0
+Ant-Version: Apache Ant 1.6.5
+Created-By: 1.5.0_06-b05 (Sun Microsystems Inc.)
+MIDlet-1: Deep 3D sefan.ru,/data/interface/icon.png,DeepMIDlet
+Nokia-MIDlet-Category: Game
+Content-Folder: Games
+MIDlet-Vendor: fishlabs
+MIDlet-Icon: /data/interface/icon.png
+MIDlet-Version: 1.0.3
+MIDlet-Name: Deep 3D sefan.ru
+MicroEdition-Configuration: CLDC-1.1
+MicroEdition-Profile: MIDP-2.0
