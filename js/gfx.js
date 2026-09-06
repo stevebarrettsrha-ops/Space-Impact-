@@ -22,15 +22,102 @@ const Gfx = (() => {
     zbuf = new Float32Array(W * H);
     resize();
     window.addEventListener('resize', resize);
+    window.addEventListener('orientationchange', () => setTimeout(resize, 80));
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', resize);
+      window.visualViewport.addEventListener('scroll', resize);
+    }
   }
+  /* --------------------------------------------------------------------
+     Fitting the 240x320 screen to the window.
+
+     The scale is always uniform, so the picture can never be stretched, and
+     both sides are derived from one number so the ratio stays exactly 3:4
+     instead of drifting by a pixel.  Once there is room for a whole multiple
+     the scale snaps to an integer and the art stays crisp; below that it
+     scales freely so a handset is still filled, and it is allowed to go
+     under 1x so the game fits a short window rather than being clipped.
+     -------------------------------------------------------------------- */
+  const AW = 3, AH = 4;                          /* 240x320 reduced */
+  const MAX_SCALE = 8;
+  let layout = 'desktop';
+
+  function chromeOf(el) {
+    const cs = getComputedStyle(el), n = v => parseFloat(v) || 0;
+    return {
+      w: n(cs.paddingLeft) + n(cs.paddingRight) + n(cs.borderLeftWidth) + n(cs.borderRightWidth),
+      h: n(cs.paddingTop) + n(cs.paddingBottom) + n(cs.borderTopWidth) + n(cs.borderBottomWidth)
+    };
+  }
+
   function resize() {
-    const pad = 8;
-    const s = Math.max(1, Math.min((window.innerWidth - pad) / W, (window.innerHeight - pad) / H));
-    scale = s;
-    canvas.style.width = Math.floor(W * s) + 'px';
-    canvas.style.height = Math.floor(H * s) + 'px';
+    if (!canvas) return;
+    const vv = window.visualViewport;
+    const vw = Math.max(64, Math.round(vv ? vv.width : window.innerWidth));
+    const vh = Math.max(64, Math.round(vv ? vv.height : window.innerHeight));
+    const root = document.documentElement;
+    const frame = canvas.parentElement;
+    const touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+
+    /* on a touch device the controls need room of their own: a band under
+       the screen in portrait, the side gutters in landscape */
+    layout = !touch ? 'desktop' : (vh / vw > 1.15 ? 'portrait' : 'landscape');
+    const band = layout === 'portrait'
+      ? Math.round(Math.min(190, Math.max(96, vh * 0.22))) : 0;
+
+    /* the frame's own padding and border come out of the budget, and are
+       dropped altogether when there is no room to spare for decoration */
+    frame.classList.remove('bare');
+    let c = chromeOf(frame);
+    let availW = vw - c.w - 6, availH = vh - band - c.h - 6;
+    if (Math.min(availW / W, availH / H) < 1.7) {
+      frame.classList.add('bare');
+      c = chromeOf(frame);
+      availW = vw - c.w; availH = vh - band - c.h;
+    }
+
+    let s = Math.min(availW / W, availH / H);
+    if (s >= 2) s = Math.min(MAX_SCALE, Math.floor(s));
+    if (!(s > 0)) s = 0.25;
+
+    /* one number, both sides: height is kept a multiple of 4 so the width
+       divides exactly and the ratio is 3:4 to the pixel */
+    let h = Math.max(AH, Math.round(H * s / AH) * AH);
+    const capW = Math.floor(availW * AH / AW / AH) * AH;
+    const capH = Math.floor(availH / AH) * AH;
+    h = Math.max(AH, Math.min(h, capW, capH));
+    const w = h * AW / AH;
+
+    scale = w / W;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+
+    /* Size the touch controls from the room they actually have.  A cluster
+       is a stick (or fire button, 0.66 of it) beside a column of two keys,
+       and both clusters have to sit side by side in the band, or one in
+       each gutter, without straying onto the picture. */
+    const gutter = Math.max(0, Math.round((vw - w) / 2));
+    const EDGE = 10, GAP = 9;
+    const keyw = Math.round(Math.min(60, Math.max(38, vw * 0.14)));
+    const cluster = GAP + keyw + EDGE;
+    let ctl = 120;
+    if (layout === 'portrait') ctl = Math.min(148, (vw - 2 * cluster) / 1.66, band - 14);
+    else if (layout === 'landscape') ctl = Math.min(148, gutter - cluster - 6, vh - 24);
+    ctl = Math.max(64, Math.round(ctl));
+
+    root.dataset.layout = layout;
+    root.style.setProperty('--game-w', w + 'px');
+    root.style.setProperty('--game-h', h + 'px');
+    root.style.setProperty('--band', band + 'px');
+    root.style.setProperty('--gutter', gutter + 'px');
+    root.style.setProperty('--ctl', ctl + 'px');
+    root.style.setProperty('--keyw', keyw + 'px');
+    /* only when even that will not fit do the controls sit over the picture */
+    root.dataset.overlay = (layout === 'landscape' && gutter < ctl + cluster) ? 'yes' : 'no';
+    window.dispatchEvent(new CustomEvent('gamelayout'));
   }
   function screenScale() { return scale; }
+  function screenLayout() { return layout; }
 
   /* ------------------------------------------------------------------ 3D -- */
   let fogR = 4, fogG = 26, fogB = 44, fogNear = 1200, fogFar = 9000;
@@ -344,7 +431,7 @@ const Gfx = (() => {
   function context() { return ctx; }
 
   return {
-    init, resize, screenScale, context, flush, clear3D, clearTo, clearGradient, setCamera, setFog, fogColour,
+    init, resize, screenScale, screenLayout, context, flush, clear3D, clearTo, clearGradient, setCamera, setFog, fogColour,
     drawModel, point, project, rotMatrix, W, H,
     get zbuf() { return zbuf; }, get buf32() { return buf32; }
   };
