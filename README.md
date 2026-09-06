@@ -110,6 +110,16 @@ Three things changed once the buffer stopped being 240×320.
   still holds up over the water — while sprites, portraits and the sector stay pixel
   exact beside it. The measuring, wrapping and drawing API did not change, so every
   hand-placed coordinate in the interface still lands where it did.
+* **You can see the sector you are flying in.** Working range used to run out around
+  480m in a play area 900m across, so the station was a silhouette from halfway out and
+  everything past it was water; and every hull sat at half the brightness of its own
+  texture. Fog now reaches 1500m at the surface and 980m at the bottom of the trench,
+  ambient is up across structures and traffic, a face turned upwards picks up the light
+  coming down through the water whichever way the key light points, and the boat carries
+  its own lamp — an inverse-square pool about 105m across, measured in view space, so it
+  costs one multiply-add per vertex. A ceiling on the shading keeps the lamp from blowing
+  out a hull that is already pale. Measured over the station, mean luminance went from
+  44/255 to 76/255 at 120m, and from 34/255 to 50/255 at 220m.
 * **Particles are round and blended.** Bubbles, marine snow and sparks were flat squares
   of solid colour; at modern resolutions they read as confetti. They are now soft discs
   composited over what is behind them.

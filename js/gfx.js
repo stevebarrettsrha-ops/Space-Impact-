@@ -330,6 +330,15 @@ const Gfx = (() => {
   }
 
   const KEY = 30;                      /* r+g+b at or below this is black */
+  /* The boat carries lights, so there is a pool of brightness around it that
+     falls off with the square of the distance.  It is measured in view space,
+     where the camera sits at the origin, which costs one multiply-add per
+     vertex and stops everything within working range reading as a silhouette. */
+  let lampK = 0, lampR2 = 1;
+  function setLamp(strength, range) {
+    lampK = strength || 0;
+    lampR2 = (range || 1) * (range || 1);
+  }
   let filter = true;                   /* bilinear sampling on solid surfaces */
   function setFilter(v) { filter = !!v; }
   const LIGHT = [0.35, 0.75, -0.55];
@@ -361,7 +370,7 @@ const Gfx = (() => {
     const tz = m[8] * px + m[9] * py + m[10] * pz + m[11];
 
     const cx = W / 2, cy2 = H / 2;
-    const amb = opts.ambient === undefined ? 0.5 : opts.ambient;
+    const amb = opts.ambient === undefined ? 0.62 : opts.ambient;
     for (let i = 0; i < n; i++) {
       const x = V[i * 3] * s, y = V[i * 3 + 1] * s, z = V[i * 3 + 2] * s;
       const X = a0 * x + a1 * y + a2 * z + tx;
@@ -376,8 +385,12 @@ const Gfx = (() => {
         const wz = r[6] * nx + r[7] * ny + r[8] * nz;
         let d = wx * LIGHT[0] + wy * LIGHT[1] + wz * LIGHT[2];
         if (d < 0) d = -d * 0.32;
-        li[i] = amb + (1 - amb) * d;
+        /* daylight comes down through the water, so a face turned upwards
+           catches some of it whichever way the key light is pointing */
+        const sky = 0.5 + 0.5 * wy;
+        li[i] = amb + (1 - amb) * (d * 0.68 + sky * 0.32);
       } else li[i] = 1;
+      if (lampK > 0) li[i] += lampK / (1 + (X * X + Y * Y + Z * Z) / lampR2);
     }
     const tris = model.tris;
     for (let t = 0; t < tris.length; t++) {
@@ -519,7 +532,9 @@ const Gfx = (() => {
           b = ((o >> 16) & 255) + b * k;
         } else {
           let lum = l * z;
-          if (lum < 0) lum = 0; else if (lum > 1.9) lum = 1.9;
+          /* a low ceiling: the lamp is there to lift what the key light misses,
+             not to blow the highlights out of a hull that is already pale */
+          if (lum < 0) lum = 0; else if (lum > 1.15) lum = 1.15;
           r = r * lum; g = g * lum; b = b * lum;
           if (tint) { r = r * tint[0]; g = g * tint[1]; b = b * tint[2]; }
           if (!noFog) {
@@ -615,7 +630,7 @@ const Gfx = (() => {
   return {
     init, resize, screenScale, screenLayout, context, flush, present, clear3D, clearTo, clearGradient, setCamera, setFog, fogColour,
     drawModel, point, project, rotMatrix,
-    pushPage, pushFull, pop, pageRect, setFilter,
+    pushPage, pushFull, pop, pageRect, setFilter, setLamp,
     get W() { return W; }, get H() { return H; },
     get zbuf() { return zbuf; }, get buf32() { return buf32; }
   };
