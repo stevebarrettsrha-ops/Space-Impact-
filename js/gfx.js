@@ -135,9 +135,11 @@ const Gfx = (() => {
   /* Frame interval is the honest signal - it takes in the compositor as well
      as the rasteriser - but it is pinned to the refresh rate while there is
      room to spare, so stepping up also asks that the frame itself was cheap. */
-  /* 'auto' lets the frame times decide; the other two pin it, for anyone who
-     would rather have the detail than the headroom or the other way round */
-  let detail = 'auto';
+  /* Native by default: the sector is drawn pixel for pixel with the display.
+     'auto' hands the decision back to the measured frame times, and
+     'balanced' holds the budget value, for anyone who would rather have the
+     headroom than the detail. */
+  let detail = 'native';
   function setDetail(m) {
     detail = (m === 'native' || m === 'balanced') ? m : 'auto';
     if (detail !== 'auto') {

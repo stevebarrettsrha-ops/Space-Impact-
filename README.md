@@ -102,21 +102,31 @@ rasterised at `dw/k` by `dh/k` device pixels for an integer **k** — presenting
 exact k×k block copy, the cheapest thing a canvas can do, which is what lets a big display
 afford a big buffer at all. **k = 1 is the sector drawn pixel for pixel with the display.**
 
-k starts from a pixel budget and is then walked up or down from the frame times the
-machine actually produces: a step that ran long is not tried again until a periodic
-re-probe, and a step up has to be earned over several windows, so the picture settles
-instead of hunting. Measured here, all at 60fps:
+**Settings → Detail** chooses how k is set, and the choice is remembered:
 
-| window | sector buffer | vs. drawing it on the layout grid |
-|---|---|---|
-| 1366×768 | 1365×768 (k=1, native) | 3.0× the linear resolution |
-| 1920×1080 | 960×540 (k=2) | 1.5× |
-| 2560×1440 | 1280×720 (k=2) | 2.5× |
-| 3840×2160 | 548×308 – 640×360 (k=6–7) | up to 1.2× |
-| 390×844 @3× | 390×844 (k=1, native) | 2.0× |
+* `NATIVE` — **the default.** k = 1: the sector is drawn pixel for pixel with the
+  display, whatever that costs.
+* `AUTO` — k is walked up and down from the frame times the machine actually produces.
+  A step that ran long is not tried again until a periodic re-probe, and a step up has to
+  be earned over several windows, so it settles instead of hunting. Frame interval is the
+  signal, since it takes in the compositor as well as the rasteriser, but it is pinned to
+  the refresh rate while there is room to spare — so stepping up also asks that the frame
+  itself was cheap.
+* `BALANCED` — k held at the pixel budget, ignoring how fast the machine turns out to be.
 
-**Settings → Detail** pins it: `AUTO` follows the frame times, `BALANCED` holds the budget
-value, `NATIVE` forces k = 1. The choice is remembered.
+What that costs, measured here — a headless browser compositing in software, so a real
+GPU will do better above 1080p:
+
+| window | NATIVE | AUTO settles at | on the layout grid (what it used to be) |
+|---|---|---|---|
+| 1366×768 | 1365×768, 60fps | 1365×768 | 455×256 |
+| 1920×1080 | 1920×1080, 60fps | 960×540, 60fps | 640×360 |
+| 2560×1440 | 2560×1440, 44fps | 1280×720, 60fps | 512×288 |
+| 3840×2160 | 3836×2156, 16fps | ~640×360, 60fps | 548×308 |
+| 390×844 @3× | 390×844, 60fps | 390×844 | 195×422 |
+
+So NATIVE is free up to 1080p and buys detail at the cost of framerate above it; `AUTO`
+is one keypress away in Settings if you would rather have the frames.
 
 ## Rendering for a modern display
 
