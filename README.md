@@ -93,6 +93,41 @@ the screen in portrait, with the stick and buttons sized from the space actually
 available. In landscape the picture now runs edge to edge, so they overlay it at reduced
 opacity, the way a modern handheld game does.
 
+## How much the sector is drawn at
+
+The interface grid and the sector's resolution are two different things. The interface is
+placed on the layout grid described above, near 320 rows, because that is what its
+hand-placed coordinates were drawn for. The sector has no such constraint, so it is
+rasterised at `dw/k` by `dh/k` device pixels for an integer **k** — presenting it stays an
+exact k×k block copy, the cheapest thing a canvas can do, which is what lets a big display
+afford a big buffer at all. **k = 1 is the sector drawn pixel for pixel with the display.**
+
+**Settings → Detail** chooses how k is set, and the choice is remembered:
+
+* `NATIVE` — **the default.** k = 1: the sector is drawn pixel for pixel with the
+  display, whatever that costs.
+* `AUTO` — k is walked up and down from the frame times the machine actually produces.
+  A step that ran long is not tried again until a periodic re-probe, and a step up has to
+  be earned over several windows, so it settles instead of hunting. Frame interval is the
+  signal, since it takes in the compositor as well as the rasteriser, but it is pinned to
+  the refresh rate while there is room to spare — so stepping up also asks that the frame
+  itself was cheap.
+* `BALANCED` — k held at the pixel budget, ignoring how fast the machine turns out to be.
+
+What that costs, measured here — a headless browser compositing in software, so a real
+GPU will do better above 1080p:
+
+| window | NATIVE | AUTO settles at | on the layout grid (what it used to be) |
+|---|---|---|---|
+| 1366×768 | 1365×768, 60fps | 1365×768 | 455×256 |
+| 1920×1080 | 1920×1080, 60fps | 960×540, 60fps | 640×360 |
+| 2560×1440 | 2560×1440, 44fps | 1280×720, 60fps | 512×288 |
+| 3840×2160 | 3836×2156, 16fps | ~640×360, 60fps | 548×308 |
+| 390×844 @3× | 390×844, 60fps | 390×844 | 195×422 |
+
+So NATIVE is free up to 1080p and buys detail at the cost of framerate above it; `AUTO`
+is one keypress away in Settings if you would rather have the frames.
+
 ## Rendering for a modern display
 
 Three things changed once the buffer stopped being 240×320.
@@ -110,6 +145,16 @@ Three things changed once the buffer stopped being 240×320.
   still holds up over the water — while sprites, portraits and the sector stay pixel
   exact beside it. The measuring, wrapping and drawing API did not change, so every
   hand-placed coordinate in the interface still lands where it did.
+* **You can see the sector you are flying in.** Working range used to run out around
+  480m in a play area 900m across, so the station was a silhouette from halfway out and
+  everything past it was water; and every hull sat at half the brightness of its own
+  texture. Fog now reaches 1500m at the surface and 980m at the bottom of the trench,
+  ambient is up across structures and traffic, a face turned upwards picks up the light
+  coming down through the water whichever way the key light points, and the boat carries
+  its own lamp — an inverse-square pool about 105m across, measured in view space, so it
+  costs one multiply-add per vertex. A ceiling on the shading keeps the lamp from blowing
+  out a hull that is already pale. Measured over the station, mean luminance went from
+  44/255 to 76/255 at 120m, and from 34/255 to 50/255 at 220m.
 * **Particles are round and blended.** Bubbles, marine snow and sparks were flat squares
   of solid colour; at modern resolutions they read as confetti. They are now soft discs
   composited over what is behind them.

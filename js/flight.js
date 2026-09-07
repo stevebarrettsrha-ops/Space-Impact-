@@ -898,7 +898,12 @@ const Flight = (() => {
     const fr = Math.round(FOG_SHALLOW[0] + (FOG_DEEP[0] - FOG_SHALLOW[0]) * dm);
     const fg = Math.round(FOG_SHALLOW[1] + (FOG_DEEP[1] - FOG_SHALLOW[1]) * dm);
     const fb = Math.round(FOG_SHALLOW[2] + (FOG_DEEP[2] - FOG_SHALLOW[2]) * dm);
-    Gfx.setFog(fr, fg, fb, 40 * U, (620 - dm * 260) * U);
+    /* Visibility used to run out at about 480m in a sector 900m across, so
+       the station was a silhouette from halfway and everything past it was
+       water.  Working range now covers most of the sector, and the boat's own
+       lights pick out whatever is close. */
+    Gfx.setFog(fr, fg, fb, 120 * U, (1500 - dm * 520) * U);
+    Gfx.setLamp(0.45, 105 * U);
     /* light falls from the surface, so the water column is graded */
     const lift = 1 - dm;
     Gfx.clearGradient(
@@ -925,7 +930,7 @@ const Flight = (() => {
     if (S.camera === 0) {
       const m = M['u' + World.state().ship.type];
       if (m) Gfx.drawModel(m, S.px, S.py, S.pz, Gfx.rotMatrix(S.yaw, S.pitch, S.roll * 0.5), 1, TEX.deep,
-        { ambient: 0.66, noFog: true });
+        { ambient: 0.8, noFog: true });
     }
 
     /* shots */
@@ -981,13 +986,13 @@ const Flight = (() => {
           const r = Gfx.rotMatrix(e.yaw + (mod.yaw || 0), 0, 0);
           const sx = e.x + Math.cos(e.yaw) * mod.x + Math.sin(e.yaw) * mod.z;
           const sz = e.z - Math.sin(e.yaw) * mod.x + Math.cos(e.yaw) * mod.z;
-          Gfx.drawModel(m, sx, e.y + mod.y, sz, r, e.scale, TEX.deep, {});
+          Gfx.drawModel(m, sx, e.y + mod.y, sz, r, e.scale, TEX.deep, { ambient: 0.78 });
         }
         break;
       }
       case 'gate': {
         if (M.stream) Gfx.drawModel(M.stream, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, 0, e.spin),
-          e.scale, TEX.deep, { ambient: 0.8 });
+          e.scale, TEX.deep, { ambient: 0.92 });
         break;
       }
       case 'fish': {
@@ -996,28 +1001,28 @@ const Flight = (() => {
         const m = M[names[Math.min(e.frame, names.length - 1)]] || M[names[0]];
         if (!m) return;
         Gfx.drawModel(m, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, e.pitch, 0), e.scale, TEX.fx,
-          { tint: e.hooked ? [1.5, 1.3, 0.8] : null, ambient: 0.55 });
+          { tint: e.hooked ? [1.5, 1.3, 0.8] : null, ambient: 0.68 });
         break;
       }
       case 'ship': {
         const m = M[e.model];
         if (!m) return;
         Gfx.drawModel(m, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, e.pitch, e.roll * 0.4), e.scale,
-          TEX.deep, { tint: e.tint });
+          TEX.deep, { tint: e.tint, ambient: 0.72 });
         break;
       }
       case 'mine':
         if (M.mine) Gfx.drawModel(M.mine, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, e.pitch, 0), e.scale, TEX.deep,
-          { tint: e.armed ? [1.6, 0.6, 0.5] : null });
+          { tint: e.armed ? [1.6, 0.6, 0.5] : null, ambient: 0.72 });
         break;
       case 'crate':
-        if (M.box) Gfx.drawModel(M.box, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, e.pitch, 0), e.scale, TEX.deep, {});
+        if (M.box) Gfx.drawModel(M.box, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, e.pitch, 0), e.scale, TEX.deep, { ambient: 0.74 });
         break;
       case 'capsule':
-        if (M.kapsel) Gfx.drawModel(M.kapsel, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, 0, 0), e.scale, TEX.deep, {});
+        if (M.kapsel) Gfx.drawModel(M.kapsel, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, 0, 0), e.scale, TEX.deep, { ambient: 0.74 });
         break;
       case 'trash':
-        if (M.trash) Gfx.drawModel(M.trash, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, e.pitch, 0), e.scale, TEX.deep, {});
+        if (M.trash) Gfx.drawModel(M.trash, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, e.pitch, 0), e.scale, TEX.deep, { ambient: 0.74 });
         break;
       case 'waypoint':
         if (M.pfeil) Gfx.drawModel(M.pfeil, e.x, e.y + Math.sin(S.t * 0.04) * 6 * U, e.z,
