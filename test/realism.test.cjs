@@ -1,6 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
 const {renderer}=require('./renderer-helpers.cjs');
-const {game,root}=require('./helpers.cjs');
+const {game,root,drawingContext}=require('./helpers.cjs');
 let pending;
 async function ready(){if(!pending)pending=renderer().then(a=>{a.original={...a.models};a.Realism.prepare(a.models,n=>a.hardware(n)?a.tex.deep:a.tex.fx,a.GameData.creatures);return a;});return pending;}
 
@@ -89,4 +89,50 @@ test('automatic detail cannot crop the viewport when it reaches the minimum buff
  assert.ok(g.W*k>=320&&g.W*k<320+k);
  assert.ok(g.H*k>=240&&g.H*k<240+k);
  g.setDetail('native');
+});
+
+test('station hulls stay inside collision bounds with valid outward and interior faces at both detail levels',async()=>{
+ const a=await ready();
+ for(const name of ['station_civil','station_rebel'])for(const m of [a.models[name],a.models[name].lod]){
+  assert.ok(m.radius<11000*.78,'station must fit inside its existing solid radius');
+  assert.ok(m.radius>6000,'station must remain visible at the normal approach distance');
+  assert.ok(m.tris.every(t=>t.blend===0),'no floating flare planes');
+  for(let i=0;i<m.count;i++)assert.ok(Math.abs(Math.hypot(...m.N.subarray(i*3,i*3+3))-1)<1e-5);
+  for(const t of m.tris){
+   const p=Array.from(m.V.subarray(t.a*3,t.a*3+3));
+   const q=Array.from(m.V.subarray(t.b*3,t.b*3+3),(v,k)=>v-p[k]);
+   const r=Array.from(m.V.subarray(t.c*3,t.c*3+3),(v,k)=>v-p[k]);
+   const n=[q[1]*r[2]-q[2]*r[1],q[2]*r[0]-q[0]*r[2],q[0]*r[1]-q[1]*r[0]];
+   assert.ok(n.reduce((s,v,k)=>s+v*m.N[t.a*3+k],0)>0,'winding must agree with surface normal');
+   for(const k of ['ua','ub','uc'])assert.ok(t[k]>=0&&t[k]<m.texture.w);
+   for(const k of ['va','vb','vc'])assert.ok(t[k]>=0&&t[k]<m.texture.h);
+  }
+ }
+ assert.notDeepEqual(a.models.station_civil.texture.data,a.models.station_rebel.texture.data);
+});
+
+test('flight and dock console render the same complete station at the same scale for both factions',async()=>{
+ const a=await game(),drawn=[],models={station_civil:{},station_rebel:{}};
+ Object.assign(a.gfx,{setFog(){},setLamp(){},clearGradient(){},setCamera(){},waterLight(){},rotMatrix(){},
+   point(){},drawModel:(m,x,y,z,r,s)=>drawn.push({m,s}),project:()=>null});
+ a.Flight.bind(models,{deep:{}},{},()=>({}));a.Station.bind(models,{deep:{}},{},()=>({}));
+ for(const rebel of [false,true]){
+  a.World.setRebel(a.World.state().station,rebel);
+  const sector=a.Flight.enter({noLife:true,noFriends:true,enemies:0});sector.radar=0;
+  drawn.length=0;a.Flight.render(drawingContext());
+  assert.equal(drawn.length,1);assert.equal(drawn[0].m,models[rebel?'station_rebel':'station_civil']);
+  const flight=drawn.pop();a.Station.open({undock(){},quit(){}});a.Station.render(drawingContext());
+  assert.equal(drawn.length,1);assert.equal(drawn[0].m,flight.m);assert.equal(drawn[0].s,flight.s);
+ }
+});
+
+test('station rebuild preserves approach range and completes docking without a collision lock',async()=>{
+ const a=await game(),events=[],sector=a.Flight.enter({noLife:true,noFriends:true,enemies:0,onDone:r=>events.push(r)});
+ sector.throttle=0;sector.px=0;sector.py=0;sector.pz=-15100;
+ a.Input.virtual('action',true);a.Flight.update(1,a.Input);a.Input.reset();
+ assert.equal(sector.docking,null);
+ sector.pz=-14900;a.Input.virtual('action',true);a.Flight.update(1,a.Input);a.Input.reset();
+ assert.ok(sector.docking);
+ for(let i=0;i<56;i++)a.Flight.update(1,a.Input);
+ assert.deepEqual(events,['dock']);assert.equal(sector.docking,null);
 });

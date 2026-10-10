@@ -228,23 +228,14 @@ const Station = (() => {
   function menuRender(ctx) {
     const st = World.station();
     Gfx.clearTo(6, 22, 34);
-    /* A slow orbit of the docked station behind the console.  The camera used
-       to sit 2400 units out, well inside the module cluster, and only read as
-       a backdrop because the fog swallowed it; now that you can see that far
-       it has to stand off the whole structure. */
+    /* Use the exact same pressure-hull model and scale as free flight. */
     Gfx.setFog(6, 22, 34, 5000, 34000);
     Gfx.setLamp(0.22, 9000);
-    Gfx.setCamera(Math.sin(stationRot) * 13500, 3400, Math.cos(stationRot) * 13500,
-      stationRot + Math.PI, -0.2, 0, 1.0);
-    if (M.station_starter) {
-      const mods = [['station_starter', 0, 0, 0], ['station_top', 0, 3400, 0], ['station_bottom', 0, -3400, 0],
-      [World.isRebel(st.id) ? 'station_hangar_ve' : 'station_hangar_de', 0, -900, 3000],
-      ['station_sidehabitat', 0, 400, -3400]];
-      for (const [name, x, y, z] of mods) {
-        const m = M[name];
-        if (m) Gfx.drawModel(m, x, y, z, null, 1.4, TEX.deep, { ambient: 0.58,time:stationRot*5 });
-      }
-    }
+    Gfx.setCamera(Math.sin(stationRot) * 17500, 4300, Math.cos(stationRot) * 17500,
+      stationRot + Math.PI, -0.24, 0, 1.0);
+    const station = M[StationModel.key(World.isRebel(st.id))];
+    if (station) Gfx.drawModel(station, 0, 0, 0, null, 1, TEX.deep,
+      { ambient: 0.58, time: stationRot * 5 });
     Gfx.flush();
     /* the orbit fills the whole display behind the console, so the veil has
        to as well or the page would read as a hole in it */

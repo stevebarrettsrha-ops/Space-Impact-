@@ -109,10 +109,7 @@ const Game = (() => {
     'box', 'trash', 'mine', 'torpedo', 'kapsel', 'stream', 'skybox', 'explosion',
     'eclipse', 'biowaste', 'fischtod', 'pfeil', 'aquar', 'tanker1', 'limiter_up', 'limiter_down',
     'laser_0', 'laser_1', 'laser_2', 'laser_6', 'laser_7', 'laser_8', 'laser_9',
-    'laser_10', 'laser_11', 'laser_aqua',
-    'station_starter', 'station_top', 'station_bottom', 'station_engine', 'station_cannon',
-    'station_bridge_01', 'station_bridge_02', 'station_sidehabitat',
-    'station_hangar_de', 'station_hangar_ve', 'station_habitat_de', 'station_habitat_ve'
+    'laser_10', 'laser_11', 'laser_aqua'
   ];
 
   /* which atlas each mesh is painted from: the creatures and every effect

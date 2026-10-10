@@ -129,6 +129,8 @@ const Realism = (() => {
       const name=c.models[0],combined=combine(parts),kind=profile(name);
       models['creature_'+c.id]=c.id>=13 ? kelp(combined,c.id-13,name) : upgrade(combined,kind,texFor(name),name);
     }
+    const metal=tileTexture(4);
+    for(const rebel of [false,true])models[StationModel.key(rebel)]=StationModel.build(metal,rebel);
     terrain=makeTerrain();
   }
   function tileTexture(tile,colour) {

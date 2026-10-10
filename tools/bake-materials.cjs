@@ -6,7 +6,7 @@ const root=path.resolve(__dirname,'..');
 (async()=>{
  const context=vm.createContext({console,TextDecoder,document:{createElement:()=>createCanvas(1,1)},
    fetch:async p=>({ok:true,arrayBuffer:async()=>Uint8Array.from(fs.readFileSync(path.join(root,p))).buffer})});
- for(const f of ['assets','model','data','realism'])vm.runInContext(fs.readFileSync(path.join(root,'js',f+'.js'),'utf8'),context);
+ for(const f of ['assets','model','data','station-model', 'realism'])vm.runInContext(fs.readFileSync(path.join(root,'js',f+'.js'),'utf8'),context);
  const {Assets,Micro3D,GameData,Realism}=vm.runInContext('({Assets,Micro3D,GameData,Realism})',context);
  Assets.picture=p=>loadImage(path.join(root,p));await Realism.load(true);await GameData.load();
  const tex={deep:await Assets.texture('textures/deep.bmp'),fx:await Assets.texture('textures/fx.bmp')};

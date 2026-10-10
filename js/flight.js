@@ -89,8 +89,8 @@ const Flight = (() => {
     if (cfg.station !== false) {
       S.station = ent({
         kind: 'station', x: 0, y: 0, z: 0, yaw: 0, pitch: 0,
-        scale: 1.5, hp: 1e9, r: 110 * U, id: st.id,
-        modules: stationModules(st)
+        scale: 1, hp: 1e9, r: 110 * U, id: st.id,
+        model: StationModel.key(World.isRebel(st.id))
       });
     }
     /* --- a S.T.R.E.A.M. gate --------------------------------------------- */
@@ -126,31 +126,6 @@ const Flight = (() => {
     if (!cfg.noFriends) for (let i = 0; i < 2; i++) spawnShip('trader');
 
     if (cfg.build) cfg.build(S, { ent, spawnShip, spawnCreature, spawnShoal, U });
-  }
-
-  function stationModules(st) {
-    /* the station is assembled from the original module meshes, exactly the
-       way the MIDlet builds them: a core, habitats, hangar, engines, cannons */
-    const rebel = World.isRebel(st.id);
-    const suffix = rebel ? '_ve' : '_de';
-    const mods = [
-      { m: 'station_starter', x: 0, y: 0, z: 0 },
-      { m: 'station_top', x: 0, y: 46 * U, z: 0 },
-      { m: 'station_bottom', x: 0, y: -46 * U, z: 0 },
-      { m: 'station_hangar' + suffix, x: 0, y: -12 * U, z: 40 * U },
-      { m: 'station_habitat' + suffix, x: 34 * U, y: 8 * U, z: -18 * U },
-      { m: 'station_habitat' + suffix, x: -34 * U, y: 8 * U, z: -18 * U, yaw: Math.PI },
-      { m: 'station_sidehabitat', x: 0, y: 6 * U, z: -46 * U },
-      { m: 'station_bridge_01', x: 20 * U, y: 26 * U, z: 0 },
-      { m: 'station_bridge_02', x: -20 * U, y: 26 * U, z: 0, yaw: Math.PI },
-      { m: 'station_engine', x: 0, y: -6 * U, z: -74 * U }
-    ];
-    const guards = Math.min(4, Math.round(st.tech / 3));
-    for (let i = 0; i < guards; i++) {
-      const a = i / guards * TAU;
-      mods.push({ m: 'station_cannon', x: Math.cos(a) * 40 * U, y: 30 * U, z: Math.sin(a) * 40 * U, yaw: a });
-    }
-    return mods;
   }
 
   function pickSpecies(st, i) {
@@ -1005,15 +980,9 @@ const Flight = (() => {
     if (d > 1400 * U) return;
     switch (e.kind) {
       case 'station': {
-        const rot = Gfx.rotMatrix(e.yaw, 0, 0);
-        for (const mod of e.modules) {
-          const m = M[mod.m];
-          if (!m) continue;
-          const r = Gfx.rotMatrix(e.yaw + (mod.yaw || 0), 0, 0);
-          const sx = e.x + Math.cos(e.yaw) * mod.x + Math.sin(e.yaw) * mod.z;
-          const sz = e.z - Math.sin(e.yaw) * mod.x + Math.cos(e.yaw) * mod.z;
-          Gfx.drawModel(m, sx, e.y + mod.y, sz, r, e.scale, TEX.deep, { ambient: 0.56,time:S.t/60 });
-        }
+        const m = M[e.model];
+        if (m) Gfx.drawModel(m, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, 0, 0), e.scale,
+          TEX.deep, { ambient: 0.56, time: S.t / 60 });
         break;
       }
       case 'gate': {

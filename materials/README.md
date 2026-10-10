@@ -7,12 +7,13 @@ The source image is 1254 × 1254. Columns and rows are sampled independently.
 
 Ten derived 512 × 512 PNG maps preserve the original atlas layout and keyed
 transparency while adding natural colour and surface detail. Lossless PNG keeps
-the material boundaries stable. They are bundled so no texture baking happens
-at game startup. Original emissive polygons use their original atlas directly.
+the material boundaries stable. These maps are prebuilt rather than baked at
+startup. Original vehicle/effect emissive polygons use their original atlas directly.
 
 | Maps | Used on |
 | --- | --- |
-| `deep-metal.png` | All submarine hulls, stations, mines, gates, cargo, torpedoes and capsules |
+| `deep-metal.png` | All submarine hulls, mines, gates, cargo, torpedoes and capsules |
+| Painted-steel sample in `surfaces.webp` | New station hulls; small faction atlases add panel seams, glazing and safety markings once at boot |
 | `deep-wreck.png`, `fx-wreck.png` | Wreckage and organic debris |
 | `fx-scales.png`, `fx-skin.png` | Fish, eels, rays, sharks, whales and squid |
 | `fx-shell.png`, `fx-turtle.png`, `fx-shrimp.png` | Shell-bearing species |
@@ -25,6 +26,11 @@ dimensions and uses simpler geometry at distance. Sun shafts, wet highlights,
 caustic modulation and bubble rims are visual approximations, not physically
 simulated lighting or fluid dynamics. Camera/model pitch is corrected to agree
 with the flight direction; the dock camera uses the matching downward pitch.
+
+`js/station-model.js` builds connected pressure vessels, corridors and a recessed
+docking bay in one coordinate system. Flight and the dock console share the same
+mesh and scale. Station lights are small attached opaque surfaces; the old floating
+flare planes and legacy station modules are no longer loaded in the game.
 
 To rebuild derived maps, install the optional `@napi-rs/canvas` development tool
 and run `node tools/bake-materials.cjs` from this repository. The checked-in game

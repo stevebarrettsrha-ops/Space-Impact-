@@ -291,6 +291,14 @@ veined textures. All 11 submarine hulls, enemy ships, stations, gates, mines, to
 cargo and wreckage receive weathered surface maps and material-specific highlights.
 Original light/exhaust cells retain their original UVs, colours and additive blending.
 
+Stations now use a shared pressure-hull model in flight and the dock console. Sealed
+corridors join the habitation vessels to the command tower; a recessed docking bay,
+structural bands, bridge glazing and small attached lamps replace the overlapping
+legacy module cluster and oversized star flares. Civil and rebel stations have distinct
+markings. The footprint remains inside the existing collision envelope, and docking
+range and rules are unchanged. The station geometry and material atlas are built once
+at boot from local surface artwork; distant stations use a simpler mesh.
+
 The environment adds a textured distant seabed below the playable volume, shallow-water
 light shafts, stronger colour absorption, refractive-looking bubble rims and explosion
 pressure/bubble clouds. These are lightweight visual approximations in the existing
