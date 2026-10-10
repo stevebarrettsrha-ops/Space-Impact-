@@ -72,6 +72,8 @@ const Station = (() => {
     if (popup) return updatePopup(In);
     if (help !== null) { if (In.pressed('fire') || In.pressed('back') || In.pressed('help') || In.pressed('action')) { help = null; Sfx.play('back'); } return; }
     if (info) {
+      if (In.pressed('up')) info.scroll = Math.max(0, info.scroll - 1);
+      if (In.pressed('down')) info.scroll++;
       if (In.pressed('fire')) {
         if (info.onOk) { const f = info.onOk; info = null; Sfx.play('select'); f(); }
         else { info = null; Sfx.play('back'); }
@@ -168,18 +170,28 @@ const Station = (() => {
   }
 
   /* --------------------------------------------------------------- info box */
-  function showInfo(title, body, icon) { info = { title, body, icon }; Sfx.play('select'); }
+  function showInfo(title, body, icon) { info = { title, body, icon, scroll: 0 }; Sfx.play('select'); }
   function infoRender(ctx) {
     UI.shade(ctx, 0.72);
     UI.panel(ctx, 8, 24, SCR_W - 16, SCR_H - 60, info.title);
     let y = 42;
-    if (info.face !== undefined && info.face !== null) { Portrait.draw(ctx, info.face, SCR_W - 56, y, 40); }
-    if (info.icon && IMG[info.icon]) { ctx.drawImage(IMG[info.icon], 14, y); y += IMG[info.icon].height + 4; }
-    for (const l of Font.wrap(info.body, SCR_W - 28)) {
-      if (y > SCR_H - 44) break;
+    let headerHeight = 0;
+    if (info.face !== undefined && info.face !== null) {
+      Portrait.draw(ctx, info.face, SCR_W - 64, y, 48, 60);
+      headerHeight = 60;
+    }
+    if (info.icon && IMG[info.icon]) {
+      ctx.drawImage(IMG[info.icon], 14, y);
+      headerHeight = Math.max(headerHeight, IMG[info.icon].height);
+    }
+    if (headerHeight) y += headerHeight + 6;
+    const lines = Font.wrap(info.body, SCR_W - 28);
+    const rows = Math.max(1, Math.floor((SCR_H - 44 - y) / 12));
+    info.scroll = Math.min(info.scroll, Math.max(0, lines.length - rows));
+    for (const l of lines.slice(info.scroll, info.scroll + rows)) {
       Font.draw(ctx, l, 14, y, C.text); y += 12;
     }
-    UI.softkeys(ctx, '', GameData.T(41));
+    UI.softkeys(ctx, lines.length > rows ? '↑ ↓' : '', GameData.T(41));
   }
 
   /* ----------------------------------------------------------------- help */
@@ -248,7 +260,7 @@ const Station = (() => {
       if (i === sel) { UI.rect(ctx, 16, y - 3, SCR_W - 32, 19, '#0e3145'); UI.frame(ctx, 16, y - 3, SCR_W - 32, 19, null, C.frameHi); }
       Font.draw(ctx, GameData.T(MENU[i].t), 30, y, i === sel ? C.hi : C.text);
     }
-    if (IMG.mai) ctx.drawImage(IMG.mai, SCR_W - 34, SCR_H - 62);
+    Portrait.drawCharacter(ctx, 'm', SCR_W - 54, SCR_H - 90, 44, 55);
     const h = (typeof Campaign !== 'undefined' && !Campaign.done()) ? Campaign.hint() : '';
     if (h) {
       UI.rect(ctx, 0, SCR_H - 28, SCR_W, 14, '#0a2a3a');

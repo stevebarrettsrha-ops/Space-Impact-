@@ -61,6 +61,21 @@ const Assets = (() => {
     return p;
   }
 
+  /* Modern artwork is an ordinary image, not an obfuscated MIDlet resource.
+     Keep it out of raw()/image() so its PNG bytes are never rearranged. */
+  async function picture(path) {
+    const key = 'picture:' + path;
+    if (imgCache.has(key)) return imgCache.get(key);
+    const p = new Promise((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = () => reject(new Error('Unable to load picture: ' + path));
+      im.src = path;
+    }).catch(error => { imgCache.delete(key); throw error; });
+    imgCache.set(key, p);
+    return p;
+  }
+
   /* --- 8 bit palette BMP (the three Micro3D texture atlases) -------------- */
   function decodeBMP(d) {
     const dv = new DataView(d.buffer, d.byteOffset, d.byteLength);
@@ -122,5 +137,5 @@ const Assets = (() => {
     return new TextDecoder('utf-8').decode(d);
   }
 
-  return { raw, image, texture, lang, text, decodeBMP, deobfuscate, progress };
+  return { raw, image, picture, texture, lang, text, decodeBMP, deobfuscate, progress };
 })();

@@ -253,6 +253,24 @@ js/campaign.js    the 26 story chapters and the 47 dialogue scenes
 js/main.js        boot, input, screen state machine, mission runner
 ```
 
+## Character portraits
+
+Jack Dawn, Pierre, Lea, Ayumi, Raymond and Fenko now use the approved realistic
+character artwork bundled in `portraits/cast.webp`. Dialogue displays larger,
+smooth portraits beside the text on wide layouts and above it on narrow layouts.
+Long speeches are paginated: confirm/0 advances through all text before changing
+speaker, up/down revisits pages, and Back retains the existing skip behavior.
+
+The old face-part compositor is fully replaced. Players choose from eight realistic
+portraits, mission contacts use the same bank, and M.A.I. has a dedicated realistic
+avatar. Existing saved appearance numbers map consistently to the new bank. Missing
+images fall back to another loaded realistic portrait. Mission contact cards keep
+text below the portrait and support up/down scrolling for long descriptions.
+
+All 15 identities are bundled in ten WebP files totalling about 1.2 MB; playing
+never requires an image service or CDN. The original extracted face resources are
+not loaded or displayed by the game.
+
 ## Regression checks
 
 Run `npm test` with Node.js 22 or newer. No dependency installation or build step
@@ -261,7 +279,8 @@ the same checks on pushes and pull requests.
 
 The checks exercise difficulty selection, version 1 save compatibility, malformed
 or unavailable storage, save feedback, pause dialogs, focus loss, sector result
-timing, shield damage and script syntax. They load the actual game tables and
+timing, shield damage, portrait identity/loading, dialogue pagination, and script
+syntax. They load the actual game tables and
 language pack in an isolated JavaScript runtime; they do not replace browser
 playtesting or rendering checks.
 
