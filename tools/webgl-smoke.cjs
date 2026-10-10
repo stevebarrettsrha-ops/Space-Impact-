@@ -24,7 +24,7 @@ const mime={'.html':'text/html','.js':'text/javascript','.png':'image/png','.web
    };
   });
   await page.goto('http://127.0.0.1:'+server.address().port);
-  await page.waitForFunction(()=>typeof Game!=='undefined'&&Game.mode==='splash',{},{timeout:60000});
+  await page.waitForFunction(()=>typeof Game!=='undefined'&&Game.mode==='splash',{},{timeout:60000,polling:100});
   
   const report=await page.evaluate(()=>{
    World.fresh('Graphics check',0,1);window.sector=Flight.enter({});
@@ -42,11 +42,11 @@ const mime={'.html':'text/html','.js':'text/javascript','.png':'image/png','.web
   await page.evaluate(()=>{Gfx.resize();Flight.render(Gfx.context());});
   assert.equal(await page.evaluate(()=>sceneGL.getError()),0);
   await page.screenshot({path:path.join(root,'test-output/gameplay-portrait.png')});
-  await page.evaluate(()=>sceneGL.getExtension('WEBGL_lose_context').loseContext());
-  await page.waitForFunction(()=>Gfx.backend==='software');
+  await page.evaluate(()=>{window.sceneLoss=sceneGL.getExtension('WEBGL_lose_context');sceneLoss.loseContext();});
+  await page.waitForFunction(()=>Gfx.backend==='software',{},{polling:100});
   await page.evaluate(()=>Flight.render(Gfx.context()));
-  await page.evaluate(()=>sceneGL.getExtension('WEBGL_lose_context').restoreContext());
-  await page.waitForFunction(()=>Gfx.backend==='webgl');
+  await page.evaluate(()=>sceneLoss.restoreContext());
+  await page.waitForFunction(()=>Gfx.backend==='webgl',{},{polling:100});
   await page.evaluate(()=>Flight.render(Gfx.context()));
   assert.equal(await page.evaluate(()=>sceneGL.getError()),0);assert.deepEqual(errors,[]);
   console.log(JSON.stringify({report,contextRecovery:true,errors},null,2));
