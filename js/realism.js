@@ -130,7 +130,8 @@ const Realism = (() => {
       models['creature_'+c.id]=c.id>=13 ? kelp(combined,c.id-13,name) : upgrade(combined,kind,texFor(name),name);
     }
     const metal=tileTexture(4);
-    for(const rebel of [false,true])models[StationModel.key(rebel)]=StationModel.build(metal,rebel);
+    WorldAssets.prepare(models,metal);
+    StationModel.prepare(models,metal);
     terrain=makeTerrain();
   }
   function tileTexture(tile,colour) {

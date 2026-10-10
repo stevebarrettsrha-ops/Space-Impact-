@@ -100,16 +100,11 @@ const Game = (() => {
     'bubble_0', 'bubble_1', 'bubble_2', 'bubble_3', 'bubble_4', 'bubble_5'
   ];
   const MODEL_NAMES = [
-    'u0', 'u1', 'u2', 'u3', 'u4', 'u5', 'u6', 'u7', 'u8', 'u9', 'u10',
     'nautilus', 'gulper_eel', 'jellyfish', 'manta', 'fish_swarm',
     'anglerfish_01', 'anglerfish_02', 'devilfish_01', 'devilfish_02',
     'marlin_01', 'marlin_02', 'shark_01', 'shark_02', 'shrimp_01', 'shrimp_02',
     'squid_01', 'squid_02', 'turtle_01', 'turtle_02', 'whale_01', 'whale_02',
-    'alga_gold', 'alga_blue', 'alga_brown', 'alga_red', 'alga_green',
-    'box', 'trash', 'mine', 'torpedo', 'kapsel', 'stream', 'skybox', 'explosion',
-    'eclipse', 'biowaste', 'fischtod', 'pfeil', 'aquar', 'tanker1', 'limiter_up', 'limiter_down',
-    'laser_0', 'laser_1', 'laser_2', 'laser_6', 'laser_7', 'laser_8', 'laser_9',
-    'laser_10', 'laser_11', 'laser_aqua'
+    'alga_gold', 'alga_blue', 'alga_brown', 'alga_red', 'alga_green'
   ];
 
   /* which atlas each mesh is painted from: the creatures and every effect
@@ -150,12 +145,7 @@ const Game = (() => {
     for (const path of Portrait.PATHS)
       jobs.push(track(Assets.picture(path).then(im => IMG[path] = im)
         .catch(error => console.warn('Portrait unavailable:', error.message))));
-    for (let i = 0; i < 44; i++) jobs.push(track(Assets.image('equipment/slot_' + i + '.png').then(im => IMG['equipment/slot_' + i] = im).catch(() => { })));
-    for (let i = 0; i < 11; i++) {
-      jobs.push(track(Assets.image('equipment/u' + i + 'a.png').then(im => IMG['equipment/u' + i + 'a'] = im).catch(() => { })));
-      jobs.push(track(Assets.image('equipment/u' + i + 'b.png').then(im => IMG['equipment/u' + i + 'b'] = im).catch(() => { })));
-    }
-    for (let i = 0; i < 42; i++) jobs.push(track(Assets.image('cargo_' + i + '.png').then(im => IMG['cargo_' + i] = im).catch(() => { })));
+    jobs.push(track(Catalog.load(IMG)));
     for (let i = 0; i < 15; i++) jobs.push(track(Assets.image('mission_' + i + '.png').then(im => IMG['mission_' + i] = im).catch(() => { })));
     jobs.push(track(Assets.image('mission_story.png').then(im => IMG['mission_story'] = im).catch(() => { })));
     for (let i = 1; i <= 7; i++) jobs.push(track(Assets.image('medal_' + i + '.png').then(im => IMG['medal_' + i] = im).catch(() => { })));

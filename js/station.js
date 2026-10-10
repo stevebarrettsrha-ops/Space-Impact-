@@ -29,7 +29,13 @@ const Station = (() => {
   function note(t) { flash = 110; flashMsg = t; Sfx.play('beep'); }
 
   /* --------------------------------------------------------------- helpers */
-  function sprite(ctx, name, x, y) { const im = IMG[name]; if (im) ctx.drawImage(im, x | 0, y | 0); }
+  function sprite(ctx,name,x,y,w,h){
+    const im=IMG[name];if(!im)return;
+    ctx.save();
+    if(im.uiWidth)ctx.imageSmoothingEnabled=true;
+    ctx.drawImage(im,x|0,y|0,w||im.uiWidth||im.width,h||im.uiHeight||im.height);
+    ctx.restore();
+  }
   function header(ctx, title, sub2) {
     UI.rect(ctx, 0, 0, SCR_W, 16, '#0b2433');
     UI.rect(ctx, 0, 16, SCR_W, 1, C.frame);
@@ -181,8 +187,9 @@ const Station = (() => {
       headerHeight = 60;
     }
     if (info.icon && IMG[info.icon]) {
-      ctx.drawImage(IMG[info.icon], 14, y);
-      headerHeight = Math.max(headerHeight, IMG[info.icon].height);
+      const image=IMG[info.icon],w=image.uiWidth||image.width,h=image.uiHeight||image.height;
+      sprite(ctx,info.icon,14,y,w,h);
+      headerHeight = Math.max(headerHeight, h);
     }
     if (headerHeight) y += headerHeight + 6;
     const lines = Font.wrap(info.body, SCR_W - 28);
@@ -233,7 +240,7 @@ const Station = (() => {
     Gfx.setLamp(0.22, 9000);
     Gfx.setCamera(Math.sin(stationRot) * 17500, 4300, Math.cos(stationRot) * 17500,
       stationRot + Math.PI, -0.24, 0, 1.0);
-    const station = M[StationModel.key(World.isRebel(st.id))];
+    const station = M[StationModel.key(World.isRebel(st.id),st)];
     if (station) Gfx.drawModel(station, 0, 0, 0, null, 1, TEX.deep,
       { ambient: 0.58, time: stationRot * 5 });
     Gfx.flush();
@@ -307,10 +314,10 @@ const Station = (() => {
     const W = World.state();
     Gfx.clearTo(5, 18, 28); Gfx.flush();
     header(ctx, GameData.T(62), W.credits.toLocaleString() + ' $');
-    /* the ship, drawn from its own sprite plus live stats */
+    /* The catalogue picture is rendered from the same model used in flight. */
     const shipIcon = IMG[World.ship().icon + 'a'];
     if (sel === 0) UI.rect(ctx, 0, 19, SCR_W, 40, '#0e3145');
-    if (shipIcon) ctx.drawImage(shipIcon, 6, 22);
+    if (shipIcon) sprite(ctx,World.ship().icon+'a',6,22);
     Font.draw(ctx, GameData.shipName(W.ship.type), 74, 22, sel === 0 ? C.hi : C.text);
     Font.draw(ctx, GameData.T(59) + ' ' + World.hullMax() + '  ' + GameData.T(320) + ' ' + World.shieldMax(), 74, 34, C.dim);
     Font.draw(ctx, GameData.T(60) + ' ' + World.holdUsed() + '/' + World.holdMax() + 't', 74, 46, C.dim);
@@ -322,7 +329,7 @@ const Station = (() => {
       const on = sel === i + 1;
       if (on) UI.rect(ctx, 0, y - 2, SCR_W, 18, '#0e3145');
       const e = World.slotItem(i);
-      if (e && IMG[e.icon]) ctx.drawImage(IMG[e.icon], 5, y, 14, 12);
+      if (e && IMG[e.icon]) sprite(ctx,e.icon,5,y,14,12);
       else UI.frame(ctx, 6, y - 1, 14, 14, '#08202c', C.frame);
       Font.draw(ctx, e ? GameData.equipName(e.id) : GameData.T(70), 26, y, on ? C.hi : (e ? C.text : C.dim));
       if (e) Font.drawRight(ctx, sellPrice(e).toLocaleString() + ' $', SCR_W - 4, y, C.gold);
@@ -395,11 +402,11 @@ const Station = (() => {
     if (!list.length) { Font.drawCentre(ctx, GameData.T(70), SCR_W / 2, 60, C.dim); }
     listView(ctx, list, sel, (c, it, i, y, on) => {
       if (it.kind === 'e') {
-        if (IMG[it.e.icon]) c.drawImage(IMG[it.e.icon], 3, y, 14, 12);
+        if (IMG[it.e.icon]) sprite(c,it.e.icon,3,y,14,12);
         Font.draw(c, GameData.equipName(it.e.id), 20, y + 1, on ? C.hi : C.text);
         Font.drawRight(c, it.e.price.toLocaleString(), SCR_W - 4, y + 1, C.gold);
       } else {
-        if (IMG[it.s.icon + 'b']) c.drawImage(IMG[it.s.icon + 'b'], 3, y + 1, 15, 10);
+        if (IMG[it.s.icon + 'b']) sprite(c,it.s.icon+'b',3,y+1,15,10);
         Font.draw(c, GameData.shipName(it.s.id), 20, y + 1, on ? C.hi : C.good);
         Font.drawRight(c, it.s.price.toLocaleString(), SCR_W - 4, y + 1, C.gold);
       }
@@ -557,7 +564,7 @@ const Station = (() => {
     const list = tradeGoods();
     const saveY = LIST_Y;
     listView(ctx, list, Math.min(sel, Math.max(0, list.length - 1)), (c, g, i, y, on) => {
-      if (IMG[g.icon]) c.drawImage(IMG[g.icon], 3, y, 14, 12);
+      if (IMG[g.icon]) sprite(c,g.icon,3,y,14,12);
       Font.draw(c, GameData.goodName(g.id), 20, y + 1, on ? C.hi : C.text);
       const p = World.price(stId, g.id);
       const ic = IMG[coinIcon(World.priceRating(stId, g.id))];
@@ -620,7 +627,7 @@ const Station = (() => {
       return (B.have / B.need) - (A.have / A.need);
     });
     listView(ctx, list, sel, (c, g, i, y, on) => {
-      if (IMG[g.icon]) c.drawImage(IMG[g.icon], 3, y, 14, 12);
+      if (IMG[g.icon]) sprite(c,g.icon,3,y,14,12);
       Font.draw(c, GameData.goodName(g.id), 20, y + 1, on ? C.hi : C.text);
       const rs = recipeState(g);
       const cross = rs.have === 0 ? 'x_1' : rs.have === rs.need - 1 ? 'x_3' : rs.have < rs.need ? 'x_2' : null;

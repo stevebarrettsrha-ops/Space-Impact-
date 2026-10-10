@@ -41,9 +41,9 @@ test('five algae species use complete opaque leaf geometry with distinct texture
  assert.equal(colours.size,5);
 });
 test('emissive UVs and textures are preserved when solid surfaces are refined',async()=>{
- const a=await ready(),m=a.models.u0;
- const before=a.original.u0.tris.filter(t=>t.blend===2),after=m.tris.filter(t=>t.blend===2);
- assert.ok(before.length>0);assert.equal(after.length,before.length);assert.equal(m.emissionTexture,a.tex.deep);
+ const a=await ready(),m=a.models.gulper_eel;
+ const before=a.original.gulper_eel.tris.filter(t=>t.blend===2),after=m.tris.filter(t=>t.blend===2);
+ assert.ok(before.length>0);assert.equal(after.length,before.length);assert.equal(m.emissionTexture,a.tex.fx);
  after.forEach((t,i)=>assert.deepEqual(t.emission,before[i]));
 });
 test('real rasterizer renders detailed models, animation changes pixels, and depth hides bubbles',async()=>{
@@ -112,7 +112,7 @@ test('station hulls stay inside collision bounds with valid outward and interior
 });
 
 test('flight and dock console render the same complete station at the same scale for both factions',async()=>{
- const a=await game(),drawn=[],models={station_civil:{},station_rebel:{}};
+ const a=await game(),drawn=[],models={station_civil_0_2:{},station_rebel_0_2:{}};
  Object.assign(a.gfx,{setFog(){},setLamp(){},clearGradient(){},setCamera(){},waterLight(){},rotMatrix(){},
    point(){},drawModel:(m,x,y,z,r,s)=>drawn.push({m,s}),project:()=>null});
  a.Flight.bind(models,{deep:{}},{},()=>({}));a.Station.bind(models,{deep:{}},{},()=>({}));
@@ -120,7 +120,7 @@ test('flight and dock console render the same complete station at the same scale
   a.World.setRebel(a.World.state().station,rebel);
   const sector=a.Flight.enter({noLife:true,noFriends:true,enemies:0});sector.radar=0;
   drawn.length=0;a.Flight.render(drawingContext());
-  assert.equal(drawn.length,1);assert.equal(drawn[0].m,models[rebel?'station_rebel':'station_civil']);
+  assert.equal(drawn.length,1);assert.equal(drawn[0].m,models[rebel?'station_rebel_0_2':'station_civil_0_2']);
   const flight=drawn.pop();a.Station.open({undock(){},quit(){}});a.Station.render(drawingContext());
   assert.equal(drawn.length,1);assert.equal(drawn[0].m,flight.m);assert.equal(drawn[0].s,flight.s);
  }
@@ -135,4 +135,59 @@ test('station rebuild preserves approach range and completes docking without a c
  assert.ok(sector.docking);
  for(let i=0;i<56;i++)a.Flight.update(1,a.Input);
  assert.deepEqual(events,['dock']);assert.equal(sector.docking,null);
+});
+
+test('every station in the 200-station world resolves to a bounded design for either faction',async()=>{
+ const a=await ready(),StationModel=a.run('StationModel'),designs=new Set();
+ assert.equal(a.GameData.stations.length,200);
+ for(const station of a.GameData.stations)for(const rebel of [false,true]){
+  const key=StationModel.key(rebel,station),m=a.models[key];designs.add(key);
+  assert.ok(m&&m.count>0,key);assert.ok(m.radius<8580,key+' exceeds solid radius');
+  assert.ok(m.lod&&m.lod.tris.length<m.tris.length);
+ }
+ assert.equal(designs.size,24);
+});
+
+test('all ships and active props use complete replacement meshes and render from front and rear',async()=>{
+ const a=await ready(),WorldAssets=a.run('WorldAssets'),g=a.Gfx,shapes=new Set();
+ for(const name of [...a.GameData.ships.map(s=>s.model),...WorldAssets.PROPS]){
+  const m=a.models[name];assert.ok(m&&m.count>0,name);assert.notEqual(m,a.original[name]);
+  if(name.startsWith('u')){
+   assert.ok(m.tris.every(t=>t.blend===0),'ships cannot contain exhaust billboards');
+   assert.ok(m.wake.z<0);assert.ok(m.bbox[5]<3000,'bow stays behind the weapon launch position');
+   shapes.add(require('node:crypto').createHash('sha256').update(Buffer.from(m.V.buffer)).digest('hex'));
+  }
+  for(const yaw of [.6,2.4]){
+   g.clearTo(0,0,0);g.setCamera(0,0,-m.radius*3,0,0,0,1);g.setFog(0,0,0,1e7,2e7);
+   g.drawModel(m,0,0,0,g.rotMatrix(yaw,.12,0),1,null,{ambient:.7,noFog:true});
+   assert.ok(Array.from(g.buf32).filter(p=>(p&0xffffff)!==0).length>40,name+' failed to render');
+  }
+ }
+ assert.equal(shapes.size,11);
+});
+
+test('transit gate has an unobstructed opening and propulsion wakes remain behind the ship',async()=>{
+ const a=await ready(),g=a.Gfx,m=a.models.stream;
+ g.clearTo(0,0,0);g.setCamera(0,0,-20000,0,0,0,1);g.setFog(0,0,0,1e7,2e7);
+ g.drawModel(m,0,0,0,null,1,null,{ambient:.7,noFog:true});
+ assert.equal(g.buf32[Math.floor(g.H/2)*g.W+Math.floor(g.W/2)]&0xffffff,0);
+ assert.ok(g.zbuf[Math.floor(g.H/2)*g.W+Math.floor(g.W/2)]>1e29);
+ const points=[],original=g.point;g.point=(...args)=>points.push(args);
+ try{
+  const assets=a.run('WorldAssets'),ship=a.models.u0;
+  assets.drawWake(ship,0,0,0,g.rotMatrix(0,0,0),1,.5,0);assert.equal(points.length,0);
+  assets.drawWake(ship,0,0,0,g.rotMatrix(0,0,0),1,.5,1);assert.equal(points.length,20);
+  for(const [x,y,z,r] of points){assert.ok(z<=ship.wake.z&&z>ship.wake.z-1300);assert.ok(r<60);}
+ }finally{g.point=original;}
+});
+
+test('catalogue covers every ship view, equipment item and cargo good with a bundled model preview',async()=>{
+ const a=await game(),catalog=a.run('Catalog'),images={},bytes=fs.readFileSync(root+'/'+catalog.PATH);
+ assert.equal(bytes.subarray(0,4).toString(),'RIFF');assert.equal(bytes.subarray(8,12).toString(),'WEBP');
+ a.Assets.picture=async()=>({width:catalog.COLS*catalog.CELL_W,height:Math.ceil(catalog.ENTRIES.length/catalog.COLS)*catalog.CELL_H});
+ await catalog.load(images);
+ const keys=[...a.GameData.ships.flatMap(s=>[s.icon+'a',s.icon+'b']),...a.GameData.equip.map(e=>e.icon),...a.GameData.goods.map(g=>g.icon)];
+ assert.equal(keys.length,108);assert.equal(Object.keys(images).length,keys.length);
+ for(const key of keys){assert.ok(images[key],key);assert.ok(images[key].uiWidth<=60&&images[key].uiHeight<=36);}
+ a.Assets.picture=async()=>({width:1,height:1});await assert.rejects(()=>catalog.load({}),/dimensions/);
 });

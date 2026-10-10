@@ -1,8 +1,8 @@
 # DEEP — Submarine Odyssey
 
 A browser recreation of **Deep 3D** (Fishlabs Entertainment, 2007), with realistic
-character portraits and a modern material, lighting and animation pass. The original
-game tables, story and recognizable vehicle and creature silhouettes are preserved.
+character portraits, new ship and station models, and a modern material, lighting and
+animation pass. The original game tables, story and creature identities are preserved.
 The game ships English and Russian language packs.
 
 Open `index.html` through any web server (see *Running* below) and play.
@@ -183,12 +183,14 @@ is why the files in this repository are left completely untouched.
 The meshes are HI CORP **Mascot Capsule Micro3D v3** `.mbac` files — format version 5 with
 bit-packed vertex blocks, 7/7/1 packed unit normals and bit-packed polygon indices with
 8-bit texel coordinates. `js/model.js` parses all 75 of them and flattens the bone
-hierarchy; `js/realism.js` combines creature sections and refines the meshes; `js/gfx.js` draws them with a perspective-correct, z-buffered software
+hierarchy. The live game loads the creature source meshes; `js/realism.js` combines
+their sections and refines them. `js/mesh-kit.js`, `js/world-assets.js` and
+`js/station-model.js` build the replacement hardware. `js/gfx.js` draws these with a perspective-correct, z-buffered software
 rasteriser into a display-sized or adaptive framebuffer, with depth fog for the water.
 
 ### Lights, and the two keying conventions
 
-The atlases mix two kinds of transparency, and getting them wrong is what puts a black
+The archived atlases mix two kinds of transparency, and getting them wrong puts a black
 box around every light. Cut-out cells — the algae — leave their surround on palette
 index 0. Glow cells — station lights, engine exhaust, laser bolts, explosions, the
 S.T.R.E.A.M. portal — paint theirs pure black, because the handset blended black away.
@@ -198,7 +200,9 @@ cannot be keyed there either.
 `Micro3D.classifyBlend` therefore sorts every polygon once at load time by looking at
 the texels it actually covers, and tags it opaque, cut-out or additive; the rasteriser
 drops index 0 for cut-outs and black for glows, and lets fog thin an emissive surface
-rather than tint it, so no halo is left behind.
+rather than tint it, so no halo is left behind. This remains relevant to creature
+bioluminescence. Live ships and stations now use solid attached lamps and impellers;
+weapon trails, wakes and explosion flashes are soft depth-tested particles.
 
 ### Data
 
@@ -231,6 +235,10 @@ js/assets.js      de-obfuscation and the PNG / BMP / .lang loaders
 js/model.js       Mascot Capsule Micro3D v3 (.mbac) parser
 js/gfx.js         software rasteriser, material lighting, depth fog, projection
 js/realism.js     material maps, mesh refinement, complete creatures and deformation
+js/mesh-kit.js    shared solid geometry primitives and transforms
+js/station-model.js  station families, technology tiers and faction markings
+js/world-assets.js   ship fleet, world props, wakes and particle effects
+js/catalog.js    pre-rendered ship, equipment and cargo catalogue
 js/ui2d.js        text, the UI widgets and realistic portrait rendering
 js/data.js        the txt/ tables and language lookups
 js/world.js       player, ship, economy, job board, medals, saves
@@ -289,7 +297,7 @@ distant animals and vehicles use the simpler mesh.
 Five algae types now have solid, double-sided leaf ribbons with continuous sway and
 veined textures. All 11 submarine hulls, enemy ships, stations, gates, mines, torpedoes,
 cargo and wreckage receive weathered surface maps and material-specific highlights.
-Original light/exhaust cells retain their original UVs, colours and additive blending.
+Creature bioluminescence retains its original UVs and colours.
 
 Stations now use a shared pressure-hull model in flight and the dock console. Sealed
 corridors join the habitation vessels to the command tower; a recessed docking bay,
@@ -297,15 +305,34 @@ structural bands, bridge glazing and small attached lamps replace the overlappin
 legacy module cluster and oversized star flares. Civil and rebel stations have distinct
 markings. The footprint remains inside the existing collision envelope, and docking
 range and rules are unchanged. The station geometry and material atlas are built once
-at boot from local surface artwork; distant stations use a simpler mesh.
+at boot from local surface artwork; distant stations use a simpler mesh. All 200 stations
+select from 24 variants: four families (outpost, research, refinery and fortified port),
+three technology tiers and two faction schemes. The selection is deterministic.
+
+All 11 playable ships now have new solid hulls, cabins, control surfaces, ducted
+impellers, maintenance bands and navigation lamps. Workboats, interceptors, raiders,
+haulers, twin-hull freighters and luxury craft have different geometry and finishes.
+Enemy ships use those same upgraded classes; the mission tanker has its own twin-tank
+model. Compact bubble wakes replace the original oversized exhaust cones.
+
+The transit gate has a hollow aperture and fixed frame. Mines, torpedoes, cargo crates,
+rescue capsules, waypoints and three types of salvage use new solid geometry. Soft
+weapon tracers and short explosion flashes replace the old effect meshes; expanding
+bubble clouds remain depth-tested against the world.
+
+The hangar, shop and cargo screens use 108 locally bundled model previews: two views
+of each ship, all 44 equipment items and all 42 goods. These pictures are rendered
+from the live models or matching equipment/cargo models, including the upgraded animals
+and algae. `previews/README.md` describes the optional rebuild command.
 
 The environment adds a textured distant seabed below the playable volume, shallow-water
 light shafts, stronger colour absorption, refractive-looking bubble rims and explosion
 pressure/bubble clouds. These are lightweight visual approximations in the existing
 software renderer, not ray tracing, fluid simulation or a replacement GPU engine.
 
-Material maps are prebuilt and bundled locally; startup does not bake textures or call
-an image service. `materials/README.md` records the artwork prompt and rebuild steps.
+Creature material maps and catalogue pictures are prebuilt and bundled locally. Small
+hardware atlases and geometry are constructed once at boot from bundled steel artwork;
+there are no image-service calls. `materials/README.md` records the artwork prompt and rebuild steps.
 Species statistics, collision radii, economy, missions and save formats are unchanged.
 
 ## Credits

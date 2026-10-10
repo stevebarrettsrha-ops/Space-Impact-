@@ -4,10 +4,10 @@
 const StationModel = (() => {
   const TAU = Math.PI * 2;
 
-  function texture(metal, rebel) {
+  function texture(metal, rebel, hull, accent) {
     const w = 512, h = 256, data = new Uint8ClampedArray(w * h * 4);
-    const colours = [[155,178,180], [52,72,78], [192,153,66], [25,75,94],
-      [139,225,231], [12,24,30], rebel ? [154,93,60] : [54,117,139], [214,77,49]];
+    const colours = [hull || [155,178,180], [52,72,78], [192,153,66], [25,75,94],
+      [139,225,231], [12,24,30], accent || (rebel ? [154,93,60] : [54,117,139]), [214,77,49]];
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const cell = (y >> 7) * 4 + (x >> 7), u = x & 127, v = y & 127;
       const p = ((v * 2 * metal.w) + u * 2) * 4;
@@ -23,52 +23,10 @@ const StationModel = (() => {
     return {w, h, data};
   }
 
-  function build(metal, rebel = false, low = false) {
-    const V = [], N = [], tris = [], sides = low ? 12 : 24;
-    const unit = v => { const d = Math.hypot(...v) || 1; return v.map(x => x / d); };
-    function face(points, normals, cell) {
-      const u = (cell % 4) * 128 + 3, v = Math.floor(cell / 4) * 128 + 3;
-      const uv = [[u,v], [u+121,v], [u+121,v+121], [u,v+121]], start = V.length / 3;
-      for (let i = 0; i < 4; i++) { V.push(...points[i]); N.push(...unit(normals[i])); }
-      for (const ids of [[0,1,2], [0,2,3]]) {
-        let [a,b,c] = ids;
-        const p = points[a], q = points[b].map((x,k) => x-p[k]), r = points[c].map((x,k) => x-p[k]);
-        const cross = [q[1]*r[2]-q[2]*r[1], q[2]*r[0]-q[0]*r[2], q[0]*r[1]-q[1]*r[0]];
-        if (Math.hypot(...cross) < .001) continue;
-        if (cross.reduce((s,x,k) => s+x*normals[a][k],0) < 0) [b,c] = [c,b];
-        tris.push({a:start+a,b:start+b,c:start+c,ua:uv[a][0],va:uv[a][1],ub:uv[b][0],vb:uv[b][1],uc:uv[c][0],vc:uv[c][1],blend:0});
-      }
-    }
-    // A lathed profile gives pressure vessels rounded caps, cylindrical walls,
-    // and hollow bay rims. Normals follow the profile; ribs retain hard edges.
-    function lathe(center, axis, rings, cell, smooth = true, inward = false) {
-      const map = (a,b,c) => axis === 'y' ? [a,c,b] : axis === 'x' ? [c,a,b] : [a,b,c];
-      for (let j = 0; j < rings.length - 1; j++) {
-        const [z0,r0] = rings[j], [z1,r1] = rings[j+1], dz = z1-z0, dr = r1-r0;
-        for (let i = 0; i < sides; i++) {
-          const a = i / sides * TAU, b = (i+1) / sides * TAU;
-          const points = [[a,z0,r0],[b,z0,r0],[b,z1,r1],[a,z1,r1]].map(([t,z,r]) =>
-            map(Math.cos(t)*r,Math.sin(t)*r,z).map((x,k) => x+center[k]));
-          const normals = [a,b,b,a].map(t => {
-            if (!smooth) t = (a+b)/2;
-            return map(Math.cos(t)*dz,Math.sin(t)*dz,-dr).map(x => inward ? -x : x);
-          });
-          face(points,normals,cell);
-        }
-      }
-    }
-    function box(c, s, cell) {
-      for (let axis = 0; axis < 3; axis++) for (const sign of [-1,1]) {
-        const a = (axis+1)%3, b = (axis+2)%3, n = [0,0,0]; n[axis] = sign;
-        const points = [[-1,-1],[1,-1],[1,1],[-1,1]].map(([x,y]) => {
-          const p = c.slice(); p[axis] += sign*s[axis]/2; p[a] += x*s[a]/2; p[b] += y*s[b]/2; return p;
-        });
-        face(points,[n,n,n,n],cell);
-      }
-    }
-    function rib(c,axis,z,r,width,cell=1) {
-      lathe(c,axis,[[z-width/2,r-45],[z-width/2,r],[z+width/2,r],[z+width/2,r-45]],cell,false);
-    }
+  function build(metal, rebel = false, low = false, family = 0, tier = 1, skin = texture(metal,rebel)) {
+    const mesh=MeshKit.create(low?10:20);
+    const {face,lathe,box,rib}=mesh;
+    const sides=low?10:20;
     const origin = [0,0,0];
     // Central command tower and lower ballast chamber.
     lathe(origin,'y',[[-2700,0],[-2550,1250],[-2100,2000],[2400,2000],[2850,1810],[3220,1350],[3450,0]],0);
@@ -121,13 +79,58 @@ const StationModel = (() => {
     box([0,4390,0],[1100,160,220],0);
     box([0,4550,0],[100,160,100],7);
 
-    const bbox=[Infinity,Infinity,Infinity,-Infinity,-Infinity,-Infinity];let radius=0;
-    for(let i=0;i<V.length;i+=3){for(let k=0;k<3;k++){bbox[k]=Math.min(bbox[k],V[i+k]);bbox[k+3]=Math.max(bbox[k+3],V[i+k]);}radius=Math.max(radius,Math.hypot(V[i],V[i+1],V[i+2]));}
-    const model={V:new Float32Array(V),N:new Float32Array(N),tris,count:V.length/3,bbox,radius,
-      name:rebel?'station_rebel':'station_civil',texture:texture(metal,rebel),material:{specular:.22,gloss:36}};
-    if(!low){model.lod=build(metal,rebel,true);model.lod.texture=model.texture;}
+    // Four working station types, each with three technology tiers.
+    if(family===1){
+      // Research observatory: sealed sensor domes and a broad sonar array.
+      lathe([0,4650,0],'y',[[0,160],[120,800],[350,1100],[500,800],[550,0]],6);
+      for(const x of [-2900,2900]){
+        lathe([x,600,2200],'y',[[-500,0],[-400,720],[600,720],[1000,500],[1150,0]],3);
+        box([x,0,1500],[250,300,2200],1);
+      }
+    }else if(family===2){
+      // Industrial refinery: connected pressure tanks, pipework and service gantry.
+      for(const x of [-3000,3000]){
+        lathe([x,0,3650],'y',[[-2200,0],[-2050,500],[-1700,760],[2000,760],[2350,480],[2500,0]],0);
+        for(const y of [-1300,300,1850])rib([x,0,3650],'y',y,800,130,6);
+        box([x*.65,-500,3650],[2400,240,320],1);
+      }
+      box([0,3750,3000],[6500,260,350],2);
+      for(const x of [-3000,3000])box([x,2450,3000],[280,2600,350],1);
+    }else if(family===3){
+      // Fortified port: armour skirts and attached defensive turrets.
+      for(const side of [-1,1]){
+        box([side*5300,500,700],[1300,1600,3650],1);
+        box([side*5350,1320,700],[1400,130,3750],6);
+        box([side*3100,1100,700],[650,1800,650],1);
+        lathe([side*3100,2050,700],'y',[[0,750],[500,750],[750,350]],0);
+        for(const dx of [-220,220])lathe([side*3100+dx,2500,0],'z',[[-1700,110],[1400,110]],1);
+      }
+    }
+    if(tier===2)for(const x of [-1500,1500]){
+      box([x,3200,1000],[170,2400,170],1);
+      box([x,4350,1000],[450,120,350],6);
+    }
+    const size=[.86,1,1.10][tier];mesh.transform(0,[0,0,0],[size,size,size]);
+    const model=mesh.finish(key(rebel,{family,tier}),skin);
+    model.family=family;model.tier=tier;
+    if(!low){model.lod=build(metal,rebel,true,family,tier,skin);}
     return model;
   }
-  const key = rebel => rebel ? 'station_rebel' : 'station_civil';
-  return {build,key};
+  function appearance(st){return {family:st.id%4,tier:st.tech<=3?0:st.tech<=7?1:2};}
+  function key(rebel,station){
+    const base=rebel?'station_rebel':'station_civil';
+    if(!station)return base;
+    const a=station.family===undefined?appearance(station):station;
+    return base+'_'+a.family+'_'+a.tier;
+  }
+  function prepare(models,metal){
+    for(const rebel of [false,true]){
+      const skin=texture(metal,rebel);
+      for(let family=0;family<4;family++)for(let tier=0;tier<3;tier++){
+        models[key(rebel,{family,tier})]=build(metal,rebel,false,family,tier,skin);
+      }
+      models[key(rebel)]=models[key(rebel,{family:0,tier:1})];
+    }
+  }
+  return {build,key,texture,prepare,appearance};
 })();
