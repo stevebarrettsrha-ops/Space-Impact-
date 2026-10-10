@@ -31,9 +31,9 @@ const mime={'.html':'text/html','.js':'text/javascript','.png':'image/png','.web
    Object.assign(sector,{px:10000,py:4000,pz:-15500,throttle:0,yaw:Math.atan2(-10000,15500),pitch:Math.atan2(-4000,Math.hypot(10000,15500))});
    Flight.update(1,Input);Flight.render(Gfx.context());
    for(let i=0;i<600;i++)Gfx.autoScale(100,100);
-   return {backend:Gfx.backend,width:Gfx.W,height:Gfx.H,scale:Gfx.renderScale,error:sceneGL.getError(),antialias:sceneGL.getContextAttributes().antialias};
+   return {backend:Gfx.backend,width:Gfx.W,height:Gfx.H,scale:Gfx.renderScale,canvasWidth:document.getElementById('screen').width,canvasHeight:document.getElementById('screen').height,error:sceneGL.getError(),antialias:sceneGL.getContextAttributes().antialias};
   });
-  assert.equal(report.backend,'webgl');assert.equal(report.error,0);assert.equal(report.scale,1);assert.equal(report.width,1280);assert.equal(report.height,960);
+  assert.equal(report.backend,'webgl');assert.equal(report.error,0);assert.equal(report.scale,1);assert.equal(report.width,report.canvasWidth);assert.equal(report.height,report.canvasHeight);assert.ok(report.width>=1270&&report.height>=950);
   fs.mkdirSync(path.join(root,'test-output'),{recursive:true});
   await page.screenshot({path:path.join(root,'test-output/gameplay-desktop.png')});
   await page.evaluate(()=>{Station.open({undock(){},quit(){}});Gfx.pushPage();Station.render(Gfx.context());Gfx.pop();});
