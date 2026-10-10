@@ -44,7 +44,7 @@ const OceanGPU = (() => {
     }`;
   const fragment = `
     precision highp float;
-    uniform sampler2D uTexture, uShadow;
+    uniform sampler2D uTexture, uShadow, uSurface;
     uniform mat3 uShadowView;
     uniform float uHasShadow;
     uniform mat3 uView;
@@ -59,6 +59,19 @@ const OceanGPU = (() => {
       vec3 albedo=uFlat.x<0.0 ? texture2D(uTexture,vUV).rgb : uFlat;
       if(uFlags.x>0.5 && dot(albedo,vec3(1.0))<.118)discard;
       vec3 n=normalize(vNormal), l=normalize(vec3(.35,.75,-.55));
+      vec4 surface=vec4(.5,.5,.6,.2);
+      if(uMaterial.w>.5){
+        surface=texture2D(uSurface,vUV);
+        #ifdef SURFACE_NORMALS
+        vec3 dp1=dFdx(vWorld),dp2=dFdy(vWorld);
+        vec2 duv1=dFdx(vUV),duv2=dFdy(vUV);
+        vec3 p2=cross(dp2,n),p1=cross(n,dp1);
+        vec3 tangent=p2*duv1.x+p1*duv2.x,bitangent=p2*duv1.y+p1*duv2.y;
+        float invLength=inversesqrt(max(1e-12,max(dot(tangent,tangent),dot(bitangent,bitangent))));
+        vec2 xy=surface.xy*2.0-1.0;
+        n=normalize(tangent*invLength*xy.x+bitangent*invLength*xy.y+n*sqrt(max(.01,1.0-dot(xy,xy))));
+        #endif
+      }
       vec3 eye=normalize(-vView), vn=uView*n;
       float diffuse=max(0.0,dot(n,l));
       float sky=.5+.5*n.y;
@@ -77,8 +90,23 @@ const OceanGPU = (() => {
       float distance=length(vView);
       float cone=smoothstep(.65,.96,vView.z/max(1.0,distance));
       light+=uLamp.x*cone*max(.12,dot(vn,eye))/(1.0+distance*distance/uLamp.y);
-      float spec=pow(max(0.0,dot(vn,normalize(uView*l+eye))),uMaterial.z)*uMaterial.y;
+      vec3 halfVector=normalize(uView*l+eye);
+      float spec=pow(max(0.0,dot(vn,halfVector)),uMaterial.z)*uMaterial.y;
       float fresnel=pow(1.0-max(0.0,dot(vn,eye)),5.0)*uMaterial.y*.25;
+      if(uMaterial.w>.5){
+        // GGX highlight with mapped roughness: glass, painted armour and
+        // exposed machinery no longer share one uniform plastic highlight.
+        float rough=clamp(surface.z,.12,.95),alpha=rough*rough,a2=alpha*alpha;
+        float nh=max(0.0,dot(vn,halfVector)),nv=max(.025,dot(vn,eye)),nl=max(.025,diffuse);
+        float denominator=nh*nh*(a2-1.0)+1.0;
+        float distribution=a2/(3.14159265*denominator*denominator);
+        float k=(rough+1.0)*(rough+1.0)/8.0;
+        float geometry=(nv/(nv*(1.0-k)+k))*(nl/(nl*(1.0-k)+k));
+        float f0=mix(.04,.36,surface.w),vh=max(0.0,dot(eye,halfVector));
+        float reflectance=f0+(1.0-f0)*pow(1.0-vh,5.0);
+        spec=min(.65,distribution*geometry*reflectance/(4.0*nv)*.9);
+        fresnel=pow(1.0-nv,5.0)*(.04+surface.w*.10);
+      }
       // Restrained moving caustics vanish with depth, never stripes at 5 km.
       vec2 q=vWorld.xz*.001;
       float wave=sin(q.x+q.y*.7+uAtmosphere.z*.65)*sin(q.y*1.4-q.x*.35-uAtmosphere.z*.45);
@@ -176,7 +204,9 @@ const OceanGPU = (() => {
     function setup(){
       // Extensions must be enabled again after WebGL context restoration.
       anisotropy=gl.getExtension('EXT_texture_filter_anisotropic');
-      programs={mesh:program(vertex,fragment),water:program(backgroundVertex,backgroundFragment),point:program(particleVertex,particleFragment),shadow:program(shadowVertex,shadowFragment)};
+      const derivatives=gl.getExtension('OES_standard_derivatives');
+      const surfacePrefix=derivatives?'#extension GL_OES_standard_derivatives : enable\n#define SURFACE_NORMALS\n':'';
+      programs={mesh:program(vertex,surfacePrefix+fragment),water:program(backgroundVertex,backgroundFragment),point:program(particleVertex,particleFragment),shadow:program(shadowVertex,shadowFragment)};
       quad=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,quad);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
       shadowTexture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,shadowTexture);
       gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,2048,2048,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
@@ -253,9 +283,10 @@ const OceanGPU = (() => {
         const p=use(programs.mesh),d=opts.deform,material=model.material||{specular:0,gloss:16};
         gl.enable(gl.CULL_FACE);common(p);um(p,'uShadowView',shadowView);u1(p,'uHasShadow',hasShadow?1:0);
         gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,shadowTexture);gl.uniform1i(gl.getUniformLocation(p.p,'uShadow'),1);gl.activeTexture(gl.TEXTURE0);um(p,'uRotation',transpose(rotation||[1,0,0,0,1,0,0,0,1]));
+        gl.activeTexture(gl.TEXTURE2);texture(model.texture?.surface);gl.uniform1i(gl.getUniformLocation(p.p,'uSurface'),2);gl.activeTexture(gl.TEXTURE0);
         u3(p,'uPosition',[x,y,z]);u1(p,'uScale',scale);u3(p,'uFog',fog);u3(p,'uTint',opts.tint||[1,1,1]);
         u3(p,'uFlat',opts.flatColour?opts.flatColour.map(v=>v/255):[-1,-1,-1]);
-        u4(p,'uMaterial',[opts.ambient??.45,material.specular,material.gloss,model.texture?.w===512&&model.texture?.h===256?1:0]);
+        u4(p,'uMaterial',[opts.ambient??.45,material.specular,material.gloss,model.texture?.industrial?1:0]);
         u4(p,'uAtmosphere',[near,Math.max(1,far-near),opts.time??time,depth]);u2(p,'uLamp',lamp);
         u4(p,'uDeform',d?[d.mode,d.phase,d.strength,d.width]:[0,0,0,1]);u4(p,'uBounds',d?[d.lo,d.span,d.bottom,d.height]:[0,1,0,1]);
         for(const g of geometry(model,model.texture||tex)){

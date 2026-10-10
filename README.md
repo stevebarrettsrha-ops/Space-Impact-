@@ -293,7 +293,7 @@ cargo and wreckage receive weathered surface maps and material-specific highligh
 Creature bioluminescence retains its original UVs and colours.
 
 Stations share the same large angular industrial model in flight and the dock console:
-stacked command decks, broad armoured hangars, enclosed bridges, machinery stacks and
+stacked command decks, broad armoured hangars, open truss bridges, machinery stacks and
 recessed docking entrances. Windows, ribs, work lights, vents and service gantries are
 solid attached details. Compound collision boxes follow the major structures, leaving
 the central docking throat and gaps between the wings open. Docking range is unchanged.
@@ -304,7 +304,7 @@ All 11 playable ships now have bevelled angular armour, cabins, thick control su
 impellers, maintenance bands and navigation lamps. Workboats, interceptors, raiders,
 haulers, twin-hull freighters and luxury craft have different geometry and finishes.
 Enemy ships use those same upgraded classes; the mission tanker has its own twin-tank
-model. Compact bubble wakes replace the original oversized exhaust cones.
+model. Outboard pods produce continuous paired propulsion trails with a bubble wake.
 
 The transit gate has a hollow aperture and fixed frame. Mines, torpedoes, cargo crates,
 rescue capsules, waypoints and three types of salvage use new solid geometry. Soft
@@ -319,7 +319,7 @@ and algae. `previews/README.md` describes the optional rebuild command.
 The water uses animated low-contrast backscatter, depth-dependent light shafts and
 caustics that fade at depth, exponential colour absorption, and soft depth-tested
 particles. Filtered station shadows establish depth between decks and hangars. The
-seabed remains below the navigable volume. These are real-time shading approximations,
+seabed and distant canyon walls remain outside the navigable volume. These are real-time shading approximations,
 not a fluid simulation or ray tracing.
 
 Creature material maps and catalogue pictures are prebuilt and bundled locally. Small
@@ -327,6 +327,12 @@ hardware atlases and geometry are constructed once at boot from bundled steel ar
 there are no image-service calls. `materials/README.md` records the artwork prompt and rebuild steps.
 Creature statistics, economy, missions and save formats are unchanged. Station collision
 now follows the rebuilt structures instead of a single bounding sphere.
+
+The latest reference-driven correction adds stacked command decks, open truss bridges,
+pipework, galleries and railings. Manufactured assets use denser panel textures with
+normal, roughness and metalness data, plus consistent texture scale on large faces.
+See [visual direction](docs/visual-direction.md) for the supplied references, research
+and the remaining gap between these real-time models and the detailed reference art.
 
 ## Credits
 

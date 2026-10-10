@@ -3,10 +3,21 @@
 'use strict';
 const MeshKit = (() => {
   const TAU = Math.PI * 2;
-  function create(segments = 20) {
+  function create(segments = 20, tileSize = Infinity) {
     const V = [], N = [], tris = [], sides = segments;
     const unit = v => { const d = Math.hypot(...v) || 1; return v.map(x => x / d); };
-    function face(points, normals, cell) {
+    function face(points,normals,cell){
+      const distance=(a,b)=>Math.hypot(...a.map((v,k)=>v-b[k]));
+      const nx=Math.max(1,Math.min(8,Math.ceil(Math.max(distance(points[0],points[1]),distance(points[3],points[2]))/tileSize)));
+      const ny=Math.max(1,Math.min(8,Math.ceil(Math.max(distance(points[0],points[3]),distance(points[1],points[2]))/tileSize)));
+      if(nx===1&&ny===1)return patch(points,normals,cell);
+      const at=(p,u,v)=>p[0].map((_,k)=>p[0][k]*(1-u)*(1-v)+p[1][k]*u*(1-v)+p[2][k]*u*v+p[3][k]*(1-u)*v);
+      for(let y=0;y<ny;y++)for(let x=0;x<nx;x++){
+        const uv=[[x/nx,y/ny],[(x+1)/nx,y/ny],[(x+1)/nx,(y+1)/ny],[x/nx,(y+1)/ny]];
+        patch(uv.map(([u,v])=>at(points,u,v)),uv.map(([u,v])=>at(normals,u,v)),cell);
+      }
+    }
+    function patch(points, normals, cell) {
       const u = (cell % 4) * 128 + 3, v = Math.floor(cell / 4) * 128 + 3;
       const uv = [[u,v], [u+121,v], [u+121,v+121], [u,v+121]], start = V.length / 3;
       for (let i = 0; i < 4; i++) { V.push(...points[i]); N.push(...unit(normals[i])); }
@@ -45,6 +56,22 @@ const MeshKit = (() => {
         });
         face(points,[n,n,n,n],cell);
       }
+    }
+    // A real six-sided member between two points. Bridges and railings need
+    // open space between their members, rather than a solid textured slab.
+    function beam(a,b,width,cell=1) {
+      const d=unit(b.map((v,k)=>v-a[k]));
+      const reference=Math.abs(d[1])<.9?[0,1,0]:[1,0,0];
+      const cross=(p,q)=>[p[1]*q[2]-p[2]*q[1],p[2]*q[0]-p[0]*q[2],p[0]*q[1]-p[1]*q[0]];
+      const u=unit(cross(d,reference)),v=cross(d,u),r=width/2;
+      const corners=p=>[[-1,-1],[1,-1],[1,1],[-1,1]].map(([x,y])=>p.map((q,k)=>q+r*(u[k]*x+v[k]*y)));
+      const A=corners(a),B=corners(b);
+      for(let i=0;i<4;i++){
+        const j=(i+1)%4,n=unit(A[i].map((q,k)=>(q+A[j][k])/2-a[k]));
+        face([A[i],A[j],B[j],B[i]],[n,n,n,n],cell);
+      }
+      face(A,[d.map(q=>-q),d.map(q=>-q),d.map(q=>-q),d.map(q=>-q)],cell);
+      face(B,[d,d,d,d],cell);
     }
     // Bevelled rectangular sections preserve an industrial silhouette while
     // giving light a real edge to catch. Rings are [z, half-width, half-height].
@@ -98,9 +125,12 @@ const MeshKit = (() => {
     const bbox=[Infinity,Infinity,Infinity,-Infinity,-Infinity,-Infinity];let radius=0;
     for(let i=0;i<V.length;i+=3){for(let k=0;k<3;k++){bbox[k]=Math.min(bbox[k],V[i+k]);bbox[k+3]=Math.max(bbox[k+3],V[i+k]);}radius=Math.max(radius,Math.hypot(V[i],V[i+1],V[i+2]));}
 
+      // Authoring UVs use a 512 x 256 atlas; the material can have a denser
+      // backing image without changing the software renderer's texel units.
+      if(texture?.industrial)for(const t of tris)for(const key of ['ua','ub','uc','va','vb','vc'])t[key]*=texture.w/512;
       return {V:new Float32Array(V),N:new Float32Array(N),tris,count:V.length/3,bbox,radius,name,texture,material};
     }
-    return {face,lathe,box,hull,rib,prism,transform,finish,get cursor(){return V.length;}};
+    return {face,lathe,box,beam,hull,rib,prism,transform,finish,get cursor(){return V.length;}};
   }
   return {create};
 })();

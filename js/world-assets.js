@@ -38,7 +38,7 @@ const WorldAssets = (() => {
     }
   }
   function ship(id,low=false){
-    const p=SHIPS[id],m=MeshKit.create(low?8:16),L=p.length,R=p.radius,B=p.beam;
+    const p=SHIPS[id],m=MeshKit.create(low?8:16,low?Infinity:700),L=p.length,R=p.radius,B=p.beam;
     const cargo=['hauler','freighter','command'].includes(p.role),twin=['catamaran','freighter'].includes(p.role);
     m.hull([0,0,0],[[-L*.50,R*.48,R*.48],[-L*.30,R,R*.85],[L*.24,R,R*.70],
       [L*.43,R*.60,R*.43],[L*.52,R*.15,R*.15]],0,.24);
@@ -48,7 +48,9 @@ const WorldAssets = (() => {
       m.prism([[side*R*.55,L*.16],[side*B,-L*wing],[side*B*.85,-L*.58],[side*R*.4,-L*.23]],160,6);
       m.box([side*B*.84,8,-L*.48],[65,45,130],side===1?4:7);
       if(twin)vessel(m,[side*B*.72,-R*.13,-L*.1],L*.83,R*.48,0);
-      thruster(m,side*R*.87,-R*.12,-L*.48,R*.36);
+      // Outboard pods keep the original twin-engine silhouette readable.
+      vessel(m,[side*B*.72,-R*.12,-L*.31],L*.39,R*.39,1);
+      thruster(m,side*B*.72,-R*.12,-L*.51,R*.36);
       if(cargo){
         for(let z=-1;z<=1;z++){
           m.box([side*R*.87,0,z*L*.18],[R*.72,R*1.25,L*.165],z===0?6:0);
@@ -63,6 +65,13 @@ const WorldAssets = (() => {
     if(!low)for(const side of [-1,1]){
       m.hull([side*R*.81,-R*.12,-L*.04],[[-L*.24,R*.30,R*.46],[L*.24,R*.30,R*.38]],0);
       for(let i=0;i<5;i++)m.box([side*R*1.13,R*.05,-L*.23+i*L*.065],[35,R*.40,L*.026],1);
+      // Exposed coolant loops, armoured hatches and bolted wing roots.
+      m.beam([side*R*.62,R*.87,-L*.26],[side*R*.62,R*.87,L*.16],40,1);
+      for(const z of [-L*.20,0,L*.18]){
+        m.box([side*R*.42,R*.83,z],[R*.45,45,L*.09],6);
+        m.box([side*B*.57,105,z-L*.16],[140,75,90],0);
+      }
+      for(let i=0;i<4;i++)m.box([side*B*.72,R*.30,-L*.38+i*L*.045],[R*.43,45,L*.018],6);
     }
     const glass=m.cursor;
     m.lathe([0,0,0],'z',[[0,R*.49],[R*.16,R*.43],[R*.33,0]],3);
@@ -83,7 +92,7 @@ const WorldAssets = (() => {
     }
     if(p.role==='luxury')vessel(m,[0,R*.56,-L*.2],L*.18,R*.66,3,.56);
     const model=m.finish('u'+id,atlas('ship'+id,p.colour,p.accent));
-    model.role=p.role;model.wake={x:R*.87,y:-R*.12,z:-L*.60,r:R*.12};
+    model.role=p.role;model.wake={x:B*.72,y:-R*.12,z:-L*.59,r:R*.30};
     if(!low){model.lod=ship(id,true);model.lod.texture=model.texture;}
     return model;
   }
@@ -164,11 +173,18 @@ const WorldAssets = (() => {
   function drawWake(model,x,y,z,rotation,scale,time,power){
     if(!model.wake||power<.05)return;
     const w=model.wake;
-    for(const side of [-1,1])for(let i=0;i<10;i++){
-      const t=((time*.65+i/10)%1),spread=t*t*95;
-      const p=[side*w.x+Math.sin(i*2.4)*spread,w.y+t*100,w.z-t*1200];
+    // Overlapping soft cores form two continuous jets. Bubble rims trail
+    // behind them; both begin outside the nozzle and stay behind the hull.
+    for(const side of [-1,1])for(let i=0;i<28;i++){
+      const t=i/27,pulse=1+Math.sin(time*13-i*.6+side)*.06;
+      const p=[side*w.x+Math.sin(i*.8+time*3)*t*25,w.y+t*t*130,w.z-t*(1100+1300*power)];
       const q=[0,1,2].map(k=>(rotation[k*3]*p[0]+rotation[k*3+1]*p[1]+rotation[k*3+2]*p[2])*scale);
-      Gfx.point(x+q[0],y+q[1],z+q[2],(w.r*.3+12*t)*scale*power,119,178,194,true,true);
+      Gfx.point(x+q[0],y+q[1],z+q[2],(w.r*2.5+t*180)*Math.pow(1-t*.98,.45)*scale*power*pulse,
+        110+135*(1-t),190+60*(1-t),245,true,false);
+      if(i%3===0){
+        const drift=Math.sin(i*3.1+time)*t*90;
+        Gfx.point(x+q[0]+drift*scale,y+q[1]+t*60*scale,z+q[2],(25+t*35)*scale,151,210,229,true,true);
+      }
     }
   }
   function drawBolt(shot){

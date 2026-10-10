@@ -178,8 +178,10 @@ test('transit gate has an unobstructed opening and propulsion wakes remain behin
  try{
   const assets=a.run('WorldAssets'),ship=a.models.u0;
   assets.drawWake(ship,0,0,0,g.rotMatrix(0,0,0),1,.5,0);assert.equal(points.length,0);
-  assets.drawWake(ship,0,0,0,g.rotMatrix(0,0,0),1,.5,1);assert.equal(points.length,20);
-  for(const [x,y,z,r] of points){assert.ok(z<=ship.wake.z&&z>ship.wake.z-1300);assert.ok(r<60);}
+  assets.drawWake(ship,0,0,0,g.rotMatrix(0,0,0),1,.5,1);
+  assert.ok(points.length>2&&points.length<128,'bounded continuous jet and bubble particle budget');
+  assert.ok(points.some(p=>p[0]<0)&&points.some(p=>p[0]>0),'both outboard engines produce a wake');
+  for(const [x,y,z,r] of points){assert.ok(z<=ship.wake.z&&z>=ship.wake.z-2400);assert.ok(r>0&&r<450);}
  }finally{g.point=original;}
 });
 
@@ -202,5 +204,19 @@ test('catalogue covers every ship view, equipment item and cargo good with a bun
   const hit=api.contact(station,...point,500);assert.ok(hit);assert.ok(hit.penetration>0);
   const corrected=point.map((v,i)=>v+hit.normal[i]*(hit.penetration+.1));
   assert.equal(api.contact(station,...corrected,500),null);
+ }
+});
+
+test('canyon backdrop triangles stay outside the navigable sector',async()=>{
+ const a=await ready(),draw=a.Gfx.drawModel;let terrain;
+ try{a.Gfx.drawModel=model=>{terrain=model;};a.Realism.drawEnvironment(0);}finally{a.Gfx.drawModel=draw;}
+ assert.ok(terrain&&terrain.tris.length>0);
+ for(const t of terrain.tris){
+  const nearest=[0,1,2].map(k=>{
+   const coordinates=[t.a,t.b,t.c].map(i=>terrain.V[i*3+k]);
+   const lo=Math.min(...coordinates),hi=Math.max(...coordinates);
+   return lo>0?lo:hi<0?-hi:0;
+  });
+  assert.ok(Math.hypot(...nearest)>90000,'scenery must not intrude into flight routes');
  }
 });

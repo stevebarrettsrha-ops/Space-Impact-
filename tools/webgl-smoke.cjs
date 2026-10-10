@@ -36,6 +36,11 @@ const mime={'.html':'text/html','.js':'text/javascript','.png':'image/png','.web
   assert.equal(report.backend,'webgl');assert.equal(report.error,0);assert.equal(report.scale,1);assert.equal(report.width,report.canvasWidth);assert.equal(report.height,report.canvasHeight);assert.ok(report.width>=1270&&report.height>=950);
   fs.mkdirSync(path.join(root,'test-output'),{recursive:true});
   await page.screenshot({path:path.join(root,'test-output/gameplay-desktop.png')});
+  await page.evaluate(()=>{
+   Object.assign(sector,{px:18000,py:-4500,pz:-39000,throttle:.85,t:420,yaw:Math.atan2(-18000,39000),pitch:.06});
+   Flight.render(Gfx.context());
+  });
+  await page.screenshot({path:path.join(root,'test-output/gameplay-propulsion.png')});
   await page.evaluate(()=>{Station.open({undock(){},quit(){}});Gfx.pushPage();Station.render(Gfx.context());Gfx.pop();});
   await page.screenshot({path:path.join(root,'test-output/station-console.png')});
   await page.setViewportSize({width:390,height:844});

@@ -183,11 +183,19 @@ const Realism = (() => {
     return {mode,phase,strength,lo:b[2],span:Math.max(1,b[5]-b[2]),bottom:b[1],height:Math.max(1,b[4]-b[1]),width:Math.max(Math.abs(b[0]),Math.abs(b[3]),1)};
   }
   function makeTerrain() {
-    const V=[],N=[],tris=[],size=24,step=12000;
-    const height=(x,z)=>-102000+Math.sin(x*.71)*Math.cos(z*.53)*3500+Math.sin(z*1.31+x*.22)*1500;
+    const V=[],N=[],tris=[],size=64,step=4500;
+    const height=(x,z)=>{
+      const X=(x-size/2)*step,Z=(z-size/2)*step;
+      const ridges=Math.max(0,Math.min(1,(Math.abs(X)-96000)/23000));
+      const backdrop=Math.max(0,Math.min(1,(Z-108000)/24000));
+      const rock=Math.sin(X*.000064+Math.sin(Z*.000021))*Math.cos(Z*.000054)*2800+
+        Math.sin(Z*.000131+X*.000022)*1100;
+      return -102000+rock+ridges*ridges*(84000+Math.sin(Z*.000044)*11000)+backdrop*42000;
+    };
     for(let z=0;z<=size;z++)for(let x=0;x<=size;x++){
       const X=(x-size/2)*step,Z=(z-size/2)*step;
-      // Entire seabed stays below the navigable sector sphere (radius 900m).
+      // Distant canyon walls provide layered silhouettes. Elevated vertices
+      // remain outside the 900m playable sphere; the interior floor stays below it.
       const y=height(x,z),nx=-(height(x+1,z)-height(x-1,z))/(2*step),nz=-(height(x,z+1)-height(x,z-1))/(2*step),len=Math.hypot(nx,1,nz);
       V.push(X,y,Z); N.push(nx/len,1/len,nz/len);
     }
