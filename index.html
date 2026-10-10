@@ -102,6 +102,8 @@
 
 <script src="js/assets.js"></script>
 <script src="js/model.js"></script>
+<script src="js/station-model.js"></script>
+<script src="js/realism.js"></script>
 <script src="js/gfx.js"></script>
 <script src="js/ui2d.js"></script>
 <script src="js/data.js"></script>
@@ -175,6 +177,9 @@
   stick.addEventListener('touchend', end, { passive: false });
   stick.addEventListener('touchcancel', end, { passive: false });
   window.addEventListener('gamelayout', reset);
+  const release = () => { id = null; reset(); };
+  window.addEventListener('blur', release);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) release(); });
   for (const ev of ['fullscreenchange', 'webkitfullscreenchange'])
     document.addEventListener(ev, () => setTimeout(() => Gfx.resize(), 60));
 })();

@@ -36,7 +36,13 @@ const Input = (() => {
     Sfx.resume();
   });
   window.addEventListener('keyup', e => { const k = key(e); if (k) down[k] = false; });
-  window.addEventListener('blur', () => { for (const k in down) down[k] = false; });
+  function reset() {
+    for (const k in down) down[k] = false;
+    for (const k in edge) edge[k] = false;
+    stick.x = stick.y = 0;
+  }
+  window.addEventListener('blur', reset);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) reset(); });
 
   function virtual(name, on) {
     if (on) { if (!down[name]) edge[name] = true; down[name] = true; }
@@ -52,26 +58,31 @@ const Input = (() => {
   function startText(t) { capture = true; text = t || ''; }
   function stopText() { capture = false; return text; }
   function getText() { return text; }
-  return { pressed, held, axisX, axisY, endFrame, virtual, stick, startText, stopText, getText, MAP };
+  return { pressed, held, axisX, axisY, endFrame, reset, virtual, stick, startText, stopText, getText, MAP };
 })();
 
 /* ------------------------------------------------------------------- game */
 const Game = (() => {
 
   const IMG = {}, MODELS = {}, TEX = {};
-  const FACE_IDS = [];
   let mode = 'boot', ctx = null, last = 0, acc = 0;
   let bootMsg = 'LOADING', bootPct = 0;
   let splash = { i: 0, t: 0 };
   let menuSel = 0, settingSel = 0, resultData = null, pauseSel = 0;
-  let scene = null, sceneIdx = 0, sceneAfter = null, sceneT = 0;
+  let scene = null, sceneIdx = 0, scenePage = 0, sceneAfter = null, sceneT = 0;
   let newGame = { step: 0, face: 0, diff: 1 };
   let travel = null;
   let missionCtx = null;
 
+  function pauseOnFocusLoss() {
+    if (mode === 'flight') { mode = 'pause'; pauseSel = 0; }
+  }
+  window.addEventListener('blur', pauseOnFocusLoss);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pauseOnFocusLoss(); });
+
   /* ---------------------------------------------------------------- assets */
   const UI_IMAGES = [
-    'abyss', 'fishlabs', 'logo', 'logo_0', 'logo_1', 'logo_2', 'mai', 'font_deep_white',
+    'abyss', 'fishlabs', 'logo', 'logo_0', 'logo_1', 'logo_2', 'font_deep_white',
     'arrow', 'arrows', 'skip', 'menu', 'lock', 'crosshair', 'numbers', 'coin', 'coins', 'coin_red',
     'crate', 'hull', 'hull_icon', 'i_autofire', 'i_autopilot', 'i_bar', 'i_barend', 'i_booster',
     'i_harpoon', 'i_hull', 'i_laser', 'i_shield', 'i_weight', 'i_weight_box',
@@ -98,10 +109,7 @@ const Game = (() => {
     'box', 'trash', 'mine', 'torpedo', 'kapsel', 'stream', 'skybox', 'explosion',
     'eclipse', 'biowaste', 'fischtod', 'pfeil', 'aquar', 'tanker1', 'limiter_up', 'limiter_down',
     'laser_0', 'laser_1', 'laser_2', 'laser_6', 'laser_7', 'laser_8', 'laser_9',
-    'laser_10', 'laser_11', 'laser_aqua',
-    'station_starter', 'station_top', 'station_bottom', 'station_engine', 'station_cannon',
-    'station_bridge_01', 'station_bridge_02', 'station_sidehabitat',
-    'station_hangar_de', 'station_hangar_ve', 'station_habitat_de', 'station_habitat_ve'
+    'laser_10', 'laser_11', 'laser_aqua'
   ];
 
   /* which atlas each mesh is painted from: the creatures and every effect
@@ -139,12 +147,9 @@ const Game = (() => {
     bootMsg = GameData.T(229);
 
     for (const n of UI_IMAGES) jobs.push(track(Assets.image(n + '.png').then(im => IMG[n] = im).catch(() => { })));
-    /* the portrait set has four gaps in the original numbering */
-    const NO_FACE = new Set([55, 56, 57, 73]);
-    for (let i = 0; i <= 94; i++) {
-      if (NO_FACE.has(i)) continue;
-      jobs.push(track(Assets.image('faces/' + i + '.png').then(im => IMG['faces/' + i] = im).catch(() => { })));
-    }
+    for (const path of Portrait.PATHS)
+      jobs.push(track(Assets.picture(path).then(im => IMG[path] = im)
+        .catch(error => console.warn('Portrait unavailable:', error.message))));
     for (let i = 0; i < 44; i++) jobs.push(track(Assets.image('equipment/slot_' + i + '.png').then(im => IMG['equipment/slot_' + i] = im).catch(() => { })));
     for (let i = 0; i < 11; i++) {
       jobs.push(track(Assets.image('equipment/u' + i + 'a.png').then(im => IMG['equipment/u' + i + 'a'] = im).catch(() => { })));
@@ -162,13 +167,15 @@ const Game = (() => {
       jobs.push(track(Assets.raw(n + '.mbac').then(d => { MODELS[n] = Micro3D.loadMBAC(d); }).catch(e => console.warn(n, e.message))));
 
     jobs.push(track(GameData.load()));
+    jobs.push(track(Realism.load()));
 
     await Promise.all(jobs);
-    for (let i = 0; i <= 94; i++) if (IMG['faces/' + i]) FACE_IDS.push(i);
     Font.build(IMG.font_deep_white);
     Portrait.bind(IMG);
+    if (!Portrait.ready()) throw new Error('No portrait artwork could be loaded. Check the portraits folder and reload.');
     /* work out, per polygon, what is hull and what is light */
     for (const name in MODELS) Micro3D.classifyBlend(MODELS[name], texFor(name));
+    Realism.prepare(MODELS, texFor, GameData.creatures);
     Flight.bind(MODELS, TEX, IMG, texFor);
     Station.bind(MODELS, TEX, IMG, texFor);
     mode = 'splash';
@@ -307,6 +314,12 @@ const Game = (() => {
   /* text overlay ---------------------------------------------------------- */
   let overlay = null;
   function showText(t) { overlay = t; }
+  function saveGame() {
+    if (World.save(0)) { World.autosave(); showText(GameData.T(32)); }
+    else showText(GameData.D.langDir === 'ru'
+      ? 'Не удалось сохранить игру. Проверьте доступ к хранилищу браузера и свободное место.'
+      : 'Save failed. Check browser storage permissions and available space.');
+  }
   function renderOverlay() {
     if (overlay === null) return;
     UI.shade(ctx, 0.82);
@@ -332,10 +345,10 @@ const Game = (() => {
       return;
     }
     if (newGame.step === 1) {
-      if (Input.pressed('left')) { newGame.face = (newGame.face + 999) % 1000; Sfx.play('beep'); }
-      if (Input.pressed('right')) { newGame.face = (newGame.face + 1) % 1000; Sfx.play('beep'); }
-      if (Input.pressed('up')) { newGame.face = (newGame.face + 990) % 1000; Sfx.play('beep'); }
-      if (Input.pressed('down')) { newGame.face = (newGame.face + 10) % 1000; Sfx.play('beep'); }
+      if (Input.pressed('left')) { newGame.face = (newGame.face + Portrait.count - 1) % Portrait.count; Sfx.play('beep'); }
+      if (Input.pressed('right')) { newGame.face = (newGame.face + 1) % Portrait.count; Sfx.play('beep'); }
+      if (Input.pressed('up')) { newGame.face = (newGame.face + Portrait.count - 4) % Portrait.count; Sfx.play('beep'); }
+      if (Input.pressed('down')) { newGame.face = (newGame.face + 4) % Portrait.count; Sfx.play('beep'); }
       if (Input.pressed('fire')) { newGame.step = 2; Sfx.play('select'); }
       if (Input.pressed('back')) { newGame.step = 0; Input.startText(newGame.name); }
       return;
@@ -360,14 +373,17 @@ const Game = (() => {
       Font.draw(ctx, Input.getText() + ((Date.now() / 400 | 0) % 2 ? '_' : ''), 36, 88, UI.COL.gold);
     } else if (newGame.step === 1) {
       Font.drawCentre(ctx, GameData.T(301), SCR_W / 2, 20, UI.COL.text);
-      Portrait.draw(ctx, newGame.face, (SCR_W - 96) / 2, 36, 96);
-      /* a strip of the neighbouring rolls, so it reads as a picker */
-      for (let k = -4; k <= 4; k++) {
-        if (!k) continue;
-        const id = (newGame.face + k + 1000) % 1000;
-        Portrait.draw(ctx, id, SCR_W / 2 - 13 + k * 26, 148, 26);
+      const height = Math.min(120, Math.max(40, SCR_H - 160)), width = Math.round(height * 0.8);
+      Portrait.draw(ctx, newGame.face, (SCR_W - width) / 2, 36, width, height);
+      const size = Math.min(26, Math.floor((SCR_W - 16) / Portrait.count) - 2);
+      const start = (SCR_W - Portrait.count * (size + 2) + 2) / 2, stripY = 48 + height;
+      for (let i = 0; i < Portrait.count; i++) {
+        const x = start + i * (size + 2);
+        Portrait.draw(ctx, i, x, stripY, size);
+        if (i === newGame.face) UI.frame(ctx, x - 1, stripY - 1, size + 2, size + 2, null, UI.COL.gold);
       }
-      Font.drawCentre(ctx, GameData.T(302), SCR_W / 2, 190, UI.COL.dim);
+      const label = GameData.D.langDir === 'ru' ? 'Портрет' : 'Portrait';
+      Font.drawCentre(ctx, label + ' ' + (newGame.face + 1) + '/' + Portrait.count, SCR_W / 2, stripY + size + 8, UI.COL.dim);
       Font.drawCentre(ctx, newGame.name, SCR_W / 2, SCR_H - 40, UI.COL.gold);
     } else {
       Font.drawCentre(ctx, GameData.T(39), SCR_W / 2, 60, UI.COL.text);
@@ -391,17 +407,21 @@ const Game = (() => {
   /* ------------------------------------------------------------- dialogue */
   async function playScene(n, after) {
     scene = await Campaign.scene(n);
-    sceneIdx = 0; sceneAfter = after || null; sceneT = 0;
+    sceneIdx = 0; scenePage = 0; sceneAfter = after || null; sceneT = 0;
     mode = 'dialogue';
     Sfx.play('message');
   }
   function updateScene(dt) {
     sceneT += dt;
+    const page = sceneContent();
+    if (Input.pressed('up')) scenePage = Math.max(0, scenePage - 1);
+    if (Input.pressed('down')) scenePage = Math.min(page.pages - 1, scenePage + 1);
     if (Input.pressed('fire') || Input.pressed('action')) {
-      sceneIdx++;
+      if (scenePage < page.pages - 1) { scenePage++; Sfx.play('beep'); return; }
+      sceneIdx++; scenePage = 0;
       sceneT = 0;
       Sfx.play('beep');
-      if (sceneIdx >= scene.length) endScene();
+      if (sceneIdx >= scene.length) { endScene(); return; }
     }
     if (Input.pressed('back')) endScene();
   }
@@ -411,30 +431,53 @@ const Game = (() => {
     Campaign.dialogueDone();
     if (after) after(); else enterStation();
   }
+  function sceneLayout(line) {
+    /* Updates run outside the page render region, so use its explicit size.
+       Otherwise wide displays can skip pages that the narrower panel needs. */
+    const { w: width, h: pageHeight } = Gfx.pageRect();
+    const character = Portrait.hasCharacter(line.character);
+    const hasPortrait = character || line.portrait != null;
+    const sideBySide = width >= 330;
+    const height = Math.min(pageHeight - 26, hasPortrait ? (sideBySide ? 214 : 360) : 190);
+    const box = { x: 4, y: pageHeight - height - 18, w: width - 8, h: height };
+    let portrait = null, tx = 12, ty = box.y + 25;
+    if (hasPortrait) {
+      const ph = Math.min(144, Math.floor(height * (sideBySide ? 0.72 : 0.4)));
+      const pw = Math.round(ph * 0.8);
+      portrait = { x: sideBySide ? 12 : Math.round((width - pw) / 2), y: ty, w: pw, h: ph };
+      if (sideBySide) tx = portrait.x + pw + 12;
+      else ty += ph + 12;
+    }
+    return { box, portrait, tx, ty, textWidth: width - tx - 12,
+      rows: Math.max(1, Math.floor((box.y + box.h - 22 - ty) / 13)) };
+  }
+  function sceneContent() {
+    const line = scene[Math.min(sceneIdx, scene.length - 1)];
+    const layout = sceneLayout(line);
+    const lines = Font.wrap(line.text, layout.textWidth);
+    const pages = Math.max(1, Math.ceil(lines.length / layout.rows));
+    scenePage = Math.min(scenePage, pages - 1);
+    return { line, layout, lines, pages };
+  }
   function renderScene() {
     if (!scene) return;
     /* keep the world visible behind the conversation */
     if (Flight.state() && lastMode === 'flight') Flight.render(ctx); else { Gfx.clearTo(4, 16, 26); Gfx.flush(); }
     UI.shade(ctx, 0.68);
-    const line = scene[Math.min(sceneIdx, scene.length - 1)];
-    const boxY = SCR_H - 118;
-    UI.panel(ctx, 4, boxY, SCR_W - 8, 100, line.name || '');
-    let y = boxY + 18;
-    let tx = 10, portraitH = 0;
-    if (line.face === 'mai' && IMG.mai) { ctx.drawImage(IMG.mai, 8, y); tx = 8 + IMG.mai.width + 6; portraitH = IMG.mai.height; }
-    else if (line.portrait !== null && line.portrait !== undefined) {
-      Portrait.draw(ctx, line.portrait, 8, y, 40);
-      tx = 52; portraitH = 40;
+    const { line, layout, lines, pages } = sceneContent();
+    const { box, portrait, tx, ty, rows } = layout;
+    UI.panel(ctx, box.x, box.y, box.w, box.h, line.name || '');
+    if (portrait) {
+      const { x, y, w, h } = portrait;
+      if (Portrait.hasCharacter(line.character)) Portrait.drawCharacter(ctx, line.character, x, y, w, h);
+      else Portrait.draw(ctx, line.portrait, x, y, w, h);
+      UI.frame(ctx, x, y, w, h, null, UI.COL.frameHi);
     }
-    const narrow = SCR_W - tx - 10, wide = SCR_W - 20;
-    const indented = Math.ceil(portraitH / 12);
-    const lines = Font.wrap(line.text, portraitH ? narrow : wide);
-    for (let i = 0; i < lines.length; i++) {
-      if (y > boxY + 88) { Font.draw(ctx, '...', tx, y, UI.COL.dim); break; }
-      Font.draw(ctx, lines[i], i < indented ? tx : 10, y, UI.COL.text);
-      y += 12;
-    }
-    Font.drawRight(ctx, (sceneIdx + 1) + '/' + scene.length, SCR_W - 10, boxY + 4, UI.COL.dim);
+    const start = scenePage * rows;
+    for (let i = 0; i < rows && start + i < lines.length; i++)
+      Font.draw(ctx, lines[start + i], tx, ty + i * 13, UI.COL.text);
+    const progress = (sceneIdx + 1) + '/' + scene.length + (pages > 1 ? '  ·  ' + (scenePage + 1) + '/' + pages : '');
+    Font.drawRight(ctx, progress, SCR_W - 12, box.y + box.h - 15, UI.COL.dim);
     UI.softkeys(ctx, GameData.T(233), GameData.T(74));
   }
 
@@ -790,6 +833,10 @@ const Game = (() => {
   /* --------------------------------------------------------------- pause */
   const PAUSE = [[17, 'resume'], [2, 'save'], [3, 'settings'], [4, 'help'], [67, 'menu']];
   function updatePause() {
+    if (overlay !== null) {
+      if (Input.pressed('fire') || Input.pressed('back')) { overlay = null; Sfx.play('back'); }
+      return;
+    }
     if (Input.pressed('up')) { pauseSel = (pauseSel - 1 + PAUSE.length) % PAUSE.length; Sfx.play('beep'); }
     if (Input.pressed('down')) { pauseSel = (pauseSel + 1) % PAUSE.length; Sfx.play('beep'); }
     if (Input.pressed('back')) { mode = lastMode; return; }
@@ -797,7 +844,7 @@ const Game = (() => {
       const a = PAUSE[pauseSel][1];
       Sfx.play('select');
       if (a === 'resume') mode = lastMode;
-      else if (a === 'save') { World.save(0); World.autosave(); showText(GameData.T(32)); }
+      else if (a === 'save') saveGame();
       else if (a === 'settings') { mode = 'settings'; settingSel = 0; }
       else if (a === 'help') showText(GameData.T(18) + '\n\n' + GameData.T(19) + '\n' +
         'Arrows / WASD - steer\nSpace - fire\n1 - switch weapon\n7 - auto fire\n3 - booster\n9 - autopilot\n0 - dock / S.T.R.E.A.M.\n2 / 8 - throttle\nC - camera\nF - full screen\nP - pause');
@@ -869,7 +916,7 @@ const Game = (() => {
   }
 
   function reloadStation() { enterStation(); }
-  return { boot, openSettings, reloadStation, get IMG() { return IMG; }, get MODELS() { return MODELS; }, get mode() { return mode; }, showText };
+  return { boot, openSettings, reloadStation, saveGame, get IMG() { return IMG; }, get MODELS() { return MODELS; }, get mode() { return mode; }, showText };
 })();
 
 window.addEventListener('load', () => {

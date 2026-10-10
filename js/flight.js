@@ -1,7 +1,7 @@
 /* ============================================================================
    The 3D sector: flying the boat, fishing, fighting, mines, cargo, the
    S.T.R.E.A.M. gates and docking.  Everything you see out of the window is an
-   original Micro3D mesh textured with the original deep.bmp / fx.bmp atlases.
+   refined Micro3D mesh with realistic surfaces and continuous creature motion.
    ========================================================================== */
 'use strict';
 
@@ -47,6 +47,7 @@ const Flight = (() => {
       docking: null, streaming: null,
       alarm: 0, hitFlash: 0, shake: 0,
       cleared: false, failed: false,
+      pendingResult: null,
       killsHere: 0, caughtHere: 0,
       radar: World.radarLevel(),
       hint: cfg.hint || null,
@@ -88,8 +89,8 @@ const Flight = (() => {
     if (cfg.station !== false) {
       S.station = ent({
         kind: 'station', x: 0, y: 0, z: 0, yaw: 0, pitch: 0,
-        scale: 1.5, hp: 1e9, r: 110 * U, id: st.id,
-        modules: stationModules(st)
+        scale: 1, hp: 1e9, r: 110 * U, id: st.id,
+        model: StationModel.key(World.isRebel(st.id))
       });
     }
     /* --- a S.T.R.E.A.M. gate --------------------------------------------- */
@@ -125,31 +126,6 @@ const Flight = (() => {
     if (!cfg.noFriends) for (let i = 0; i < 2; i++) spawnShip('trader');
 
     if (cfg.build) cfg.build(S, { ent, spawnShip, spawnCreature, spawnShoal, U });
-  }
-
-  function stationModules(st) {
-    /* the station is assembled from the original module meshes, exactly the
-       way the MIDlet builds them: a core, habitats, hangar, engines, cannons */
-    const rebel = World.isRebel(st.id);
-    const suffix = rebel ? '_ve' : '_de';
-    const mods = [
-      { m: 'station_starter', x: 0, y: 0, z: 0 },
-      { m: 'station_top', x: 0, y: 46 * U, z: 0 },
-      { m: 'station_bottom', x: 0, y: -46 * U, z: 0 },
-      { m: 'station_hangar' + suffix, x: 0, y: -12 * U, z: 40 * U },
-      { m: 'station_habitat' + suffix, x: 34 * U, y: 8 * U, z: -18 * U },
-      { m: 'station_habitat' + suffix, x: -34 * U, y: 8 * U, z: -18 * U, yaw: Math.PI },
-      { m: 'station_sidehabitat', x: 0, y: 6 * U, z: -46 * U },
-      { m: 'station_bridge_01', x: 20 * U, y: 26 * U, z: 0 },
-      { m: 'station_bridge_02', x: -20 * U, y: 26 * U, z: 0, yaw: Math.PI },
-      { m: 'station_engine', x: 0, y: -6 * U, z: -74 * U }
-    ];
-    const guards = Math.min(4, Math.round(st.tech / 3));
-    for (let i = 0; i < guards; i++) {
-      const a = i / guards * TAU;
-      mods.push({ m: 'station_cannon', x: Math.cos(a) * 40 * U, y: 30 * U, z: Math.sin(a) * 40 * U, yaw: a });
-    }
-    return mods;
   }
 
   function pickSpecies(st, i) {
@@ -311,6 +287,18 @@ const Flight = (() => {
     const W = World.state();
     W.stats.playMs += dt * 16.6;
 
+    /* Result delays belong to this sector and advance only during gameplay.
+       Pausing or leaving the sector cannot deliver a stale completion. */
+    if (S.pendingResult) {
+      const result = S.pendingResult;
+      result.remaining -= dt;
+      if (result.remaining <= 0) {
+        S.pendingResult = null;
+        if (S.onDone) S.onDone(result.reason);
+      }
+      return;
+    }
+
     if (S.docking || S.streaming) { updateTransition(dt); return; }
 
     /* ---- steering ---- */
@@ -402,7 +390,11 @@ const Flight = (() => {
       S.timeLimit -= dt;
       if (S.timeLimit <= 0) missionFail();
     }
-    if (World.hull() <= 0 && !S.failed) { S.failed = true; if (S.onDone) S.onDone('dead'); }
+    if (World.hull() <= 0 && !S.dead) {
+      S.dead = S.failed = true;
+      S.pendingResult = null;
+      if (S.onDone) S.onDone('dead');
+    }
   }
 
   function autopilotToggle() {
@@ -681,29 +673,31 @@ const Flight = (() => {
     }
   }
   function progress() {
+    if (S.cleared || S.failed) return;
     S.objectiveDone++;
     if (S.objectiveNeed && S.objectiveDone >= S.objectiveNeed && !S.cleared) {
       S.cleared = true;
       Sfx.play('medal');
       toast(GameData.T(92));
-      if (S.onDone) setTimeout(() => S.onDone('clear'), 900);
+      if (S.onDone) S.pendingResult = { reason: 'clear', remaining: 54 };
     }
   }
   function missionFail() {
-    if (S.failed) return;
+    if (S.failed || S.cleared) return;
     S.failed = true;
     Sfx.play('fail');
     toast(GameData.T(228));
-    if (S.onDone) setTimeout(() => S.onDone('fail'), 900);
+    if (S.onDone) S.pendingResult = { reason: 'fail', remaining: 54 };
   }
 
   function damagePlayer(dmg, why) {
     const W = World.state();
     const sh = World.shield();
-    if (sh > 0) {
-      W.ship.shieldDmg = Math.min(World.shieldMax(), W.ship.shieldDmg + dmg);
-    } else {
-      W.ship.hullDmg = Math.min(World.hullMax(), W.ship.hullDmg + dmg);
+    const absorbed = Math.min(sh, dmg);
+    W.ship.shieldDmg += absorbed;
+    const hullDamage = dmg - absorbed;
+    if (hullDamage > 0) {
+      W.ship.hullDmg = Math.min(World.hullMax(), W.ship.hullDmg + hullDamage);
       W.stats.streak = 0;
     }
     S.hitFlash = 8;
@@ -737,7 +731,6 @@ const Flight = (() => {
 
   function updateFish(e, dt) {
     e.anim += dt * 0.09;
-    e.frame = ((e.anim | 0) % 2);
     const c = GameData.creatures[e.species];
     if (c.algae) return;
     if (e.hooked) {
@@ -920,6 +913,8 @@ const Flight = (() => {
     const cy = S.py - f.y * back + up + rnd(-shake, shake) * 30;
     const cz = S.pz - f.z * back + rnd(-shake, shake) * 30;
     Gfx.setCamera(cx, cy, cz, S.yaw, S.pitch - (S.camera === 0 ? 0.055 : 0), S.roll * 0.35, 1.02);
+    Gfx.waterLight(S.t/60, S.depth, S.yaw, S.pitch);
+    Realism.drawEnvironment(S.t/60);
 
     /* entities, far first so the painter's order plays nicely with the z buffer */
     const order = S.ents.slice().sort((a, b) =>
@@ -930,7 +925,7 @@ const Flight = (() => {
     if (S.camera === 0) {
       const m = M['u' + World.state().ship.type];
       if (m) Gfx.drawModel(m, S.px, S.py, S.pz, Gfx.rotMatrix(S.yaw, S.pitch, S.roll * 0.5), 1, TEX.deep,
-        { ambient: 0.8, noFog: true });
+        { ambient: 0.58, noFog: true, time:S.t/60 });
     }
 
     /* shots */
@@ -958,7 +953,13 @@ const Flight = (() => {
       if (fx.kind === 'boom' && M.explosion) {
         const k = fx.t / 42;
         Gfx.drawModel(M.explosion, fx.x, fx.y, fx.z, Gfx.rotMatrix(fx.t * 0.05, fx.t * 0.03, 0),
-          fx.s * (0.4 + k * 1.5), TEX.fx, { additive: true, alpha: 1 - k, ambient: 1, noFog: true });
+          fx.s * (0.4 + k * 1.5), TEX.fx, { additive: true, alpha: Math.max(0,1-k*2.4), ambient: 1 });
+        // A pressure pulse and expanding bubble cloud outlast the brief flash.
+        for(let i=0;i<28;i++){
+          const a=i*2.39996,v=1-2*(i+.5)/28,r=Math.sqrt(1-v*v),spread=(600+k*3200)*fx.s;
+          Gfx.point(fx.x+Math.cos(a)*r*spread,fx.y+v*spread+k*k*1500,fx.z+Math.sin(a)*r*spread,
+            (70+k*100)*fx.s,140,202,222,true,true);
+        }
       } else {
         for (let i = 0; i < 5; i++)
           Gfx.point(fx.x + rnd(-4, 4) * U, fx.y + rnd(-4, 4) * U, fx.z + rnd(-4, 4) * U,
@@ -968,7 +969,7 @@ const Flight = (() => {
 
     /* marine snow, then the boat's own bubble trail */
     for (const p of S.snow) Gfx.point(p.x, p.y, p.z, p.s, 150, 190, 210);
-    for (const b of S.bubbles) Gfx.point(b.x, b.y, b.z, b.s, 180, 220, 240);
+    for (const b of S.bubbles) Gfx.point(b.x, b.y, b.z, b.s, 180, 220, 240,true,true);
 
     Gfx.flush();
     hud(ctx);
@@ -979,15 +980,9 @@ const Flight = (() => {
     if (d > 1400 * U) return;
     switch (e.kind) {
       case 'station': {
-        const rot = Gfx.rotMatrix(e.yaw, 0, 0);
-        for (const mod of e.modules) {
-          const m = M[mod.m];
-          if (!m) continue;
-          const r = Gfx.rotMatrix(e.yaw + (mod.yaw || 0), 0, 0);
-          const sx = e.x + Math.cos(e.yaw) * mod.x + Math.sin(e.yaw) * mod.z;
-          const sz = e.z - Math.sin(e.yaw) * mod.x + Math.cos(e.yaw) * mod.z;
-          Gfx.drawModel(m, sx, e.y + mod.y, sz, r, e.scale, TEX.deep, { ambient: 0.78 });
-        }
+        const m = M[e.model];
+        if (m) Gfx.drawModel(m, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, 0, 0), e.scale,
+          TEX.deep, { ambient: 0.56, time: S.t / 60 });
         break;
       }
       case 'gate': {
@@ -997,18 +992,18 @@ const Flight = (() => {
       }
       case 'fish': {
         const c = GameData.creatures[e.species];
-        const names = c.models;
-        const m = M[names[Math.min(e.frame, names.length - 1)]] || M[names[0]];
+        const m = M['creature_'+c.id];
         if (!m) return;
         Gfx.drawModel(m, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, e.pitch, 0), e.scale, TEX.fx,
-          { tint: e.hooked ? [1.5, 1.3, 0.8] : null, ambient: 0.68 });
+          { tint: e.hooked ? [1.25, 1.15, 0.85] : null, ambient: 0.54,time:S.t/60,
+            deform:Realism.deformation(m,e.anim,e.hooked) });
         break;
       }
       case 'ship': {
         const m = M[e.model];
         if (!m) return;
         Gfx.drawModel(m, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, e.pitch, e.roll * 0.4), e.scale,
-          TEX.deep, { tint: e.tint, ambient: 0.72 });
+          TEX.deep, { tint: e.tint, ambient: 0.54,time:S.t/60 });
         break;
       }
       case 'mine':

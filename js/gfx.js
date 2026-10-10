@@ -129,17 +129,19 @@ const Gfx = (() => {
 
   function allocRender(dw, dh) {
     devPix = [dw, dh];
+    rk = Math.min(rk, maxRenderK());
     alloc(Math.max(120, Math.ceil(dw / rk)), Math.max(120, Math.ceil(dh / rk)));
+  }
+  function maxRenderK() {
+    return Math.max(1,Math.min(K_MAX,Math.floor(Math.min(devPix[0],devPix[1])/120)));
   }
 
   /* Frame interval is the honest signal - it takes in the compositor as well
      as the rasteriser - but it is pinned to the refresh rate while there is
      room to spare, so stepping up also asks that the frame itself was cheap. */
-  /* Native by default: the sector is drawn pixel for pixel with the display.
-     'auto' hands the decision back to the measured frame times, and
-     'balanced' holds the budget value, for anyone who would rather have the
-     headroom than the detail. */
-  let detail = 'native';
+  /* Automatic detail measures frame time by default. Native remains available
+     and any explicitly saved choice is restored by the loader. */
+  let detail = 'auto';
   function setDetail(m) {
     detail = (m === 'native' || m === 'balanced') ? m : 'auto';
     if (detail !== 'auto') {
@@ -159,7 +161,7 @@ const Gfx = (() => {
     costSum = 0; frameSum = 0; costN = 0;
     if (probe > 0) probe--;
     if (frame > 21.5 || cost > 15) {
-      if (rk >= K_MAX) return;
+      if (rk >= maxRenderK()) return;
       rk++; noBelow = rk; fastRun = 0; probe = 24;
     } else if (frame < 17.6 && cost < 7) {
       if (++fastRun < 3) return;
@@ -258,7 +260,7 @@ const Gfx = (() => {
     const w = cw / dpr, h = ch / dpr;
     view.style.width = w + 'px';
     view.style.height = h + 'px';
-    view.style.imageRendering = 'pixelated';
+    view.style.imageRendering = 'auto';
     scale = w / bw;
     sync();
 
@@ -357,6 +359,26 @@ const Gfx = (() => {
     zbuf.fill(1e30);
   }
 
+  /* Broad light shafts are a background effect: solid geometry is drawn over
+     them, so they never shine through a hull. Sunlight disappears with depth. */
+  function waterLight(time, depth, yaw, pitch) {
+    const strength=Math.max(0,1-depth/450)*.16;
+    if(!strength)return;
+    const beams=new Float32Array(W),pan=Math.sin(yaw)*.5;
+    for(let x=0;x<W;x++){
+      const u=x/W+pan;
+      beams[x]=Math.pow(Math.max(0,Math.sin(u*16+time*.06)),10)+.5*Math.pow(Math.max(0,Math.sin(u*27-time*.04)),16);
+    }
+    for(let y=0;y<H;y++){
+      const fade=strength*Math.max(0,1-y/H+pitch*.25),offset=Math.round(y*.13);
+      for(let x=0,i=y*W;x<W;x++,i++){
+        const k=beams[(x+offset)%W]*fade,o=buf32[i];
+        const r=(o&255)+k*80,g=((o>>>8)&255)+k*150,b=((o>>>16)&255)+k*160;
+        buf32[i]=0xff000000|((b>255?255:b)<<16)|((g>255?255:g)<<8)|(r>255?255:r);
+      }
+    }
+  }
+
   /* camera: yaw about Y, pitch about X, position in world units */
   function setCamera(x, y, z, yaw, pitch, roll, fov) {
     /* view matrix = Rz(-roll) * Rx(-pitch) * Ry(-yaw) */
@@ -371,8 +393,8 @@ const Gfx = (() => {
     ];
     const p = [
       1, 0, 0,
-      0, cp, sp,
-      0, -sp, cp
+      0, cp, -sp,
+      0, sp, cp
     ];
     const rl = [
       cr, sr, 0,
@@ -400,19 +422,19 @@ const Gfx = (() => {
     const cp = Math.cos(pitch), sp = Math.sin(pitch);
     const cr = Math.cos(roll), sr = Math.sin(roll);
     const ry = [cy, 0, sy, 0, 1, 0, -sy, 0, cy];
-    const rx = [1, 0, 0, 0, cp, -sp, 0, sp, cp];
+    const rx = [1, 0, 0, 0, cp, sp, 0, -sp, cp];
     const rz = [cr, -sr, 0, sr, cr, 0, 0, 0, 1];
     return mul3(ry, mul3(rx, rz));
   }
 
   /* scratch vertex arrays, grown on demand */
   let vx = new Float32Array(4096), vy = new Float32Array(4096), vz = new Float32Array(4096);
-  let sx = new Float32Array(4096), sy2 = new Float32Array(4096), li = new Float32Array(4096);
+  let sx = new Float32Array(4096), sy2 = new Float32Array(4096), li = new Float32Array(4096), spec = new Float32Array(4096);
   function ensure(n) {
     if (vx.length >= n) return;
     const m = 1 << Math.ceil(Math.log2(n));
     vx = new Float32Array(m); vy = new Float32Array(m); vz = new Float32Array(m);
-    sx = new Float32Array(m); sy2 = new Float32Array(m); li = new Float32Array(m);
+    sx = new Float32Array(m); sy2 = new Float32Array(m); li = new Float32Array(m); spec = new Float32Array(m);
   }
 
   const KEY = 30;                      /* r+g+b at or below this is black */
@@ -436,6 +458,11 @@ const Gfx = (() => {
   /* opts: {tex, scale, rot(3x3), ambient, tint:[r,g,b], additive, noFog} */
   function drawModel(model, px, py, pz, rot, s, tex, opts) {
     opts = opts || {};
+    const distance = Math.hypot(camM[0]*px+camM[1]*py+camM[2]*pz+camM[3],
+      camM[4]*px+camM[5]*py+camM[6]*pz+camM[7],camM[8]*px+camM[9]*py+camM[10]*pz+camM[11]);
+    if(model.lod && model.radius*s*focal/Math.max(1,distance)<36)model=model.lod;
+    tex = model.texture || tex;
+    const material=model.material, deform=opts.deform, time=opts.time||0;
     const n = model.count;
     ensure(n);
     const V = model.V, N = model.N;
@@ -458,14 +485,37 @@ const Gfx = (() => {
     const cx = W / 2, cy2 = H / 2;
     const amb = opts.ambient === undefined ? 0.62 : opts.ambient;
     for (let i = 0; i < n; i++) {
-      const x = V[i * 3] * s, y = V[i * 3 + 1] * s, z = V[i * 3 + 2] * s;
+      let x = V[i * 3], y = V[i * 3 + 1], z = V[i * 3 + 2];
+      let nx=N?N[i*3]:0, ny=N?N[i*3+1]:1, nz=N?N[i*3+2]:0;
+      if(deform){
+        const d=deform,t=(z-d.lo)/d.span,tail=1-t;
+        if(d.mode===1||d.mode===5){
+          const angle=d.phase-tail*4,amp=d.span*d.strength;
+          const offset=Math.sin(angle)*tail*tail*amp;
+          const derivative=amp/d.span*(4*Math.cos(angle)*tail*tail-2*Math.sin(angle)*tail);
+          if(d.mode===1){x+=offset;nz-=derivative*nx;}else{y+=offset;nz-=derivative*ny;}
+        }else if(d.mode===2){
+          const h=(y-d.bottom)/d.height,angle=d.phase+h*2;
+          x+=Math.sin(angle)*h*h*d.height*d.strength;
+          ny-=(Math.cos(angle)*h*h*2+Math.sin(angle)*h*2)*d.strength*nx;
+        }else if(d.mode===3){
+          const pulse=1+Math.sin(d.phase)*.09;
+          x*=pulse;z*=pulse;nx/=pulse;nz/=pulse;
+          y+=Math.sin(d.phase+(y-d.bottom)/d.height*3)*d.height*.025;
+        }else if(d.mode===4){
+          const w=x/d.width,angle=d.phase+Math.abs(w)*1.3;
+          y+=Math.sin(angle)*w*w*d.width*d.strength;
+          nx-=(Math.cos(angle)*Math.sign(w)*1.3*w*w+Math.sin(angle)*2*w)*d.strength*ny;
+        }
+        const length=Math.hypot(nx,ny,nz)||1;nx/=length;ny/=length;nz/=length;
+      }
+      x*=s;y*=s;z*=s;
       const X = a0 * x + a1 * y + a2 * z + tx;
       const Y = b0 * x + b1 * y + b2 * z + ty;
       const Z = c0 * x + c1 * y + c2 * z + tz;
       vx[i] = X; vy[i] = Y; vz[i] = Z;
       if (Z > 1) { const iz = focal / Z; sx[i] = cx + X * iz; sy2[i] = cy2 - Y * iz; }
       if (N) {
-        const nx = N[i * 3], ny = N[i * 3 + 1], nz = N[i * 3 + 2];
         const wx = r[0] * nx + r[1] * ny + r[2] * nz;
         const wy = r[3] * nx + r[4] * ny + r[5] * nz;
         const wz = r[6] * nx + r[7] * ny + r[8] * nz;
@@ -475,7 +525,22 @@ const Gfx = (() => {
            catches some of it whichever way the key light is pointing */
         const sky = 0.5 + 0.5 * wy;
         li[i] = amb + (1 - amb) * (d * 0.68 + sky * 0.32);
+        if(material){
+          const vnx=a0*nx+a1*ny+a2*nz,vny=b0*nx+b1*ny+b2*nz,vnz=c0*nx+c1*ny+c2*nz;
+          const inv=1/(Math.hypot(X,Y,Z)||1),viewX=-X*inv,viewY=-Y*inv,viewZ=-Z*inv;
+          const lx=m[0]*LIGHT[0]+m[1]*LIGHT[1]+m[2]*LIGHT[2];
+          const ly=m[4]*LIGHT[0]+m[5]*LIGHT[1]+m[6]*LIGHT[2];
+          const lz=m[8]*LIGHT[0]+m[9]*LIGHT[1]+m[10]*LIGHT[2];
+          const hx=lx+viewX,hy=ly+viewY,hz=lz+viewZ,hl=Math.hypot(hx,hy,hz)||1;
+          const ndh=Math.max(0,(vnx*hx+vny*hy+vnz*hz)/hl);
+          const facing=Math.abs(vnx*viewX+vny*viewY+vnz*viewZ);
+          spec[i]=material.specular*(Math.pow(ndh,material.gloss)+Math.pow(1-Math.min(1,facing),5)*.28);
+          const worldX=px+r[0]*x+r[1]*y+r[2]*z,worldZ=pz+r[6]*x+r[7]*y+r[8]*z;
+          const ripple=Math.sin(worldX*.0011+worldZ*.0008+time*.7)*Math.sin(worldZ*.0013-worldX*.0004-time*.5);
+          li[i]+=Math.max(0,ripple-.48)*.14*Math.max(0,wy);
+        }else spec[i]=0;
       } else li[i] = 1;
+      if(!N)spec[i]=0;
       if (lampK > 0) li[i] += lampK / (1 + (X * X + Y * Y + Z * Z) / lampR2);
     }
     const tris = model.tris;
@@ -489,7 +554,7 @@ const Gfx = (() => {
       if ((ax < 0 && bx < 0 && cxp < 0) || (ax >= W && bx >= W && cxp >= W)) continue;
       if (!(isFinite(ax) && isFinite(bx) && isFinite(cxp))) continue;
       if ((ay < 0 && by < 0 && cyp < 0) || (ay >= H && by >= H && cyp >= H)) continue;
-      raster(T, ia, ib, ic, tex, opts);
+      raster(T.emission||T, ia, ib, ic, T.emission?model.emissionTexture:tex, opts);
     }
   }
   const IDENT3 = [1, 0, 0, 0, 1, 0, 0, 0, 1];
@@ -512,6 +577,7 @@ const Gfx = (() => {
     const w0 = 1 / vz[i0], w1 = 1 / vz[i1], w2 = 1 / vz[i2];
     const uu0 = u0 * w0, vv0 = v0 * w0, uu1 = u1 * w1, vv1 = v1 * w1, uu2 = u2 * w2, vv2 = v2 * w2;
     const l0 = li[i0] * w0, l1 = li[i1] * w1, l2 = li[i2] * w2;
+    const h0=spec[i0]*w0,h1=spec[i1]*w1,h2=spec[i2]*w2;
 
     const dy02 = y2 - y0 || 1e-6, dy01 = y1 - y0 || 1e-6, dy12 = y2 - y1 || 1e-6;
     const texW = tex ? tex.w : 0, texH = tex ? tex.h : 0, td = tex ? tex.data : null;
@@ -543,32 +609,37 @@ const Gfx = (() => {
 
     for (let y = yStart; y <= yEnd; y++) {
       const ty = (y + 0.5);
-      let xa, xb, wa, wb, ua, ub, va, vb, la, lb;
+      let xa, xb, wa, wb, ua, ub, va, vb, la, lb, ha, hb;
       let t02 = (ty - y0) / dy02;
       t02 = t02 < 0 ? 0 : t02 > 1 ? 1 : t02;
       xa = x0 + (x2 - x0) * t02; wa = w0 + (w2 - w0) * t02;
       ua = uu0 + (uu2 - uu0) * t02; va = vv0 + (vv2 - vv0) * t02; la = l0 + (l2 - l0) * t02;
+      ha=h0+(h2-h0)*t02;
       if (ty < y1) {
         let t = (ty - y0) / dy01; t = t < 0 ? 0 : t > 1 ? 1 : t;
         xb = x0 + (x1 - x0) * t; wb = w0 + (w1 - w0) * t;
         ub = uu0 + (uu1 - uu0) * t; vb = vv0 + (vv1 - vv0) * t; lb = l0 + (l1 - l0) * t;
+        hb=h0+(h1-h0)*t;
       } else {
         let t = (ty - y1) / dy12; t = t < 0 ? 0 : t > 1 ? 1 : t;
         xb = x1 + (x2 - x1) * t; wb = w1 + (w2 - w1) * t;
         ub = uu1 + (uu2 - uu1) * t; vb = vv1 + (vv2 - vv1) * t; lb = l1 + (l2 - l1) * t;
+        hb=h1+(h2-h1)*t;
       }
       if (xa > xb) {
         let t = xa; xa = xb; xb = t; t = wa; wa = wb; wb = t;
         t = ua; ua = ub; ub = t; t = va; va = vb; vb = t; t = la; la = lb; lb = t;
+        t=ha;ha=hb;hb=t;
       }
       let xs = Math.max(0, Math.ceil(xa)), xe = Math.min(W - 1, Math.floor(xb));
       if (xs > xe) continue;
       const dx = (xb - xa) || 1e-6;
       const dw = (wb - wa) / dx, du = (ub - ua) / dx, dv = (vb - va) / dx, dl = (lb - la) / dx;
       const off = xs - xa;
+      const dh=(hb-ha)/dx;let highlight=ha+dh*off;
       let w = wa + dw * off, u = ua + du * off, v = va + dv * off, l = la + dl * off;
       let idx = y * W + xs;
-      for (let x = xs; x <= xe; x++, idx++, w += dw, u += du, v += dv, l += dl) {
+      for (let x = xs; x <= xe; x++, idx++, w += dw, u += du, v += dv, l += dl, highlight+=dh) {
         const z = 1 / w;
         if (z >= zbuf[idx]) continue;
         let r, g, b;
@@ -623,10 +694,14 @@ const Gfx = (() => {
           if (lum < 0) lum = 0; else if (lum > 1.15) lum = 1.15;
           r = r * lum; g = g * lum; b = b * lum;
           if (tint) { r = r * tint[0]; g = g * tint[1]; b = b * tint[2]; }
+          const shine=highlight>0?highlight*z*255:0;
+          r+=shine*.76;g+=shine*.92;b+=shine;
           if (!noFog) {
             let f = (z - fogNear) / (fogFar - fogNear);
             if (f > 0) {
               if (f > 1) f = 1;
+              // Warm wavelengths are attenuated before blue/green underwater.
+              r*=1-f*.30;g*=1-f*.08;
               r += (fogR - r) * f; g += (fogG - g) * f; b += (fogB - b) * f;
             }
           }
@@ -646,7 +721,7 @@ const Gfx = (() => {
      They are now round, soft edged and blended over what is behind them, so
      at the resolutions a modern display asks for they read as motes in the
      beam rather than as chunks of confetti. */
-  function point(wx, wy, wz, size, r, g, b, fade) {
+  function point(wx, wy, wz, size, r, g, b, fade, bubble) {
     const m = camM;
     const X = m[0] * wx + m[1] * wy + m[2] * wz + m[3];
     const Y = m[4] * wx + m[5] * wy + m[6] * wz + m[7];
@@ -674,6 +749,7 @@ const Gfx = (() => {
         if (Z >= zbuf[idx]) continue;
         /* solid core, falling away to nothing at the rim */
         let k = f * (1 - q * q);
+        if(bubble)k*=.12+.64*Math.pow(q,3)+.35*Math.max(0,(-dx-dy)/Math.max(rad,1));
         if (k <= 0.004) continue;
         if (k > 1) k = 1;
         const o = buf32[idx];
@@ -707,7 +783,8 @@ const Gfx = (() => {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     /* an exact k-by-k block copy; it may overshoot the canvas by up to k-1
        device pixels, which the canvas clips */
-    ctx.imageSmoothingEnabled = false;
+    ctx.imageSmoothingEnabled = rk>1;
+    ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(surface, 0, 0, W, H, 0, 0, W * rk, H * rk);
     region = r;
     sync();
@@ -732,7 +809,7 @@ const Gfx = (() => {
 
   return {
     init, resize, screenScale, screenLayout, context, flush, present, clear3D, clearTo, clearGradient, setCamera, setFog, fogColour,
-    drawModel, point, project, rotMatrix,
+    drawModel, point, project, rotMatrix, waterLight,
     pushPage, pushFull, pop, pageRect, setFilter, setLamp, autoScale, setDetail,
     get detail() { return detail; },
     get renderScale() { return 1 / rk; },

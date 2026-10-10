@@ -130,58 +130,57 @@ const UI = (() => {
 })();
 
 /* ============================================================================
-   Portraits.  faces/*.png are not whole pictures but the layers the MIDlet
-   composites into one: a background, a collar, a mouth, a pair of eyes, hair
-   and an optional accessory.  That is what the "Generate portrait" option in
-   the original character screen does.
+   Realistic portraits. Named speakers use fixed artwork; saved numeric player
+   and contact seeds select a stable entry in the bundled portrait bank.
    ========================================================================== */
 const Portrait = (() => {
-  const BG = [84, 85, 86, 87];
-  const CLOTH = [78, 79, 80, 81, 82, 83];
-  const MOUTH = [58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 74, 75, 76, 77];
-  const EYES = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27];
-  const HAIR = [30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
-                49, 50, 51, 52, 53, 54, 89, 90, 91, 92, 93, 94];
-  const ACC = [1, 2, 3, 4, 5, 6, 7, 8];
-  let IMG = null;
-  const cache = new Map();
+  const ART_PATH = 'portraits/cast.webp';
+  const POOL = Array.from({ length: 8 }, (_, i) =>
+    'portraits/pilot-' + String(i + 1).padStart(2, '0') + '.webp');
+  /* Frames exclude the approved cast sheet's labels and dividers. */
+  const CAST = {
+    j: { name: 'Jack Dawn', path: ART_PATH, frame: [2, 2, 432, 530] },
+    r: { name: 'Pierre', path: ART_PATH, frame: [439, 2, 434, 530] },
+    l: { name: 'Lea', path: ART_PATH, frame: [879, 2, 431, 530] },
+    a: { name: 'Ayumi', path: ART_PATH, frame: [2, 580, 432, 556] },
+    y: { name: 'Raymond', path: ART_PATH, frame: [439, 580, 434, 556] },
+    f: { name: 'Fenko', path: ART_PATH, frame: [879, 580, 431, 556] },
+    m: { name: 'M.A.I.', path: 'portraits/mai.webp' }
+  };
+  const PATHS = [...POOL, ART_PATH, CAST.m.path];
+  let IMG = {}, fallback = null;
 
-  function rnd(seed, k) {
-    let h = Math.imul(seed + 1, 73856093) ^ Math.imul(k + 1, 19349663);
-    h = Math.imul(h ^ (h >>> 15), 2246822519);
-    h = Math.imul(h ^ (h >>> 13), 3266489917);
-    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  function bind(images) {
+    IMG = images;
+    const path = POOL.find(path => IMG[path]);
+    if (path) fallback = { path };
+    else fallback = Object.values(CAST).find(entry => IMG[entry.path]) || null;
   }
-  const pick = (arr, seed, k) => arr[Math.floor(rnd(seed, k) * arr.length) % arr.length];
-
-  function bind(images) { IMG = images; cache.clear(); }
-
-  function layers(seed) {
-    const out = [pick(BG, seed, 1), pick(CLOTH, seed, 2), pick(MOUTH, seed, 3),
-                 pick(EYES, seed, 4), pick(HAIR, seed, 5)];
-    if (rnd(seed, 6) < 0.34) out.push(pick(ACC, seed, 7));
-    return out;
+  function index(seed) { return Math.abs(Math.trunc(Number(seed)) || 0) % POOL.length; }
+  function hasCharacter(character) { return Object.prototype.hasOwnProperty.call(CAST, character); }
+  function drawPicture(ctx, entry, x, y, width, height) {
+    if (!IMG[entry.path]) entry = fallback;
+    if (!entry) return false;
+    const art = IMG[entry.path];
+    let [sx, sy, sw, sh] = entry.frame || [0, 0, art.width, art.height];
+    const aspect = width / height;
+    if (sw / sh > aspect) { const crop = sh * aspect; sx += (sw - crop) / 2; sw = crop; }
+    else { const crop = sw / aspect; sy += (sh - crop) / 2; sh = crop; }
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(art, sx, sy, sw, sh, x, y, width, height);
+    ctx.restore();
+    return true;
   }
-
-  function canvasFor(seed) {
-    let c = cache.get(seed);
-    if (c) return c;
-    c = document.createElement('canvas');
-    c.width = 40; c.height = 40;
-    const x = c.getContext('2d');
-    x.imageSmoothingEnabled = false;
-    for (const id of layers(seed)) {
-      const im = IMG && IMG['faces/' + id];
-      if (im) x.drawImage(im, 0, 0, 40, 40);
-    }
-    cache.set(seed, c);
-    return c;
+  function draw(ctx, seed, x, y, size, height) {
+    const width = size || 40;
+    return drawPicture(ctx, { path: POOL[index(seed)] }, x, y, width, height || width);
   }
-
-  function draw(ctx, seed, x, y, size) {
-    const c = canvasFor(seed);
-    const s = size || 40;
-    ctx.drawImage(c, x | 0, y | 0, s, s);
+  function drawCharacter(ctx, character, x, y, width, height) {
+    if (!hasCharacter(character)) return false;
+    return drawPicture(ctx, CAST[character], x, y, width, height);
   }
-  return { bind, draw, canvasFor, layers };
+  return { bind, draw, hasCharacter, drawCharacter, index, ART_PATH, CAST, PATHS,
+    get count() { return POOL.length; }, ready: () => !!fallback };
 })();

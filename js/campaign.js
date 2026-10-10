@@ -310,7 +310,7 @@ const Campaign = (() => {
       return {
         who,
         name: who === 'p' ? W.name : (NAME[who] || ''),
-        face: who === 'm' ? 'mai' : null,
+        character: who === 'p' ? null : who,
         portrait: who === 'p' ? W.face : (who === 'm' || who === '.' ? null : SEED[who]),
         text: t.replace(/#/g, W.name)
       };
