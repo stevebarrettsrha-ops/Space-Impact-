@@ -24,7 +24,7 @@ const World = (() => {
       version: 1,
       name: name || GameData.T(300),
       face: face === undefined ? 0 : face,
-      difficulty: difficulty || 1,
+      difficulty: [0, 1, 2].includes(difficulty) ? difficulty : 1,
       credits: 6400,
       station: 0,                                   /* Gosu */
       chapter: 0, chapterStep: 0,
@@ -387,33 +387,68 @@ const World = (() => {
   }
 
   /* ------------------------------------------------------------- persistence */
+  /* Only replace a running game after the entire saved state is usable.
+     Keep version 1 saves compatible; unknown versions require a migration. */
+  function validSave(s) {
+    const record = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+    const number = v => Number.isFinite(v) && v >= 0;
+    const integer = v => number(v) && Number.isSafeInteger(v);
+    const id = (v, table) => integer(v) && !!table[v];
+    if (!record(s) || s.version !== 1 || typeof s.name !== 'string' ||
+        !integer(s.face) || ![0, 1, 2].includes(s.difficulty) ||
+        !number(s.credits) || !id(s.station, GameData.stations) ||
+        !integer(s.chapter) || !integer(s.chapterStep) || !integer(s.boardDay)) return false;
+    if (!record(s.ship) || !id(s.ship.type, GameData.ships) ||
+        !number(s.ship.hullDmg) || !number(s.ship.shieldDmg) ||
+        !Array.isArray(s.ship.slots) || s.ship.slots.length !== GameData.ships[s.ship.type].slots ||
+        !s.ship.slots.every(v => v === null || id(v, GameData.equip))) return false;
+    for (const key of ['flags', 'cargo', 'rebel', 'seenDialog', 'speciesSeen', 'goodsMade', 'medals', 'visited', 'stats'])
+      if (!record(s[key])) return false;
+    if (!Object.entries(s.cargo).every(([k, v]) => id(+k, GameData.goods) && integer(v))) return false;
+    const stats = ['kills', 'pirateKills', 'fishCaught', 'fishLost', 'fishKilled', 'stationsVisited',
+      'goodsProduced', 'deadFish', 'crates', 'streams', 'missions', 'bought', 'maxDepth', 'minDepth',
+      'playMs', 'streak', 'bestStreak', 'catchStreak', 'bestCatchStreak', 'bestCredits'];
+    if (!stats.every(k => number(s.stats[k]))) return false;
+    if (!['autofire', 'music', 'sfx', 'invert'].every(k => typeof s[k] === 'boolean')) return false;
+    if (s.plannedRoute != null && (!Array.isArray(s.plannedRoute) ||
+        !s.plannedRoute.every(v => id(v, GameData.stations)))) return false;
+    if (!Array.isArray(s.missions) || !s.missions.every(m => {
+      if (!record(m) || !Number.isSafeInteger(m.id) || typeof m.story !== 'boolean' ||
+          typeof m.done !== 'boolean' || !id(m.target, GameData.stations) || !number(m.reward)) return false;
+      if (m.story) return typeof m.title === 'string' && typeof m.text === 'string';
+      return id(m.from, GameData.stations) && integer(m.type) && m.type < MISSION_TYPES &&
+        integer(m.diff) && integer(m.amount) && id(m.goodId, GameData.goods) &&
+        typeof m.client === 'string' && integer(m.face) && number(m.deposit) &&
+        number(m.progress) && Number.isSafeInteger(m.stops);
+    })) return false;
+    return true;
+  }
+  function readSave(slot) {
+    try {
+      const candidate = JSON.parse(localStorage.getItem(SAVE_KEY + '.' + slot));
+      return validSave(candidate) ? candidate : null;
+    } catch (e) { return null; }
+  }
   function slots() {
-    const out = [];
-    for (let i = 0; i < 3; i++) {
-      try {
-        const raw = localStorage.getItem(SAVE_KEY + '.' + i);
-        out.push(raw ? JSON.parse(raw) : null);
-      } catch (e) { out.push(null); }
-    }
-    return out;
+    return [0, 1, 2].map(readSave);
   }
   function save(slot) {
-    try { localStorage.setItem(SAVE_KEY + '.' + slot, JSON.stringify(S)); return true; }
+    try {
+      if (!validSave(S)) return false;
+      localStorage.setItem(SAVE_KEY + '.' + slot, JSON.stringify(S));
+      return true;
+    }
     catch (e) { return false; }
   }
   function load(slot) {
-    try {
-      const raw = localStorage.getItem(SAVE_KEY + '.' + slot);
-      if (!raw) return false;
-      S = JSON.parse(raw);
-      return true;
-    } catch (e) { return false; }
+    const candidate = readSave(slot);
+    if (!candidate) return false;
+    S = candidate;
+    return true;
   }
-  function autosave() { try { localStorage.setItem(SAVE_KEY + '.auto', JSON.stringify(S)); } catch (e) { } }
-  function hasAuto() { return !!localStorage.getItem(SAVE_KEY + '.auto'); }
-  function loadAuto() {
-    try { S = JSON.parse(localStorage.getItem(SAVE_KEY + '.auto')); return !!S; } catch (e) { return false; }
-  }
+  function autosave() { return save('auto'); }
+  function hasAuto() { return !!readSave('auto'); }
+  function loadAuto() { return load('auto'); }
   function adopt(o) { S = o; }
 
   return {

@@ -253,6 +253,23 @@ js/campaign.js    the 26 story chapters and the 47 dialogue scenes
 js/main.js        boot, input, screen state machine, mission runner
 ```
 
+## Regression checks
+
+Run `npm test` with Node.js 22 or newer. No dependency installation or build step
+is needed, and the game itself still runs as a static site. GitHub Actions runs
+the same checks on pushes and pull requests.
+
+The checks exercise difficulty selection, version 1 save compatibility, malformed
+or unavailable storage, save feedback, pause dialogs, focus loss, sector result
+timing, shield damage and script syntax. They load the actual game tables and
+language pack in an isolated JavaScript runtime; they do not replace browser
+playtesting or rendering checks.
+
+Gameplay now pauses when the window loses focus or the tab becomes hidden;
+resume explicitly from the pause menu. Mission result delays pause with gameplay.
+Loading an invalid or unsupported save preserves the current game, and a failed
+manual save displays an error. Existing valid version 1 saves retain their format.
+
 ## Credits
 
 Deep 3D was created by **FISHLABS Entertainment GmbH** on the ABYSS® Game Engine.

@@ -846,7 +846,7 @@ const Station = (() => {
     if (In.pressed('back')) { go('menu'); return; }
     if (In.pressed('fire')) {
       const a = SYS[sel][1];
-      if (a === 'save') { World.save(0); World.autosave(); say(GameData.T(32)); }
+      if (a === 'save') Game.saveGame();
       else if (a === 'load') ask(GameData.T(33), () => {
         if (World.load(0)) { Sfx.play('message'); Game.reloadStation(); } else Sfx.play('deny');
       });

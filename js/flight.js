@@ -47,6 +47,7 @@ const Flight = (() => {
       docking: null, streaming: null,
       alarm: 0, hitFlash: 0, shake: 0,
       cleared: false, failed: false,
+      pendingResult: null,
       killsHere: 0, caughtHere: 0,
       radar: World.radarLevel(),
       hint: cfg.hint || null,
@@ -311,6 +312,18 @@ const Flight = (() => {
     const W = World.state();
     W.stats.playMs += dt * 16.6;
 
+    /* Result delays belong to this sector and advance only during gameplay.
+       Pausing or leaving the sector cannot deliver a stale completion. */
+    if (S.pendingResult) {
+      const result = S.pendingResult;
+      result.remaining -= dt;
+      if (result.remaining <= 0) {
+        S.pendingResult = null;
+        if (S.onDone) S.onDone(result.reason);
+      }
+      return;
+    }
+
     if (S.docking || S.streaming) { updateTransition(dt); return; }
 
     /* ---- steering ---- */
@@ -402,7 +415,11 @@ const Flight = (() => {
       S.timeLimit -= dt;
       if (S.timeLimit <= 0) missionFail();
     }
-    if (World.hull() <= 0 && !S.failed) { S.failed = true; if (S.onDone) S.onDone('dead'); }
+    if (World.hull() <= 0 && !S.dead) {
+      S.dead = S.failed = true;
+      S.pendingResult = null;
+      if (S.onDone) S.onDone('dead');
+    }
   }
 
   function autopilotToggle() {
@@ -681,29 +698,31 @@ const Flight = (() => {
     }
   }
   function progress() {
+    if (S.cleared || S.failed) return;
     S.objectiveDone++;
     if (S.objectiveNeed && S.objectiveDone >= S.objectiveNeed && !S.cleared) {
       S.cleared = true;
       Sfx.play('medal');
       toast(GameData.T(92));
-      if (S.onDone) setTimeout(() => S.onDone('clear'), 900);
+      if (S.onDone) S.pendingResult = { reason: 'clear', remaining: 54 };
     }
   }
   function missionFail() {
-    if (S.failed) return;
+    if (S.failed || S.cleared) return;
     S.failed = true;
     Sfx.play('fail');
     toast(GameData.T(228));
-    if (S.onDone) setTimeout(() => S.onDone('fail'), 900);
+    if (S.onDone) S.pendingResult = { reason: 'fail', remaining: 54 };
   }
 
   function damagePlayer(dmg, why) {
     const W = World.state();
     const sh = World.shield();
-    if (sh > 0) {
-      W.ship.shieldDmg = Math.min(World.shieldMax(), W.ship.shieldDmg + dmg);
-    } else {
-      W.ship.hullDmg = Math.min(World.hullMax(), W.ship.hullDmg + dmg);
+    const absorbed = Math.min(sh, dmg);
+    W.ship.shieldDmg += absorbed;
+    const hullDamage = dmg - absorbed;
+    if (hullDamage > 0) {
+      W.ship.hullDmg = Math.min(World.hullMax(), W.ship.hullDmg + hullDamage);
       W.stats.streak = 0;
     }
     S.hitFlash = 8;

@@ -175,6 +175,9 @@
   stick.addEventListener('touchend', end, { passive: false });
   stick.addEventListener('touchcancel', end, { passive: false });
   window.addEventListener('gamelayout', reset);
+  const release = () => { id = null; reset(); };
+  window.addEventListener('blur', release);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) release(); });
   for (const ev of ['fullscreenchange', 'webkitfullscreenchange'])
     document.addEventListener(ev, () => setTimeout(() => Gfx.resize(), 60));
 })();

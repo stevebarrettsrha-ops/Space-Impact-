@@ -36,7 +36,13 @@ const Input = (() => {
     Sfx.resume();
   });
   window.addEventListener('keyup', e => { const k = key(e); if (k) down[k] = false; });
-  window.addEventListener('blur', () => { for (const k in down) down[k] = false; });
+  function reset() {
+    for (const k in down) down[k] = false;
+    for (const k in edge) edge[k] = false;
+    stick.x = stick.y = 0;
+  }
+  window.addEventListener('blur', reset);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) reset(); });
 
   function virtual(name, on) {
     if (on) { if (!down[name]) edge[name] = true; down[name] = true; }
@@ -52,7 +58,7 @@ const Input = (() => {
   function startText(t) { capture = true; text = t || ''; }
   function stopText() { capture = false; return text; }
   function getText() { return text; }
-  return { pressed, held, axisX, axisY, endFrame, virtual, stick, startText, stopText, getText, MAP };
+  return { pressed, held, axisX, axisY, endFrame, reset, virtual, stick, startText, stopText, getText, MAP };
 })();
 
 /* ------------------------------------------------------------------- game */
@@ -68,6 +74,12 @@ const Game = (() => {
   let newGame = { step: 0, face: 0, diff: 1 };
   let travel = null;
   let missionCtx = null;
+
+  function pauseOnFocusLoss() {
+    if (mode === 'flight') { mode = 'pause'; pauseSel = 0; }
+  }
+  window.addEventListener('blur', pauseOnFocusLoss);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pauseOnFocusLoss(); });
 
   /* ---------------------------------------------------------------- assets */
   const UI_IMAGES = [
@@ -307,6 +319,12 @@ const Game = (() => {
   /* text overlay ---------------------------------------------------------- */
   let overlay = null;
   function showText(t) { overlay = t; }
+  function saveGame() {
+    if (World.save(0)) { World.autosave(); showText(GameData.T(32)); }
+    else showText(GameData.D.langDir === 'ru'
+      ? 'Не удалось сохранить игру. Проверьте доступ к хранилищу браузера и свободное место.'
+      : 'Save failed. Check browser storage permissions and available space.');
+  }
   function renderOverlay() {
     if (overlay === null) return;
     UI.shade(ctx, 0.82);
@@ -790,6 +808,10 @@ const Game = (() => {
   /* --------------------------------------------------------------- pause */
   const PAUSE = [[17, 'resume'], [2, 'save'], [3, 'settings'], [4, 'help'], [67, 'menu']];
   function updatePause() {
+    if (overlay !== null) {
+      if (Input.pressed('fire') || Input.pressed('back')) { overlay = null; Sfx.play('back'); }
+      return;
+    }
     if (Input.pressed('up')) { pauseSel = (pauseSel - 1 + PAUSE.length) % PAUSE.length; Sfx.play('beep'); }
     if (Input.pressed('down')) { pauseSel = (pauseSel + 1) % PAUSE.length; Sfx.play('beep'); }
     if (Input.pressed('back')) { mode = lastMode; return; }
@@ -797,7 +819,7 @@ const Game = (() => {
       const a = PAUSE[pauseSel][1];
       Sfx.play('select');
       if (a === 'resume') mode = lastMode;
-      else if (a === 'save') { World.save(0); World.autosave(); showText(GameData.T(32)); }
+      else if (a === 'save') saveGame();
       else if (a === 'settings') { mode = 'settings'; settingSel = 0; }
       else if (a === 'help') showText(GameData.T(18) + '\n\n' + GameData.T(19) + '\n' +
         'Arrows / WASD - steer\nSpace - fire\n1 - switch weapon\n7 - auto fire\n3 - booster\n9 - autopilot\n0 - dock / S.T.R.E.A.M.\n2 / 8 - throttle\nC - camera\nF - full screen\nP - pause');
@@ -869,7 +891,7 @@ const Game = (() => {
   }
 
   function reloadStation() { enterStation(); }
-  return { boot, openSettings, reloadStation, get IMG() { return IMG; }, get MODELS() { return MODELS; }, get mode() { return mode; }, showText };
+  return { boot, openSettings, reloadStation, saveGame, get IMG() { return IMG; }, get MODELS() { return MODELS; }, get mode() { return mode; }, showText };
 })();
 
 window.addEventListener('load', () => {
