@@ -46,6 +46,26 @@ const MeshKit = (() => {
         face(points,[n,n,n,n],cell);
       }
     }
+    // Bevelled rectangular sections preserve an industrial silhouette while
+    // giving light a real edge to catch. Rings are [z, half-width, half-height].
+    function hull(center, rings, cell=0, bevel=.18, axis='z') {
+      const map=p=>axis==='y'?[p[0],p[2],-p[1]]:p;
+      const outline=(w,h)=>[[-w*(1-bevel),-h],[w*(1-bevel),-h],[w,-h*(1-bevel)],[w,h*(1-bevel)],
+        [w*(1-bevel),h],[-w*(1-bevel),h],[-w,h*(1-bevel)],[-w,-h*(1-bevel)]];
+      for(let j=0;j<rings.length-1;j++){
+        const [z,w,h]=rings[j],[Z,W,H]=rings[j+1],a=outline(w,h),b=outline(W,H);
+        for(let i=0;i<8;i++){
+          const k=(i+1)%8,p=[[...a[i],z],[...a[k],z],[...b[k],Z],[...b[i],Z]].map(q=>map(q).map((v,d)=>v+center[d]));
+          const u=p[1].map((v,d)=>v-p[0][d]),v=p[3].map((q,d)=>q-p[0][d]);
+          const n=unit([u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]]);
+          face(p,[n,n,n,n],cell);
+        }
+      }
+      for(const [ring,sign] of [[rings[0],-1],[rings[rings.length-1],1]]){
+        const [z,w,h]=ring,a=outline(w,h),n=map([0,0,sign]);
+        for(let i=1;i<7;i++){const p=[a[0],a[i],a[i+1],a[i+1]].map(q=>map([q[0],q[1],z]).map((v,d)=>v+center[d]));face(p,[n,n,n,n],cell);}
+      }
+    }
     function rib(c,axis,z,r,width,cell=1) {
       const inner=r-Math.min(45,r*.15);
       lathe(c,axis,[[z-width/2,inner],[z-width/2,r],[z+width/2,r],[z+width/2,inner]],cell,false);
@@ -80,7 +100,7 @@ const MeshKit = (() => {
 
       return {V:new Float32Array(V),N:new Float32Array(N),tris,count:V.length/3,bbox,radius,name,texture,material};
     }
-    return {face,lathe,box,rib,prism,transform,finish,get cursor(){return V.length;}};
+    return {face,lathe,box,hull,rib,prism,transform,finish,get cursor(){return V.length;}};
   }
   return {create};
 })();

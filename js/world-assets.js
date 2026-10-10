@@ -40,11 +40,12 @@ const WorldAssets = (() => {
   function ship(id,low=false){
     const p=SHIPS[id],m=MeshKit.create(low?8:16),L=p.length,R=p.radius,B=p.beam;
     const cargo=['hauler','freighter','command'].includes(p.role),twin=['catamaran','freighter'].includes(p.role);
-    vessel(m,[0,0,0],L,R,0,p.role==='agile'?.7:.87);
-    for(const z of [-L*.29,L*.23])m.rib([0,0,0],'z',z,R*1.01,55,1);
+    m.hull([0,0,0],[[-L*.50,R*.48,R*.48],[-L*.30,R,R*.85],[L*.24,R,R*.70],
+      [L*.43,R*.60,R*.43],[L*.52,R*.15,R*.15]],0,.24);
+    for(const z of [-L*.23,0,L*.22])m.box([0,R*.76,z],[R*1.6,45,L*.09],1);
     const wing=p.role==='interceptor'?.35:.55;
     for(const side of [-1,1]){
-      m.prism([[side*R*.55,L*.16],[side*B,-L*wing],[side*B*.85,-L*.58],[side*R*.4,-L*.23]],60,6);
+      m.prism([[side*R*.55,L*.16],[side*B,-L*wing],[side*B*.85,-L*.58],[side*R*.4,-L*.23]],160,6);
       m.box([side*B*.84,8,-L*.48],[65,45,130],side===1?4:7);
       if(twin)vessel(m,[side*B*.72,-R*.13,-L*.1],L*.83,R*.48,0);
       thruster(m,side*R*.87,-R*.12,-L*.48,R*.36);
@@ -58,7 +59,11 @@ const WorldAssets = (() => {
       }
     }
     // Raised cabin, separate forward glazing and a low sonar sail.
-    vessel(m,[0,R*.7,L*.08],L*.40,R*.60,6,.68);
+    m.hull([0,R*.70,L*.08],[[-L*.2,R*.60,R*.32],[L*.07,R*.60,R*.36],[L*.20,R*.38,R*.16]],6,.18);
+    if(!low)for(const side of [-1,1]){
+      m.hull([side*R*.81,-R*.12,-L*.04],[[-L*.24,R*.30,R*.46],[L*.24,R*.30,R*.38]],0);
+      for(let i=0;i<5;i++)m.box([side*R*1.13,R*.05,-L*.23+i*L*.065],[35,R*.40,L*.026],1);
+    }
     const glass=m.cursor;
     m.lathe([0,0,0],'z',[[0,R*.49],[R*.16,R*.43],[R*.33,0]],3);
     m.transform(glass,[0,R*.76,L*.27],[1,.64,1]);

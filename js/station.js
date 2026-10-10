@@ -236,9 +236,9 @@ const Station = (() => {
     const st = World.station();
     Gfx.clearTo(6, 22, 34);
     /* Use the exact same pressure-hull model and scale as free flight. */
-    Gfx.setFog(6, 22, 34, 5000, 34000);
+    Gfx.setFog(6, 22, 34, 10000, 65000);
     Gfx.setLamp(0.22, 9000);
-    Gfx.setCamera(Math.sin(stationRot) * 17500, 4300, Math.cos(stationRot) * 17500,
+    Gfx.setCamera(Math.sin(stationRot) * 31000, 7400, Math.cos(stationRot) * 31000,
       stationRot + Math.PI, -0.24, 0, 1.0);
     const station = M[StationModel.key(World.isRebel(st.id),st)];
     if (station) Gfx.drawModel(station, 0, 0, 0, null, 1, TEX.deep,

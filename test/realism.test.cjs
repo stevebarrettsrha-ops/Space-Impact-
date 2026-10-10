@@ -94,8 +94,10 @@ test('automatic detail cannot crop the viewport when it reaches the minimum buff
 test('station hulls stay inside collision bounds with valid outward and interior faces at both detail levels',async()=>{
  const a=await ready();
  for(const name of ['station_civil','station_rebel'])for(const m of [a.models[name],a.models[name].lod]){
-  assert.ok(m.radius<11000*.78,'station must fit inside its existing solid radius');
-  assert.ok(m.radius>6000,'station must remain visible at the normal approach distance');
+  assert.ok(m.radius<16000,'station fits within the docking approach');
+  assert.ok(m.collision.length>=8,'compound collision preserves clear passages');
+  assert.ok(m.bbox[3]-m.bbox[0]>17500,'large stations keep broad industrial wings');
+  assert.ok(m.bbox[4]-m.bbox[1]>13000,'command tower preserves a tall silhouette');
   assert.ok(m.tris.every(t=>t.blend===0),'no floating flare planes');
   for(let i=0;i<m.count;i++)assert.ok(Math.abs(Math.hypot(...m.N.subarray(i*3,i*3+3))-1)<1e-5);
   for(const t of m.tris){
@@ -142,7 +144,7 @@ test('every station in the 200-station world resolves to a bounded design for ei
  assert.equal(a.GameData.stations.length,200);
  for(const station of a.GameData.stations)for(const rebel of [false,true]){
   const key=StationModel.key(rebel,station),m=a.models[key];designs.add(key);
-  assert.ok(m&&m.count>0,key);assert.ok(m.radius<8580,key+' exceeds solid radius');
+  assert.ok(m&&m.count>0,key);assert.ok(m.radius<16000,key+' exceeds approach envelope');
   assert.ok(m.lod&&m.lod.tris.length<m.tris.length);
  }
  assert.equal(designs.size,24);
@@ -190,4 +192,15 @@ test('catalogue covers every ship view, equipment item and cargo good with a bun
  assert.equal(keys.length,108);assert.equal(Object.keys(images).length,keys.length);
  for(const key of keys){assert.ok(images[key],key);assert.ok(images[key].uiWidth<=60&&images[key].uiHeight<=36);}
  a.Assets.picture=async()=>({width:1,height:1});await assert.rejects(()=>catalog.load({}),/dimensions/);
+});
+
+ test('station collision follows solid wings and leaves the docking throat clear',async()=>{
+ const a=await ready(),station=a.models.station_civil,api=a.run('StationModel');
+ assert.equal(api.contact(station,0,-1500,-6500,500),null);
+ assert.equal(api.contact(station,4200,-1200,-5000,500),null);
+ for(const point of [[7600,0,0],[-7600,0,0],[0,4000,0],[0,600,-7000]]){
+  const hit=api.contact(station,...point,500);assert.ok(hit);assert.ok(hit.penetration>0);
+  const corrected=point.map((v,i)=>v+hit.normal[i]*(hit.penetration+.1));
+  assert.equal(api.contact(station,...corrected,500),null);
+ }
 });

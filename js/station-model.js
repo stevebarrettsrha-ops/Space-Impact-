@@ -1,4 +1,4 @@
-/* Connected pressure-hull station, in world units (100 units = one metre).
+/* Angular industrial station complex, in world units (100 units = one metre).
    Flight and the dock console use this same mesh at scale 1. */
 'use strict';
 const StationModel = (() => {
@@ -24,96 +24,112 @@ const StationModel = (() => {
   }
 
   function build(metal, rebel = false, low = false, family = 0, tier = 1, skin = texture(metal,rebel)) {
-    const mesh=MeshKit.create(low?10:20);
-    const {face,lathe,box,rib}=mesh;
-    const sides=low?10:20;
-    const origin = [0,0,0];
-    // Central command tower and lower ballast chamber.
-    lathe(origin,'y',[[-2700,0],[-2550,1250],[-2100,2000],[2400,2000],[2850,1810],[3220,1350],[3450,0]],0);
-    for (const y of [-2100,-800,650,2400]) rib(origin,'y',y,2070,130);
-    lathe(origin,'y',[[650,2030],[1350,2030]],6);
-    // Individual bridge glazing is fitted to the curved hull, not a billboard.
-    for (let i=0;i<sides;i++) {
-      const a=(i+.16)/sides*TAU,b=(i+.84)/sides*TAU,r=2020;
-      const p=[[a,1610],[b,1610],[b,2110],[a,2110]].map(([t,y])=>[Math.cos(t)*r,y,Math.sin(t)*r]);
-      const n=[a,b,b,a].map(t=>[Math.cos(t),0,Math.sin(t)]);
-      face(p,n,3);
+    const m=MeshKit.create(low?8:20), {box,hull,lathe,rib}=m;
+    const size=[.88,1,1.13][tier];
+    // An angular deep-water city: four inhabited decks above an open docking
+    // cavern, a pyramidal command crown, and massive separate service wings.
+    hull([0,0,0],[[-3500,3400,3600],[2800,3400,3600],[4000,2700,2800]],0);
+    for(const y of [-3300,-1500,500,2500]){
+      box([0,y,-3550],[6400,180,220],1);
+      for(const side of [-1,1])box([side*3410,y,-300],[180,180,5400],1);
     }
-    // Twin habitation vessels, joined by sealed cross-corridors.
-    for (const side of [-1,1]) {
-      const x=side*4900, c=[x,0,700];
-      lathe([side*3100,0,700],'x',[[-1900,540],[1900,540]],1);
-      lathe(c,'z',[[-3050,0],[-2900,850],[-2470,1280],[2100,1280],[2500,850],[2670,0]],0);
-      for(const z of [-2400,-900,900,2050])rib(c,'z',z,1350,140);
-      lathe(c,'z',[[-1550,1290],[-1080,1290]],6);
-      // End-cap observation port and its pressure collar, facing approach.
-      lathe(c,'z',[[-3020,0],[-3020,490]],3);
-      rib(c,'z',-3010,570,140);
-      box([x,720,-2080],[240,80,50],4);
-      // Ballast tanks and short landing/support feet.
-      lathe([x,-1800,700],'z',[[-1900,0],[-1650,440],[1500,440],[1750,0]],1);
-      for(const z of [-750,2200]) {
-        box([x,-1470,z],[300,900,380],1);
-        box([x,-2430,z],[300,1300,380],1);
-        box([x,-3050,z],[1250,180,850],1);
+    // A steep pyramidal command crown restores the original station language.
+    hull([0,0,0],[[3520,3500,3100],[5300,2050,1650]],0,.14,'y');
+    hull([0,0,0],[[5310,2050,1650],[5700,2050,1650]],3,.14,'y');
+    hull([0,0,0],[[5740,2250,1850],[6900,900,700]],0,.14,'y');
+    box([0,7060,0],[2000,250,1600],1);
+    box([0,7350,250],[1000,500,800],6);
+    box([0,8200,250],[180,3000,180],1);
+    box([0,9300,250],[2300,160,320],0);
+    box([0,9750,250],[160,140,160],7);
+    // Lit windows in individual recesses, not a wrapped band on a cylinder.
+    for(const side of [-1,1])for(const y of [-700,1300,3000])for(const z of [-2000,-650,700,2050]){
+      box([side*3425,y,z],[50,420,880],5);
+      box([side*3460,y,z],[40,280,650],3);
+      if(!low)box([side*3485,y-160,z],[50,45,720],4);
+    }
+    for(const side of [-1,1]){
+      const x=side*7600;
+      // Deep rectangular hangars connected by enclosed bridges and trusses.
+      hull([side*4850,600,1500],[[-1000,2300,650],[1000,2300,650]],1);
+      hull([x,-600,600],[[-5900,2400,2700],[4100,2400,2700],[5100,1700,2100]],0);
+      for(const z of [-4000,-1400,1200,3800]){
+        box([x,2210,z],[5000,200,260],1);
+        for(const dx of [-2410,2410])box([x+dx,-600,z],[180,5700,260],1);
       }
+      // Recessed end doors, armour frames and overhead work lights.
+      box([x,-500,-5340],[3800,3800,130],5);
+      box([x,-500,-5430],[3200,3200,120],6);
+      for(const dx of [-1740,1740])box([x+dx,-500,-5500],[160,3600,160],2);
+      box([x,1450,-5500],[3800,220,300],0);
+      for(const dx of [-1250,0,1250])box([x+dx,1250,-5680],[420,80,80],4);
+      // Heavy foundations and under-slung life-support pressure vessels.
+      for(const z of [-2600,2600]){
+        box([x,-4100,z],[1200,2000,1300],1);
+        box([x,-5160,z],[2900,200,2400],0);
+      }
+      lathe([x,-3650,300],'z',[[-3500,0],[-3250,600],[3300,600],[3550,0]],1);
+      for(const z of [-2700,0,2700])rib([x,-3650,300],'z',z,640,140,6);
+      if(!low)for(let i=0;i<5;i++)box([x,-1000+i*570,-5510],[3000,45,35],1);
     }
-    // Recessed docking throat opens toward the normal approach (-Z).
-    const bay=[0,-650,0];
-    lathe(bay,'z',[[-6200,1910],[-5600,1980],[-1750,1980]],0);
-    lathe(bay,'z',[[-6220,1620],[-2800,1620]],1,true,true);
-    lathe(bay,'z',[[-6230,1620],[-6230,1910]],2,false);
-    lathe(bay,'z',[[-2790,0],[-2790,1620]],5);
-    for(const z of [-5680,-4350])rib(bay,'z',z,2040,140);
-    box([0,-2070,-4490],[2200,150,3400],1);
-    for(const x of [-1310,1310]) {
-      box([x,-420,-6260],[95,1050,70],4);
-      for(const z of [-5900,-4900,-3900])box([x,-1940,z],[85,60,360],4);
+    // Central rectangular entrance: solid roof, side jambs and a deep floor.
+    // The aperture remains physically open, with runway strips inside it.
+    box([0,600,-5650],[7100,1000,4700],0);
+    for(const x of [-3250,3250])box([x,-1500,-5650],[650,3600,4700],0);
+    box([0,-3400,-5650],[7100,350,4700],1);
+    box([0,-1400,-3370],[5800,3000,100],5);
+    box([0,1210,-7900],[7000,280,430],6);
+    for(const x of [-2830,2830]){
+      box([x,-1500,-8030],[90,2900,90],4);
+      for(const z of [-7400,-6300,-5200,-4100])box([x,-3190,z],[110,60,420],4);
     }
-    box([0,1130,-6080],[2200,260,340],6);
-    box([0,1130,-6260],[500,75,40],4);
-    // Rear machinery pod and a compact sonar mast, with attached navigation lamps.
-    lathe([0,-650,3600],'z',[[-1850,1450],[700,1450],[1100,900],[1200,0]],1);
-    for(const x of [-700,700])box([x,-600,4780],[600,950,100],6);
-    lathe(origin,'y',[[3370,260],[4200,260],[4430,100]],1);
-    box([0,4390,0],[1100,160,220],0);
-    box([0,4550,0],[100,160,100],7);
-
-    // Four working station types, each with three technology tiers.
+    // Rear power stacks and dockside equipment give the silhouette depth.
+    for(const x of [-2200,2200]){
+      hull([x,-1000,5000],[[-1400,950,1700],[1900,950,1700]],1);
+      for(const y of [-1800,-600,600])box([x,y,6930],[1450,280,120],6);
+    }
     if(family===1){
-      // Research observatory: sealed sensor domes and a broad sonar array.
-      lathe([0,4650,0],'y',[[0,160],[120,800],[350,1100],[500,800],[550,0]],6);
-      for(const x of [-2900,2900]){
-        lathe([x,600,2200],'y',[[-500,0],[-400,720],[600,720],[1000,500],[1150,0]],3);
-        box([x,0,1500],[250,300,2200],1);
+      // Science port: tall asymmetric instrument gantries and faceted radomes.
+      for(const x of [-7600,7600]){
+        box([x,3450,600],[300,2300,300],1);
+        hull([x,4580,600],[[-950,1400,650],[950,1400,650]],3);
+        box([x,5330,600],[3200,150,2300],0);
       }
     }else if(family===2){
-      // Industrial refinery: connected pressure tanks, pipework and service gantry.
-      for(const x of [-3000,3000]){
-        lathe([x,0,3650],'y',[[-2200,0],[-2050,500],[-1700,760],[2000,760],[2350,480],[2500,0]],0);
-        for(const y of [-1300,300,1850])rib([x,0,3650],'y',y,800,130,6);
-        box([x*.65,-500,3650],[2400,240,320],1);
-      }
-      box([0,3750,3000],[6500,260,350],2);
-      for(const x of [-3000,3000])box([x,2450,3000],[280,2600,350],1);
-    }else if(family===3){
-      // Fortified port: armour skirts and attached defensive turrets.
+      // Refinery: service towers, lifting beams and grouped pressure tanks.
       for(const side of [-1,1]){
-        box([side*5300,500,700],[1300,1600,3650],1);
-        box([side*5350,1320,700],[1400,130,3750],6);
-        box([side*3100,1100,700],[650,1800,650],1);
-        lathe([side*3100,2050,700],'y',[[0,750],[500,750],[750,350]],0);
-        for(const dx of [-220,220])lathe([side*3100+dx,2500,0],'z',[[-1700,110],[1400,110]],1);
+        box([side*7900,3900,2200],[440,3200,440],2);
+        box([side*6400,5520,2200],[3500,350,440],2);
+        for(const z of [-1000,1700]){
+          lathe([side*7500,3200,z],'x',[[-1650,500],[1650,500]],1);
+          for(const x of [-1300,1300])rib([side*7500,3200,z],'x',x,550,100,6);
+        }
+      }
+    }else if(family===3){
+      // Naval base: bulky angular armoured bastions with separate barrels.
+      for(const side of [-1,1]){
+        hull([side*7600,2900,1000],[[-2100,1800,800],[1600,1800,800]],1);
+        box([side*7600,3780,600],[3800,160,3300],6);
+        for(const dx of [-450,450])lathe([side*7600+dx,3400,-1800],'z',[[-1800,150],[1600,150]],1);
       }
     }
-    if(tier===2)for(const x of [-1500,1500]){
-      box([x,3200,1000],[170,2400,170],1);
-      box([x,4350,1000],[450,120,350],6);
+    if(!low)for(const side of [-1,1])for(const z of [-2800,500,3000]){
+      box([side*7600,2420,z],[1500,180,800],6);
+      for(let i=0;i<5;i++)box([side*7600-500+i*250,2530,z],[80,70,680],1);
     }
-    const size=[.86,1,1.10][tier];mesh.transform(0,[0,0,0],[size,size,size]);
-    const model=mesh.finish(key(rebel,{family,tier}),skin);
+    if(tier===2)for(const x of [-2200,2200]){
+      box([x,5900,1500],[180,3000,180],1);box([x,7440,1500],[650,140,650],6);
+    }
+    m.transform(0,[0,0,0],[size,size,size]);
+    const model=m.finish(key(rebel,{family,tier}),skin,{specular:.24,gloss:48});
+    // Collision is a compound hull, so ships can fly through gaps between wings.
+    model.collision=[[-3500,-3600,-3500,3500,6900,4100],
+      [-10100,-5300,-5450,-5100,3700,5800],[5100,-5300,-5450,10100,3700,5800],
+      [-3550,100,-8000,3550,1300,-3300],[-3550,-3600,-8000,3550,-3225,-3300],
+      [-3550,-3225,-8000,-2925,100,-3300],[2925,-3225,-8000,3550,100,-3300],
+      [-3300,-3000,3500,3300,900,7000]].map(b=>b.map(v=>v*size));
     model.family=family;model.tier=tier;
-    if(!low){model.lod=build(metal,rebel,true,family,tier,skin);}
+    if(!low)model.lod=build(metal,rebel,true,family,tier,skin);
     return model;
   }
   function appearance(st){return {family:st.id%4,tier:st.tech<=3?0:st.tech<=7?1:2};}
@@ -132,5 +148,22 @@ const StationModel = (() => {
       models[key(rebel)]=models[key(rebel,{family:0,tier:1})];
     }
   }
-  return {build,key,texture,prepare,appearance};
+  function contact(model,x,y,z,radius) {
+    let result=null;
+    for(const b of model?.collision||[]){
+      const p=[x,y,z],q=p.map((v,k)=>Math.max(b[k],Math.min(b[k+3],v)));
+      let delta=p.map((v,k)=>v-q[k]),distance=Math.hypot(...delta),penetration=radius-distance;
+      if(distance<1e-6){
+        let nearest=Infinity,axis=0,sign=1;
+        for(let k=0;k<3;k++)for(const s of [-1,1]){
+          const gap=s<0?p[k]-b[k]:b[k+3]-p[k];
+          if(gap<nearest){nearest=gap;axis=k;sign=s;}
+        }
+        delta=[0,0,0];delta[axis]=sign;distance=1;penetration=radius+nearest;
+      }
+      if(penetration>0&&(!result||penetration>result.penetration))result={normal:delta.map(v=>v/distance),penetration};
+    }
+    return result;
+  }
+  return {build,key,texture,prepare,appearance,contact};
 })();

@@ -91,29 +91,20 @@ opacity, the way a modern handheld game does.
 
 ## How much the sector is drawn at
 
-The interface grid and the sector's resolution are two different things. The interface is
-placed on the layout grid described above, near 320 rows, because that is what its
-hand-placed coordinates were drawn for. The sector has no such constraint, so it is
-rasterised at `dw/k` by `dh/k` device pixels for an integer **k** — presenting it stays an
-exact k×k block copy, the cheapest thing a canvas can do, which is what lets a big display
-afford a big buffer at all. **k = 1 is the sector drawn pixel for pixel with the display.**
+The 3D scene uses WebGL at the canvas's device resolution, independently of the
+logical UI grid. Hardware anti-aliasing, mipmapped textures and anisotropic filtering
+(where supported) smooth edges and distant materials. The renderer no longer lowers
+GPU resolution in response to CPU frame timing.
 
-**Settings → Detail** chooses how k is set, and the choice is remembered:
+**Settings → Detail** is remembered:
 
-* `NATIVE` — k = 1: the sector is drawn pixel for pixel with the
-  display, whatever that costs.
-* `AUTO` — **the default for new installations.** k is walked up and down from the frame times the machine actually produces.
-  A step that ran long is not tried again until a periodic re-probe, and a step up has to
-  be earned over several windows, so it settles instead of hunting. Frame interval is the
-  signal, since it takes in the compositor as well as the rasteriser, but it is pinned to
-  the refresh rate while there is room to spare — so stepping up also asks that the frame
-  itself was cheap.
-* `BALANCED` — k held at the pixel budget, ignoring how fast the machine turns out to be.
+* `AUTO` and `NATIVE` use the full display backing store with WebGL.
+* `BALANCED` caps the WebGL scene near two million pixels, with smooth presentation.
 
-The realism pass adds geometry and shading work. Use `AUTO` or `BALANCED` if native
-resolution is too costly. Distant models use the simpler mesh automatically. Frame
-rate depends on the browser, CPU, viewport and scene; this is a software rasterizer,
-not a GPU renderer. Historical frame-rate claims for the old art no longer apply.
+If WebGL is unavailable or its context is lost, the software renderer keeps the game
+usable. Its automatic scaling has a 360-row minimum on displays that can fit it.
+Restoring the graphics context rebuilds GPU resources. Performance depends on the
+browser, graphics hardware, display density and scene; no fixed frame rate is promised.
 
 ## Rendering for a modern display
 
@@ -145,7 +136,7 @@ The layout and rendering grids are independent.
 * **Particles are round and blended.** Bubbles, marine snow and sparks were flat squares
   of solid colour; at modern resolutions they read as confetti. They are now soft discs
   composited over what is behind them.
-* **Everything solid collides.** The boat is a sphere and so is every station, wreck,
+* **Everything solid collides.** The boat is a sphere; stations use compound hulls, while wrecks,
   ship and whale; running into one stops the boat at the contact point, costs hull in
   proportion to how hard the nose was driving in, and stalls the throttle. The hit lands
   once, on contact, so scraping along a hull you are already pressed against costs
@@ -185,8 +176,10 @@ bit-packed vertex blocks, 7/7/1 packed unit normals and bit-packed polygon indic
 8-bit texel coordinates. `js/model.js` parses all 75 of them and flattens the bone
 hierarchy. The live game loads the creature source meshes; `js/realism.js` combines
 their sections and refines them. `js/mesh-kit.js`, `js/world-assets.js` and
-`js/station-model.js` build the replacement hardware. `js/gfx.js` draws these with a perspective-correct, z-buffered software
-rasteriser into a display-sized or adaptive framebuffer, with depth fog for the water.
+`js/station-model.js` build the replacement hardware. `js/gpu.js` renders the scene
+with per-pixel lighting, filtered station shadows, near-plane clipping and wavelength-dependent
+water absorption. `js/gfx.js` composites the scene under the native-resolution UI
+and retains the software fallback.
 
 ### Lights, and the two keying conventions
 
@@ -299,17 +292,15 @@ veined textures. All 11 submarine hulls, enemy ships, stations, gates, mines, to
 cargo and wreckage receive weathered surface maps and material-specific highlights.
 Creature bioluminescence retains its original UVs and colours.
 
-Stations now use a shared pressure-hull model in flight and the dock console. Sealed
-corridors join the habitation vessels to the command tower; a recessed docking bay,
-structural bands, bridge glazing and small attached lamps replace the overlapping
-legacy module cluster and oversized star flares. Civil and rebel stations have distinct
-markings. The footprint remains inside the existing collision envelope, and docking
-range and rules are unchanged. The station geometry and material atlas are built once
-at boot from local surface artwork; distant stations use a simpler mesh. All 200 stations
-select from 24 variants: four families (outpost, research, refinery and fortified port),
-three technology tiers and two faction schemes. The selection is deterministic.
+Stations share the same large angular industrial model in flight and the dock console:
+stacked command decks, broad armoured hangars, enclosed bridges, machinery stacks and
+recessed docking entrances. Windows, ribs, work lights, vents and service gantries are
+solid attached details. Compound collision boxes follow the major structures, leaving
+the central docking throat and gaps between the wings open. Docking range is unchanged.
+All 200 stations select from 24 deterministic variants: four families (outpost,
+research, refinery and fortified port), three technology tiers and two faction schemes.
 
-All 11 playable ships now have new solid hulls, cabins, control surfaces, ducted
+All 11 playable ships now have bevelled angular armour, cabins, thick control surfaces, ducted
 impellers, maintenance bands and navigation lamps. Workboats, interceptors, raiders,
 haulers, twin-hull freighters and luxury craft have different geometry and finishes.
 Enemy ships use those same upgraded classes; the mission tanker has its own twin-tank
@@ -325,15 +316,17 @@ of each ship, all 44 equipment items and all 42 goods. These pictures are render
 from the live models or matching equipment/cargo models, including the upgraded animals
 and algae. `previews/README.md` describes the optional rebuild command.
 
-The environment adds a textured distant seabed below the playable volume, shallow-water
-light shafts, stronger colour absorption, refractive-looking bubble rims and explosion
-pressure/bubble clouds. These are lightweight visual approximations in the existing
-software renderer, not ray tracing, fluid simulation or a replacement GPU engine.
+The water uses animated low-contrast backscatter, depth-dependent light shafts and
+caustics that fade at depth, exponential colour absorption, and soft depth-tested
+particles. Filtered station shadows establish depth between decks and hangars. The
+seabed remains below the navigable volume. These are real-time shading approximations,
+not a fluid simulation or ray tracing.
 
 Creature material maps and catalogue pictures are prebuilt and bundled locally. Small
 hardware atlases and geometry are constructed once at boot from bundled steel artwork;
 there are no image-service calls. `materials/README.md` records the artwork prompt and rebuild steps.
-Species statistics, collision radii, economy, missions and save formats are unchanged.
+Creature statistics, economy, missions and save formats are unchanged. Station collision
+now follows the rebuilt structures instead of a single bounding sphere.
 
 ## Credits
 
@@ -341,3 +334,10 @@ Deep 3D was created by **FISHLABS Entertainment GmbH** on the ABYSS® Game Engin
 Deep™ and ABYSS® are registered trademarks of FISHLABS Entertainment GmbH.
 This is a fan recreation running on the original data files; all original art, models,
 text and design are theirs.
+
+### Browser graphics validation
+
+`npm test` runs the gameplay and asset regressions. CI also installs Playwright and
+runs `node tools/webgl-smoke.cjs` in Chromium: it checks real WebGL rendering, native
+resolution, portrait resizing, station menus, context loss and recovery, and JavaScript/
+GL errors. The workflow uploads gameplay captures as `gameplay-browser-captures`.

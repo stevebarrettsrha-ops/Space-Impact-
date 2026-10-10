@@ -89,7 +89,7 @@ const Flight = (() => {
     if (cfg.station !== false) {
       S.station = ent({
         kind: 'station', x: 0, y: 0, z: 0, yaw: 0, pitch: 0,
-        scale: 1, hp: 1e9, r: 110 * U, id: st.id,
+        scale: 1, hp: 1e9, r: M[StationModel.key(World.isRebel(st.id),st)]?.radius || 110 * U, id: st.id,
         model: StationModel.key(World.isRebel(st.id),st)
       });
     }
@@ -473,7 +473,9 @@ const Flight = (() => {
            sailing straight through the middle of it */
         if (!gone && S.station) {
           const st = S.station;
-          if (Math.hypot(st.x - s.x, st.y - s.y, st.z - s.z) < st.r * 0.78) {
+          const model=M[st.model];
+          if (model?.collision ? StationModel.contact(model,s.x-st.x,s.y-st.y,s.z-st.z,80) :
+              Math.hypot(st.x-s.x,st.y-s.y,st.z-s.z)<st.r*.78) {
             sparks(s.x, s.y, s.z); gone = true;
           }
         }
@@ -582,7 +584,11 @@ const Flight = (() => {
       if (!er) continue;
       const rr = er + PLAYER_R;
       let dx = S.px - e.x, dy = S.py - e.y, dz = S.pz - e.z;
-      const d2 = dx * dx + dy * dy + dz * dz;
+      let d2 = dx * dx + dy * dy + dz * dz;
+      const contact=e.kind==='station'&&M[e.model]?.collision?
+        StationModel.contact(M[e.model],dx,dy,dz,PLAYER_R):undefined;
+      if(contact===null){e.contact=false;continue;}
+      if(contact){[dx,dy,dz]=contact.normal;d2=1;}
       if (d2 >= rr * rr) { e.contact = false; continue; }
       const resting = e.contact === true;      /* already leaning on it */
       e.contact = true;
@@ -590,7 +596,8 @@ const Flight = (() => {
       if (d < 1e-3) { dx = 0; dy = 1; dz = 0; d = 1; }
       const nx = dx / d, ny = dy / d, nz = dz / d;
       /* put the boat back on the outside of the shell */
-      S.px = e.x + nx * rr; S.py = e.y + ny * rr; S.pz = e.z + nz * rr;
+      if(contact){S.px+=nx*contact.penetration;S.py+=ny*contact.penetration;S.pz+=nz*contact.penetration;}
+      else {S.px = e.x + nx * rr; S.py = e.y + ny * rr; S.pz = e.z + nz * rr;}
       /* how hard the nose was driving into it */
       const closing = -(S.vx * nx + S.vy * ny + S.vz * nz);
       /* everything but the station gives a little, so a shoal is shouldered
@@ -623,6 +630,11 @@ const Flight = (() => {
     for (let i = 0; i < S.ents.length; i++) {
       const e = S.ents[i];
       if (e.dead || e === st || (e.kind !== 'ship' && e.kind !== 'trash')) continue;
+      if(M[st.model]?.collision){
+        const hit=StationModel.contact(M[st.model],e.x-st.x,e.y-st.y,e.z-st.z,e.r||0);
+        if(hit){e.x+=hit.normal[0]*hit.penetration;e.y+=hit.normal[1]*hit.penetration;e.z+=hit.normal[2]*hit.penetration;}
+        continue;
+      }
       const rr = sr + (e.r || 0);
       const dx = e.x - st.x, dy = e.y - st.y, dz = e.z - st.z;
       const d2 = dx * dx + dy * dy + dz * dz;
