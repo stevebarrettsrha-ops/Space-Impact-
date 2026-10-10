@@ -157,7 +157,7 @@ const OceanGPU = (() => {
     catch (_) { return null; }
     if(!gl || typeof gl.createShader!=='function')return null;
     let lost=false, meshes=new WeakMap(), textures=new WeakMap(), programs;
-    const anisotropy=gl.getExtension('EXT_texture_filter_anisotropic');
+    let anisotropy;
     function program(vs,fs){
       const p=gl.createProgram();
       for(const [type,source] of [[gl.VERTEX_SHADER,vs],[gl.FRAGMENT_SHADER,fs]]){
@@ -174,6 +174,8 @@ const OceanGPU = (() => {
     const up=[l[1]*right[2],l[2]*right[0]-l[0]*right[2],-l[1]*right[0]];
     const shadowView=[right[0]/24000,up[0]/24000,-l[0]/60000,right[1]/24000,up[1]/24000,-l[1]/60000,right[2]/24000,up[2]/24000,-l[2]/60000];
     function setup(){
+      // Extensions must be enabled again after WebGL context restoration.
+      anisotropy=gl.getExtension('EXT_texture_filter_anisotropic');
       programs={mesh:program(vertex,fragment),water:program(backgroundVertex,backgroundFragment),point:program(particleVertex,particleFragment),shadow:program(shadowVertex,shadowFragment)};
       quad=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,quad);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
       shadowTexture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,shadowTexture);
