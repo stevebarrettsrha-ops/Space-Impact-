@@ -1,13 +1,9 @@
 # DEEP — Submarine Odyssey
 
-A faithful browser recreation of **Deep 3D** (Fishlabs Entertainment, 2007), built directly
-on the original MIDlet's own assets — the ones in this repository.
-
-Nothing here is a re-drawing or a re-imagining: the submarines, sea creatures, station
-modules, S.T.R.E.A.M. gates, mines and explosions you see are the original Micro3D meshes,
-textured with the original `deep.bmp` / `fx.bmp` atlases, laid out with the original
-interface art and driven by the original data tables. The only thing that changed is the
-language: the game now ships an English language pack alongside the Russian one.
+A browser recreation of **Deep 3D** (Fishlabs Entertainment, 2007), with realistic
+character portraits and a modern material, lighting and animation pass. The original
+game tables, story and recognizable vehicle and creature silhouettes are preserved.
+The game ships English and Russian language packs.
 
 Open `index.html` through any web server (see *Running* below) and play.
 
@@ -61,7 +57,7 @@ So on every resize the game picks one integer **N** and a logical buffer that ti
 display exactly: the canvas backing store is `bufW×N` by `bufH×N` device pixels, the CSS
 box is that divided by the device pixel ratio, and presenting a frame is a plain N×N
 block copy. There is no fractional scaling anywhere in the pipeline, so nothing is ever
-resampled — text, portraits and sprites are pixel exact at any size — and because the
+resampled for layout — text and portraits use the device resolution — and because the
 buffer is chosen from the window, the picture reaches all four edges.
 
 N is aimed at roughly 320 logical rows, so a letter is always about the same share of the
@@ -104,9 +100,9 @@ afford a big buffer at all. **k = 1 is the sector drawn pixel for pixel with the
 
 **Settings → Detail** chooses how k is set, and the choice is remembered:
 
-* `NATIVE` — **the default.** k = 1: the sector is drawn pixel for pixel with the
+* `NATIVE` — k = 1: the sector is drawn pixel for pixel with the
   display, whatever that costs.
-* `AUTO` — k is walked up and down from the frame times the machine actually produces.
+* `AUTO` — **the default for new installations.** k is walked up and down from the frame times the machine actually produces.
   A step that ran long is not tried again until a periodic re-probe, and a step up has to
   be earned over several windows, so it settles instead of hunting. Frame interval is the
   signal, since it takes in the compositor as well as the rasteriser, but it is pinned to
@@ -114,23 +110,14 @@ afford a big buffer at all. **k = 1 is the sector drawn pixel for pixel with the
   itself was cheap.
 * `BALANCED` — k held at the pixel budget, ignoring how fast the machine turns out to be.
 
-What that costs, measured here — a headless browser compositing in software, so a real
-GPU will do better above 1080p:
-
-| window | NATIVE | AUTO settles at | on the layout grid (what it used to be) |
-|---|---|---|---|
-| 1366×768 | 1365×768, 60fps | 1365×768 | 455×256 |
-| 1920×1080 | 1920×1080, 60fps | 960×540, 60fps | 640×360 |
-| 2560×1440 | 2560×1440, 44fps | 1280×720, 60fps | 512×288 |
-| 3840×2160 | 3836×2156, 16fps | ~640×360, 60fps | 548×308 |
-| 390×844 @3× | 390×844, 60fps | 390×844 | 195×422 |
-
-So NATIVE is free up to 1080p and buys detail at the cost of framerate above it; `AUTO`
-is one keypress away in Settings if you would rather have the frames.
+The realism pass adds geometry and shading work. Use `AUTO` or `BALANCED` if native
+resolution is too costly. Distant models use the simpler mesh automatically. Frame
+rate depends on the browser, CPU, viewport and scene; this is a software rasterizer,
+not a GPU renderer. Historical frame-rate claims for the old art no longer apply.
 
 ## Rendering for a modern display
 
-Three things changed once the buffer stopped being 240×320.
+The layout and rendering grids are independent.
 
 * **Solid surfaces are sampled bilinearly.** The atlases pack many sprites side by side,
   so the four taps are clamped to each polygon's own texel box — it smooths a hull or a
@@ -142,8 +129,8 @@ Three things changed once the buffer stopped being 240×320.
   go: at this size its "a" and "n" are near enough the same shape that a menu item is
   guesswork. Menus, the HUD and the conversations are now set in a hinted, anti-aliased
   interface face — with the one pixel shadow the original glyphs carried built in, so it
-  still holds up over the water — while sprites, portraits and the sector stay pixel
-  exact beside it. The measuring, wrapping and drawing API did not change, so every
+  still holds up over the water. Portraits and reduced-resolution sector frames use
+  smooth resampling. The measuring, wrapping and drawing API did not change, so every
   hand-placed coordinate in the interface still lands where it did.
 * **You can see the sector you are flying in.** Working range used to run out around
   480m in a play area 900m across, so the station was a silhouette from halfway out and
@@ -153,8 +140,8 @@ Three things changed once the buffer stopped being 240×320.
   coming down through the water whichever way the key light points, and the boat carries
   its own lamp — an inverse-square pool about 105m across, measured in view space, so it
   costs one multiply-add per vertex. A ceiling on the shading keeps the lamp from blowing
-  out a hull that is already pale. Measured over the station, mean luminance went from
-  44/255 to 76/255 at 120m, and from 34/255 to 50/255 at 220m.
+  out a hull that is already pale. The realism pass adds wet-material highlights and
+  absorbs warm wavelengths more quickly with distance.
 * **Particles are round and blended.** Bubbles, marine snow and sparks were flat squares
   of solid colour; at modern resolutions they read as confetti. They are now soft discs
   composited over what is behind them.
@@ -196,8 +183,8 @@ is why the files in this repository are left completely untouched.
 The meshes are HI CORP **Mascot Capsule Micro3D v3** `.mbac` files — format version 5 with
 bit-packed vertex blocks, 7/7/1 packed unit normals and bit-packed polygon indices with
 8-bit texel coordinates. `js/model.js` parses all 75 of them and flattens the bone
-hierarchy; `js/gfx.js` draws them with a perspective-correct, z-buffered software
-rasteriser into a 240×320 framebuffer, with depth fog for the water.
+hierarchy; `js/realism.js` combines creature sections and refines the meshes; `js/gfx.js` draws them with a perspective-correct, z-buffered software
+rasteriser into a display-sized or adaptive framebuffer, with depth fog for the water.
 
 ### Lights, and the two keying conventions
 
@@ -242,8 +229,9 @@ tabulated in `js/data.js` to match the text.
 index.html        shell, styling, touch controls
 js/assets.js      de-obfuscation and the PNG / BMP / .lang loaders
 js/model.js       Mascot Capsule Micro3D v3 (.mbac) parser
-js/gfx.js         software rasteriser, depth fog, projection
-js/ui2d.js        text, the UI widgets and the portrait compositor
+js/gfx.js         software rasteriser, material lighting, depth fog, projection
+js/realism.js     material maps, mesh refinement, complete creatures and deformation
+js/ui2d.js        text, the UI widgets and realistic portrait rendering
 js/data.js        the txt/ tables and language lookups
 js/world.js       player, ship, economy, job board, medals, saves
 js/audio.js       WebAudio sound design (the AMR/MIDI cues cannot be decoded in a browser)
@@ -279,8 +267,9 @@ the same checks on pushes and pull requests.
 
 The checks exercise difficulty selection, version 1 save compatibility, malformed
 or unavailable storage, save feedback, pause dialogs, focus loss, sector result
-timing, shield damage, portrait identity/loading, dialogue pagination, and script
-syntax. They load the actual game tables and
+timing, shield damage, portrait identity/loading, dialogue pagination, material
+coverage, mesh validity, whole creatures, animation pixels, occlusion and script
+syntax. They load the actual models, game tables and
 language pack in an isolated JavaScript runtime; they do not replace browser
 playtesting or rendering checks.
 
@@ -288,6 +277,28 @@ Gameplay now pauses when the window loses focus or the tab becomes hidden;
 resume explicitly from the pause menu. Mission result delays pause with gameplay.
 Loading an invalid or unsupported save preserves the current game, and a failed
 manual save displays an error. Existing valid version 1 saves retain their format.
+
+## Creature and world realism
+
+All 13 animal species now render complete bodies with continuous swimming, pulsing,
+wing or flipper motion. The eight species with `_01`/`_02` meshes previously alternated
+different body sections as if they were frames; those sections are now joined. A hooked
+animal stops deforming. Refinement adds curved edges and more geometry up close, while
+distant animals and vehicles use the simpler mesh.
+
+Five algae types now have solid, double-sided leaf ribbons with continuous sway and
+veined textures. All 11 submarine hulls, enemy ships, stations, gates, mines, torpedoes,
+cargo and wreckage receive weathered surface maps and material-specific highlights.
+Original light/exhaust cells retain their original UVs, colours and additive blending.
+
+The environment adds a textured distant seabed below the playable volume, shallow-water
+light shafts, stronger colour absorption, refractive-looking bubble rims and explosion
+pressure/bubble clouds. These are lightweight visual approximations in the existing
+software renderer, not ray tracing, fluid simulation or a replacement GPU engine.
+
+Material maps are prebuilt and bundled locally; startup does not bake textures or call
+an image service. `materials/README.md` records the artwork prompt and rebuild steps.
+Species statistics, collision radii, economy, missions and save formats are unchanged.
 
 ## Credits
 

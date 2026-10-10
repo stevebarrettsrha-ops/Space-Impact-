@@ -235,14 +235,14 @@ const Station = (() => {
     Gfx.setFog(6, 22, 34, 5000, 34000);
     Gfx.setLamp(0.22, 9000);
     Gfx.setCamera(Math.sin(stationRot) * 13500, 3400, Math.cos(stationRot) * 13500,
-      stationRot + Math.PI, 0.2, 0, 1.0);
+      stationRot + Math.PI, -0.2, 0, 1.0);
     if (M.station_starter) {
       const mods = [['station_starter', 0, 0, 0], ['station_top', 0, 3400, 0], ['station_bottom', 0, -3400, 0],
       [World.isRebel(st.id) ? 'station_hangar_ve' : 'station_hangar_de', 0, -900, 3000],
       ['station_sidehabitat', 0, 400, -3400]];
       for (const [name, x, y, z] of mods) {
         const m = M[name];
-        if (m) Gfx.drawModel(m, x, y, z, null, 1.4, TEX.deep, { ambient: 0.8 });
+        if (m) Gfx.drawModel(m, x, y, z, null, 1.4, TEX.deep, { ambient: 0.58,time:stationRot*5 });
       }
     }
     Gfx.flush();

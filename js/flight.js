@@ -1,7 +1,7 @@
 /* ============================================================================
    The 3D sector: flying the boat, fishing, fighting, mines, cargo, the
    S.T.R.E.A.M. gates and docking.  Everything you see out of the window is an
-   original Micro3D mesh textured with the original deep.bmp / fx.bmp atlases.
+   refined Micro3D mesh with realistic surfaces and continuous creature motion.
    ========================================================================== */
 'use strict';
 
@@ -756,7 +756,6 @@ const Flight = (() => {
 
   function updateFish(e, dt) {
     e.anim += dt * 0.09;
-    e.frame = ((e.anim | 0) % 2);
     const c = GameData.creatures[e.species];
     if (c.algae) return;
     if (e.hooked) {
@@ -939,6 +938,8 @@ const Flight = (() => {
     const cy = S.py - f.y * back + up + rnd(-shake, shake) * 30;
     const cz = S.pz - f.z * back + rnd(-shake, shake) * 30;
     Gfx.setCamera(cx, cy, cz, S.yaw, S.pitch - (S.camera === 0 ? 0.055 : 0), S.roll * 0.35, 1.02);
+    Gfx.waterLight(S.t/60, S.depth, S.yaw, S.pitch);
+    Realism.drawEnvironment(S.t/60);
 
     /* entities, far first so the painter's order plays nicely with the z buffer */
     const order = S.ents.slice().sort((a, b) =>
@@ -949,7 +950,7 @@ const Flight = (() => {
     if (S.camera === 0) {
       const m = M['u' + World.state().ship.type];
       if (m) Gfx.drawModel(m, S.px, S.py, S.pz, Gfx.rotMatrix(S.yaw, S.pitch, S.roll * 0.5), 1, TEX.deep,
-        { ambient: 0.8, noFog: true });
+        { ambient: 0.58, noFog: true, time:S.t/60 });
     }
 
     /* shots */
@@ -977,7 +978,13 @@ const Flight = (() => {
       if (fx.kind === 'boom' && M.explosion) {
         const k = fx.t / 42;
         Gfx.drawModel(M.explosion, fx.x, fx.y, fx.z, Gfx.rotMatrix(fx.t * 0.05, fx.t * 0.03, 0),
-          fx.s * (0.4 + k * 1.5), TEX.fx, { additive: true, alpha: 1 - k, ambient: 1, noFog: true });
+          fx.s * (0.4 + k * 1.5), TEX.fx, { additive: true, alpha: Math.max(0,1-k*2.4), ambient: 1 });
+        // A pressure pulse and expanding bubble cloud outlast the brief flash.
+        for(let i=0;i<28;i++){
+          const a=i*2.39996,v=1-2*(i+.5)/28,r=Math.sqrt(1-v*v),spread=(600+k*3200)*fx.s;
+          Gfx.point(fx.x+Math.cos(a)*r*spread,fx.y+v*spread+k*k*1500,fx.z+Math.sin(a)*r*spread,
+            (70+k*100)*fx.s,140,202,222,true,true);
+        }
       } else {
         for (let i = 0; i < 5; i++)
           Gfx.point(fx.x + rnd(-4, 4) * U, fx.y + rnd(-4, 4) * U, fx.z + rnd(-4, 4) * U,
@@ -987,7 +994,7 @@ const Flight = (() => {
 
     /* marine snow, then the boat's own bubble trail */
     for (const p of S.snow) Gfx.point(p.x, p.y, p.z, p.s, 150, 190, 210);
-    for (const b of S.bubbles) Gfx.point(b.x, b.y, b.z, b.s, 180, 220, 240);
+    for (const b of S.bubbles) Gfx.point(b.x, b.y, b.z, b.s, 180, 220, 240,true,true);
 
     Gfx.flush();
     hud(ctx);
@@ -1005,7 +1012,7 @@ const Flight = (() => {
           const r = Gfx.rotMatrix(e.yaw + (mod.yaw || 0), 0, 0);
           const sx = e.x + Math.cos(e.yaw) * mod.x + Math.sin(e.yaw) * mod.z;
           const sz = e.z - Math.sin(e.yaw) * mod.x + Math.cos(e.yaw) * mod.z;
-          Gfx.drawModel(m, sx, e.y + mod.y, sz, r, e.scale, TEX.deep, { ambient: 0.78 });
+          Gfx.drawModel(m, sx, e.y + mod.y, sz, r, e.scale, TEX.deep, { ambient: 0.56,time:S.t/60 });
         }
         break;
       }
@@ -1016,18 +1023,18 @@ const Flight = (() => {
       }
       case 'fish': {
         const c = GameData.creatures[e.species];
-        const names = c.models;
-        const m = M[names[Math.min(e.frame, names.length - 1)]] || M[names[0]];
+        const m = M['creature_'+c.id];
         if (!m) return;
         Gfx.drawModel(m, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, e.pitch, 0), e.scale, TEX.fx,
-          { tint: e.hooked ? [1.5, 1.3, 0.8] : null, ambient: 0.68 });
+          { tint: e.hooked ? [1.25, 1.15, 0.85] : null, ambient: 0.54,time:S.t/60,
+            deform:Realism.deformation(m,e.anim,e.hooked) });
         break;
       }
       case 'ship': {
         const m = M[e.model];
         if (!m) return;
         Gfx.drawModel(m, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, e.pitch, e.roll * 0.4), e.scale,
-          TEX.deep, { tint: e.tint, ambient: 0.72 });
+          TEX.deep, { tint: e.tint, ambient: 0.54,time:S.t/60 });
         break;
       }
       case 'mine':

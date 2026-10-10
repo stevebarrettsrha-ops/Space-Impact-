@@ -90,13 +90,14 @@ const GameData = (() => {
       id: num(r[0]), weight: num(r[1]), toughness: num(r[2]),
       algae: num(r[0]) >= 13
     }));
-    /* the swim cycle models: two frames each for the animated species */
+    /* Several animals have separate front/rear meshes, not animation frames.
+       Realism joins the sections and deforms the complete animal continuously. */
     const CM = ['nautilus', 'gulper_eel', 'jellyfish', 'manta', 'fish_swarm',
       'anglerfish', 'devilfish', 'marlin', 'shark', 'shrimp', 'squid',
       'turtle', 'whale', 'alga_gold', 'alga_blue', 'alga_brown', 'alga_red', 'alga_green'];
-    const TWO_FRAME = new Set([5, 6, 7, 8, 9, 10, 11, 12]);
+    const TWO_PART = new Set([5, 6, 7, 8, 9, 10, 11, 12]);
     D.creatures.forEach((c, i) => {
-      c.models = TWO_FRAME.has(i) ? [CM[i] + '_01', CM[i] + '_02'] : [CM[i]];
+      c.models = TWO_PART.has(i) ? [CM[i] + '_01', CM[i] + '_02'] : [CM[i]];
     });
 
     D.namesM = nm.split(';').map(s => s.trim()).filter(s => s);

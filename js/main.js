@@ -170,6 +170,7 @@ const Game = (() => {
       jobs.push(track(Assets.raw(n + '.mbac').then(d => { MODELS[n] = Micro3D.loadMBAC(d); }).catch(e => console.warn(n, e.message))));
 
     jobs.push(track(GameData.load()));
+    jobs.push(track(Realism.load()));
 
     await Promise.all(jobs);
     Font.build(IMG.font_deep_white);
@@ -177,6 +178,7 @@ const Game = (() => {
     if (!Portrait.ready()) throw new Error('No portrait artwork could be loaded. Check the portraits folder and reload.');
     /* work out, per polygon, what is hull and what is light */
     for (const name in MODELS) Micro3D.classifyBlend(MODELS[name], texFor(name));
+    Realism.prepare(MODELS, texFor, GameData.creatures);
     Flight.bind(MODELS, TEX, IMG, texFor);
     Station.bind(MODELS, TEX, IMG, texFor);
     mode = 'splash';

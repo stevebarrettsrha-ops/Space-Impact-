@@ -191,10 +191,12 @@ test('mission contact portraits do not cover their description and all text rema
 });
 
 test('boot loads only realistic portrait assets and never requests the old face parts or M.A.I. sprite', async () => {
-  const {Assets, Game, Portrait, context} = await game();
+  const {Assets, Game, Portrait, Realism, context} = await game();
   const legacyRequests = [], photoRequests = [];
   context.requestAnimationFrame = () => {};
   context.Micro3D = {loadMBAC: () => ({}), classifyBlend() {}};
+  Realism.load = async () => {};
+  Realism.prepare = () => {};
   Assets.image = async path => { legacyRequests.push(path); return {width:40, height:40}; };
   Assets.raw = async () => new Uint8Array();
   Assets.texture = async () => ({});
