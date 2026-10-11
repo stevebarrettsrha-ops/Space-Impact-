@@ -305,6 +305,10 @@ impellers, maintenance bands and navigation lamps. Workboats, interceptors, raid
 haulers, twin-hull freighters and luxury craft have different geometry and finishes.
 Enemy ships use those same upgraded classes; the mission tanker has its own twin-tank
 model. Outboard pods produce continuous paired propulsion trails with a bubble wake.
+Every physical impeller uses a shared rotating blade mesh inside its fixed duct,
+including the tanker, torpedoes and engine/thruster equipment models. Twin fans
+counter-rotate at both detail levels. Player fan speed follows throttle and boost;
+animation uses simulation time, freezes on pause and works in both renderers.
 
 The transit gate has a hollow aperture and fixed frame. Mines, torpedoes, cargo crates,
 rescue capsules, waypoints and three types of salvage use new solid geometry. Soft

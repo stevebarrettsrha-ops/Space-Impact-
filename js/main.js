@@ -145,7 +145,8 @@ const Game = (() => {
     for (const path of Portrait.PATHS)
       jobs.push(track(Assets.picture(path).then(im => IMG[path] = im)
         .catch(error => console.warn('Portrait unavailable:', error.message))));
-    jobs.push(track(Catalog.load(IMG)));
+    jobs.push(track(Catalog.load(IMG)
+      .catch(error => console.warn('Catalogue previews unavailable:', error.message))));
     for (let i = 0; i < 15; i++) jobs.push(track(Assets.image('mission_' + i + '.png').then(im => IMG['mission_' + i] = im).catch(() => { })));
     jobs.push(track(Assets.image('mission_story.png').then(im => IMG['mission_story'] = im).catch(() => { })));
     for (let i = 1; i <= 7; i++) jobs.push(track(Assets.image('medal_' + i + '.png').then(im => IMG['medal_' + i] = im).catch(() => { })));

@@ -150,6 +150,19 @@ test('every station in the 200-station world resolves to a bounded design for ei
  assert.equal(designs.size,24);
 });
 
+test('civil and rebel stations share geometry at both detail levels while retaining their skins',async()=>{
+ const a=await ready(),api=a.run('StationModel');
+ for(let family=0;family<4;family++)for(let tier=0;tier<3;tier++){
+  const civil=a.models[api.key(false,{family,tier})],rebel=a.models[api.key(true,{family,tier})];
+  for(const [c,r] of [[civil,rebel],[civil.lod,rebel.lod]]){
+   assert.notEqual(c,r);assert.notEqual(c.name,r.name);assert.notEqual(c.texture,r.texture);
+   for(const field of ['V','N','tris','bbox','collision'])assert.equal(c[field],r[field],field+' must be shared');
+   assert.equal(c.count,r.count);assert.equal(c.radius,r.radius);
+  }
+ }
+ for(const rebel of [false,true])assert.equal(a.models[api.key(rebel)],a.models[api.key(rebel,{family:0,tier:1})]);
+});
+
 test('all ships and active props use complete replacement meshes and render from front and rear',async()=>{
  const a=await ready(),WorldAssets=a.run('WorldAssets'),g=a.Gfx,shapes=new Set();
  for(const name of [...a.GameData.ships.map(s=>s.model),...WorldAssets.PROPS]){
@@ -183,6 +196,71 @@ test('transit gate has an unobstructed opening and propulsion wakes remain behin
   assert.ok(points.some(p=>p[0]<0)&&points.some(p=>p[0]>0),'both outboard engines produce a wake');
   for(const [x,y,z,r] of points){assert.ok(z<=ship.wake.z&&z>=ship.wake.z-2400);assert.ok(r>0&&r<450);}
  }finally{g.point=original;}
+});
+
+test('every physical impeller has rotating blades at both detail levels with duct clearance',async()=>{
+ const a=await ready();
+ for(const name of [...a.GameData.ships.map(s=>s.model),'tanker1','torpedo']){
+  const high=a.models[name];assert.equal(high.rotorMesh,high.lod.rotorMesh,'reuse blade mesh across LODs');
+  for(const model of [high,high.lod]){
+   assert.equal(model.rotors.length,name==='torpedo'?1:2,name);
+   assert.ok(model.rotors.every(r=>r.radius>0&&r.position.every(Number.isFinite)));
+   const blades=model.rotorMesh;assert.equal(blades.texture,model.texture);
+   for(let i=0;i<blades.count;i++)assert.ok(Math.hypot(blades.V[i*3],blades.V[i*3+1])<.66,'blade tips clear the duct');
+   if(model.rotors.length===2)assert.equal(model.rotors[0].direction,-model.rotors[1].direction);
+  }
+ }
+ const catalog={...a.models};a.run('WorldAssets').catalogue(catalog,a.GameData);
+ for(const e of a.GameData.equip.filter(e=>e.type===6||e.type===7))assert.equal(catalog['equipment_'+e.id].rotors.length,e.type===7?2:1);
+});
+
+test('software renderer spins all impellers without moving their housings or changing shared vertices',async()=>{
+ const a=await ready(),g=a.Gfx;
+ for(const name of [...a.GameData.ships.map(s=>s.model),'tanker1','torpedo'])for(const model of [a.models[name],a.models[name].lod]){
+  const [rotor]=model.rotors,[x,y,z]=rotor.position,V=Float32Array.from(model.rotorMesh.V);
+  function draw(phase){
+   g.clearTo(0,0,0);g.setLamp(0,0);g.setFog(0,0,0,1e7,2e7);
+   g.setCamera(x,y,z-rotor.radius*4,0,0,0,1);
+   g.drawModel(model,0,0,0,null,1,null,{ambient:1,noFog:true,rotorPhase:phase});
+   return Uint32Array.from(g.buf32);
+  }
+  const first=draw(0),second=draw(Math.PI/4),still=draw(Math.PI/4);
+  const apertures=model.rotors.map(r=>({...g.project(...r.position),radius:r.radius}));
+  let changed=0;
+  for(let i=0;i<first.length;i++)if(first[i]!==second[i]){
+   changed++;
+   assert.ok(apertures.some(p=>Math.hypot(i%g.W-p.x,Math.floor(i/g.W)-p.y)<g.H*.2),'only blades inside the ducts move');
+  }
+  assert.ok(changed>30,name+' blades must visibly turn');
+  assert.deepEqual(second,still,'rendering without advancing simulation freezes the blades');
+  assert.deepEqual(Float32Array.from(model.rotorMesh.V),V,'instances must not mutate the shared mesh');
+ }
+});
+
+test('player fan speed follows throttle and boost using the simulation clock',async()=>{
+ const a=await game(),s=a.Flight.enter({noLife:true,noFriends:true,enemies:0});
+ s.throttle=0;a.Flight.update(1,a.Input);const idle=s.rotorPhase;
+ s.throttle=1;a.Flight.update(1,a.Input);const cruise=s.rotorPhase-idle;
+ s.boost=60;a.Flight.update(1,a.Input);const boost=s.rotorPhase-idle-cruise;
+ assert.ok(idle>0);assert.ok(cruise>idle);assert.ok(boost>cruise);
+ const phase=s.rotorPhase;a.Flight.update(0,a.Input);assert.equal(s.rotorPhase,phase);
+});
+
+test('fan axles inherit the parent ship position, scale, yaw, pitch and roll',async()=>{
+ const a=await ready(),g=a.Gfx,m=a.models.u0,rot=g.rotMatrix(.45,-.25,.4),scale=1.6,offset=[1200,-700,2100];
+ const transform=p=>offset.map((v,k)=>v+scale*(rot[k*3]*p[0]+rot[k*3+1]*p[1]+rot[k*3+2]*p[2]));
+ const p=m.rotors[0].position,r=m.rotors[0].radius,eye=transform([p[0],p[1],p[2]-r*4]);
+ function draw(phase){
+  g.clearTo(0,0,0);g.setLamp(0,0);g.setFog(0,0,0,1e7,2e7);
+  g.setCamera(...eye,Math.atan2(rot[2],rot[8]),Math.asin(rot[5]),0,1);
+  g.drawModel(m,...offset,rot,scale,null,{ambient:1,noFog:true,rotorPhase:phase});
+  return Uint32Array.from(g.buf32);
+ }
+ const first=draw(0),second=draw(Math.PI/4),centres=m.rotors.map(r=>g.project(...transform(r.position)));let changed=0;
+ for(let i=0;i<first.length;i++)if(first[i]!==second[i]){
+  changed++;assert.ok(centres.some(p=>Math.hypot(i%g.W-p.x,Math.floor(i/g.W)-p.y)<g.H*.2));
+ }
+ assert.ok(changed>30,'rotated and translated blades remain visible within the duct');
 });
 
 test('catalogue covers every ship view, equipment item and cargo good with a bundled model preview',async()=>{

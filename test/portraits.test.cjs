@@ -208,3 +208,29 @@ test('boot loads only realistic portrait assets and never requests the old face 
   assert.equal(Portrait.ready(), true);
   assert.equal(Game.mode, 'splash');
 });
+
+test('missing, undecodable or incorrectly sized catalogue previews do not prevent boot', async t => {
+  for (const failure of ['missing', 'decode', 'dimensions']) await t.test(failure, async () => {
+    const {Assets, Game, Portrait, Realism, context, run} = await game();
+    const catalog = run('Catalog'), warnings = [];
+    context.console = {...console, warn: (...args) => warnings.push(args)};
+    context.requestAnimationFrame = () => {};
+    context.Micro3D = {loadMBAC: () => ({}), classifyBlend() {}};
+    Realism.load = async () => {};
+    Realism.prepare = () => {};
+    Assets.image = async () => ({width:40, height:40});
+    Assets.raw = async () => new Uint8Array();
+    Assets.texture = async () => ({});
+    Assets.picture = async path => {
+      if (path !== catalog.PATH) return artwork(Portrait)[path];
+      if (failure === 'dimensions') return {width:1, height:1};
+      throw new Error(failure === 'missing' ? 'HTTP 404' : 'Image decode failed');
+    };
+    await Game.boot({});
+    assert.equal(Game.mode, 'splash');
+    assert.equal(Portrait.ready(), true);
+    assert.ok(catalog.ENTRIES.every(entry => !Game.IMG[entry.key]));
+    assert.equal(warnings.length, 1);
+    assert.equal(warnings[0][0], 'Catalogue previews unavailable:');
+  });
+});

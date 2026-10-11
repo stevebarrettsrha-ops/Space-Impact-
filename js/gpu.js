@@ -219,7 +219,7 @@ const OceanGPU = (() => {
       gl.framebufferRenderbuffer(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.RENDERBUFFER,depthBuffer);
       shadowReady=gl.checkFramebufferStatus(gl.FRAMEBUFFER)===gl.FRAMEBUFFER_COMPLETE;
       gl.bindFramebuffer(gl.FRAMEBUFFER,null);
-      particles=gl.createBuffer();gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.frontFace(gl.CCW);
+      particles=gl.createBuffer();gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.frontFace(gl.CW);
     }
     try{setup();}catch(error){console.warn('WebGL unavailable; using software rendering.',error);return null;}
     if(canvas.addEventListener){
@@ -281,6 +281,9 @@ const OceanGPU = (() => {
       draw(...args){queue.push(args);},
       drawNow(model,x,y,z,rotation,scale,tex,opts={}){
         const p=use(programs.mesh),d=opts.deform,material=model.material||{specular:0,gloss:16};
+        // The game's camera looks along +Z. Outward surfaces project clockwise
+        // in WebGL's bottom-up viewport; CCW would expose the hull's far interior.
+        gl.frontFace(gl.CW);
         gl.enable(gl.CULL_FACE);common(p);um(p,'uShadowView',shadowView);u1(p,'uHasShadow',hasShadow?1:0);
         gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,shadowTexture);gl.uniform1i(gl.getUniformLocation(p.p,'uShadow'),1);gl.activeTexture(gl.TEXTURE0);um(p,'uRotation',transpose(rotation||[1,0,0,0,1,0,0,0,1]));
         gl.activeTexture(gl.TEXTURE2);texture(model.texture?.surface);gl.uniform1i(gl.getUniformLocation(p.p,'uSurface'),2);gl.activeTexture(gl.TEXTURE0);
@@ -307,6 +310,8 @@ const OceanGPU = (() => {
         hasShadow=shadowReady&&casters.length>0;
         if(hasShadow){
           const p=use(programs.shadow);gl.bindFramebuffer(gl.FRAMEBUFFER,shadowFramebuffer);gl.viewport(0,0,2048,2048);
+          // The light's orthographic basis has the opposite handedness.
+          gl.frontFace(gl.CCW);
           gl.depthMask(true);gl.enable(gl.DEPTH_TEST);gl.enable(gl.CULL_FACE);gl.disable(gl.BLEND);gl.clearColor(1,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
           um(p,'uShadowView',shadowView);
           for(const [model,x,y,z,rotation,scale,tex] of casters){
