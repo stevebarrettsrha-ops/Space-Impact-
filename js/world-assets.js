@@ -15,7 +15,7 @@ const WorldAssets = (() => {
     {length:4600,radius:570,beam:1180,colour:[90,110,130],accent:[154,179,185],role:'command'},
     {length:3900,radius:450,beam:1020,colour:[194,197,179],accent:[172,142,73],role:'luxury'}
   ];
-  let metal, atlases=new Map();
+  let metal, atlases=new Map(), rotorMeshes=new Map();
   function atlas(name,colour,accent){
     if(!atlases.has(name))atlases.set(name,StationModel.texture(metal,false,colour,accent));
     return atlases.get(name);
@@ -26,19 +26,31 @@ const WorldAssets = (() => {
       [.26*length,r],[.39*length,r*.88],[.47*length,r*.6],[.51*length,r*.25],[.52*length,0]],cell);
     m.transform(start,c,[1,flat,1]);
   }
-  function thruster(m,x,y,z,r){
-    // Duct, inner wall, recessed hub and four physical impeller blades.
+  function thruster(m,rotors,x,y,z,r){
+    // Duct and recessed hub stay fixed; the blades turn around their own axle.
     m.lathe([x,y,z],'z',[[-r*.6,r*.82],[-r*.4,r],[r*.8,r*.9]],1);
     m.lathe([x,y,z],'z',[[-r*.61,r*.66],[-r*.61,r*.82]],0,false);
     m.lathe([x,y,z],'z',[[-r*.59,r*.66],[r*.3,r*.66]],1,true,true);
     vessel(m,[x,y,z],r*.5,r*.20,6);
-    for(let i=0;i<4;i++){
-      const start=m.cursor;m.box([r*.38,0,0],[r*.62,r*.14,r*.12],0);
-      m.transform(start,[x,y,z-r*.12],[1,1,1],0,i*Math.PI/2+.3);
+    rotors.push({position:[x,y,z-r*.12],radius:r,direction:x<0?-1:1});
+  }
+  function fitRotors(model,rotors){
+    if(!rotors.length)return model;
+    let blades=rotorMeshes.get(model.texture);
+    if(!blades){
+      const m=MeshKit.create(8);
+      for(let i=0;i<4;i++){
+        const start=m.cursor;m.box([.35,0,0],[.54,.14,.12],0);
+        m.transform(start,[0,0,0],[1,1,1],0,i*Math.PI/2+.3);
+      }
+      blades=m.finish('impeller',model.texture);
+      rotorMeshes.set(model.texture,blades);
     }
+    model.rotors=rotors;model.rotorMesh=blades;
+    return model;
   }
   function ship(id,low=false){
-    const p=SHIPS[id],m=MeshKit.create(low?8:16,low?Infinity:700),L=p.length,R=p.radius,B=p.beam;
+    const p=SHIPS[id],m=MeshKit.create(low?8:16,low?Infinity:700),rotors=[],L=p.length,R=p.radius,B=p.beam;
     const cargo=['hauler','freighter','command'].includes(p.role),twin=['catamaran','freighter'].includes(p.role);
     m.hull([0,0,0],[[-L*.50,R*.48,R*.48],[-L*.30,R,R*.85],[L*.24,R,R*.70],
       [L*.43,R*.60,R*.43],[L*.52,R*.15,R*.15]],0,.24);
@@ -50,7 +62,7 @@ const WorldAssets = (() => {
       if(twin)vessel(m,[side*B*.72,-R*.13,-L*.1],L*.83,R*.48,0);
       // Outboard pods keep the original twin-engine silhouette readable.
       vessel(m,[side*B*.72,-R*.12,-L*.31],L*.39,R*.39,1);
-      thruster(m,side*B*.72,-R*.12,-L*.51,R*.36);
+      thruster(m,rotors,side*B*.72,-R*.12,-L*.51,R*.36);
       if(cargo){
         for(let z=-1;z<=1;z++){
           m.box([side*R*.87,0,z*L*.18],[R*.72,R*1.25,L*.165],z===0?6:0);
@@ -91,13 +103,13 @@ const WorldAssets = (() => {
       m.transform(start,[side*R*.98,0,(i-1)*L*.13],[1,1,1],side*Math.PI/2);
     }
     if(p.role==='luxury')vessel(m,[0,R*.56,-L*.2],L*.18,R*.66,3,.56);
-    const model=m.finish('u'+id,atlas('ship'+id,p.colour,p.accent));
+    const model=fitRotors(m.finish('u'+id,atlas('ship'+id,p.colour,p.accent)),rotors);
     model.role=p.role;model.wake={x:B*.72,y:-R*.12,z:-L*.59,r:R*.30};
     if(!low){model.lod=ship(id,true);model.lod.texture=model.texture;}
     return model;
   }
   function prop(name,low=false){
-    const m=MeshKit.create(low?8:16),c=[0,0,0];
+    const m=MeshKit.create(low?8:16),c=[0,0,0],rotors=[];
     let tex=atlas('hardware',[135,152,153],[187,138,58]);
     if(name==='stream'){
       // Clear, genuinely hollow transit aperture. The frame stays fixed.
@@ -116,7 +128,7 @@ const WorldAssets = (() => {
       for(const x of [-650,650]){
         vessel(m,[x,0,0],9600,650,0);
         for(const z of [-3300,-1100,1100,3300])m.rib([x,0,0],'z',z,695,160,6);
-        thruster(m,x,-40,-5550,400);
+        thruster(m,rotors,x,-40,-5550,400);
       }
       vessel(m,[0,700,4000],2200,600,6,.7);
       m.box([0,900,5100],[700,230,140],3);
@@ -145,7 +157,7 @@ const WorldAssets = (() => {
       for(let i=0;i<4;i++){
         const start=m.cursor;m.box([44,0,-5],[58,8,85],1);m.transform(start,c,[1,1,1],0,i*Math.PI/2);
       }
-      thruster(m,0,0,-58,29);
+      thruster(m,rotors,0,0,-58,29);
     }else if(name.startsWith('trash')){
       tex=atlas('wreck',[102,101,81],[145,89,51]);
       const variant=Number(name.slice(-1))||0;
@@ -160,13 +172,13 @@ const WorldAssets = (() => {
       m.prism([[0,420],[-280,-100],[280,-100]],80,4);
       m.box([0,0,-225],[160,80,280],4);
     }
-    const model=m.finish(name,tex);
+    const model=fitRotors(m.finish(name,tex),rotors);
     if(!low){model.lod=prop(name,true);model.lod.texture=model.texture;}
     return model;
   }
   const PROPS=['tanker1','stream','box','kapsel','mine','torpedo','trash','trash1','trash2','pfeil'];
   function prepare(models,steel){
-    metal=steel;atlases.clear();
+    metal=steel;atlases.clear();rotorMeshes.clear();
     SHIPS.forEach((p,i)=>models['u'+i]=ship(i));
     for(const name of PROPS)models[name]=prop(name);
   }
@@ -205,7 +217,7 @@ const WorldAssets = (() => {
   // Authoring-only models for the matching equipment and cargo catalogue.
   function catalogue(models,data){
     for(const e of data.equip){
-      const m=MeshKit.create(12),tier=e.id%3,c=[0,0,0],T=e.type;
+      const m=MeshKit.create(12),rotors=[],tier=e.id%3,c=[0,0,0],T=e.type;
       if(T===0){
         vessel(m,c,1000+tier*160,150,1);m.box([0,-170,-200],[450,190,650],0);
         for(let i=0;i<3+tier;i++)m.rib(c,'z',-300+i*160,185,70,e.id<6?6:4);
@@ -229,7 +241,7 @@ const WorldAssets = (() => {
         for(const x of [-280,280])m.lathe([x,0,0],'y',[[-200,60],[350,60]],0);
         m.box([0,20,0],[500,210,550],0);
       }else if(T===6||T===7){
-        for(const x of T===7?[-280,280]:[0]){vessel(m,[x,0,0],750,240,0);thruster(m,x,0,-380,260);}
+        for(const x of T===7?[-280,280]:[0]){vessel(m,[x,0,0],750,240,0);thruster(m,rotors,x,0,-380,260);}
         m.box([0,180,40],[650,160,400],6);
       }else if(T===8){
         m.box([0,-300,0],[650,140,650],1);
@@ -242,7 +254,7 @@ const WorldAssets = (() => {
         vessel(m,c,600,310,0);m.box([0,250,250],[380,280,220],6);m.box([0,265,365],[260,90,35],4);
         for(const x of [-360,360])m.box([x,-150,80],[100,140,650],1);
       }
-      models['equipment_'+e.id]=m.finish('equipment_'+e.id,atlas('equipment'+tier,[150+tier*12,167+tier*6,166],[65+tier*35,135,157]));
+      models['equipment_'+e.id]=fitRotors(m.finish('equipment_'+e.id,atlas('equipment'+tier,[150+tier*12,167+tier*6,166],[65+tier*35,135,157])),rotors);
     }
     for(let id=18;id<42;id++){
       const m=MeshKit.create(12),c=[0,0,0];

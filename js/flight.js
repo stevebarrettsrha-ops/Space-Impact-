@@ -32,7 +32,7 @@ const Flight = (() => {
       px: 0, py: 6 * U, pz: -430 * U,
       vx: 0, vy: 0, vz: 0,
       yaw: 0, pitch: 0, roll: 0,
-      throttle: 0.45, boost: 0, boostFuel: 1,
+      throttle: 0.45, boost: 0, boostFuel: 1, rotorPhase: 0,
       depth: st.depth * 100,           /* metres */
       weapon: 0,                       /* index into weapon list */
       cool: 0, harpoonCool: 0,
@@ -284,6 +284,7 @@ const Flight = (() => {
   function update(dt, In) {
     if (!S) return;
     S.t += dt;
+    S.rotorPhase=(S.rotorPhase+(4+14*S.throttle+(S.boost>0?10:0))*dt/60)%TAU;
     const W = World.state();
     W.stats.playMs += dt * 16.6;
 
@@ -938,7 +939,7 @@ const Flight = (() => {
       const m = M['u' + World.state().ship.type];
       if (m) {
         const rotation=Gfx.rotMatrix(S.yaw,S.pitch,S.roll*.5);
-        Gfx.drawModel(m,S.px,S.py,S.pz,rotation,1,TEX.deep,{ambient:.58,noFog:true,time:S.t/60});
+        Gfx.drawModel(m,S.px,S.py,S.pz,rotation,1,TEX.deep,{ambient:.58,noFog:true,time:S.t/60,rotorPhase:S.rotorPhase});
         WorldAssets.drawWake(m,S.px,S.py,S.pz,rotation,1,S.t/60,Math.min(1,S.throttle+(S.boost>0?.4:0)));
       }
     }
@@ -950,7 +951,7 @@ const Flight = (() => {
       if (!m) continue;
       const yaw = Math.atan2(s.dx, s.dz), pitch = Math.atan2(s.dy, Math.hypot(s.dx, s.dz));
       Gfx.drawModel(m, s.x, s.y, s.z, Gfx.rotMatrix(yaw, pitch, 0), s.scale, texFor(s.model),
-        { ambient: 1, alpha: 0.8 });
+        { ambient: 1, alpha: 0.8, time:S.t/60 });
     }
 
     /* harpoon line */

@@ -468,6 +468,17 @@ const Gfx = (() => {
       camM[4]*px+camM[5]*py+camM[6]*pz+camM[7],camM[8]*px+camM[9]*py+camM[10]*pz+camM[11]);
     if(model.lod && model.radius*s*focal/Math.max(1,distance)<36)model=model.lod;
     tex = model.texture || tex;
+    if(model.rotors){
+      const r=rot||IDENT3,phase=opts.rotorPhase??(opts.time||0)*12;
+      for(const rotor of model.rotors){
+        const p=rotor.position,angle=(phase*rotor.direction)%(Math.PI*2),c=Math.cos(angle),sn=Math.sin(angle);
+        const spin=mul3(r,[c,-sn,0,sn,c,0,0,0,1]);
+        // Apply the axle transform in ship space, then inherit its pose/scale.
+        drawModel(model.rotorMesh,px+s*(r[0]*p[0]+r[1]*p[1]+r[2]*p[2]),
+          py+s*(r[3]*p[0]+r[4]*p[1]+r[5]*p[2]),pz+s*(r[6]*p[0]+r[7]*p[1]+r[8]*p[2]),
+          spin,s*rotor.radius,tex,opts);
+      }
+    }
     if(gpu?.available){gpu.draw(model,px,py,pz,rot,s,tex,opts);return;}
     const material=model.material, deform=opts.deform, time=opts.time||0;
     const n = model.count;

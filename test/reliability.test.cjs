@@ -158,6 +158,7 @@ for (const event of ['blur', 'visibilitychange']) {
     assert.equal(Game.mode, 'pause');
     Game.review.update(60);
     assert.equal(sector.t, 0);
+    assert.equal(sector.rotorPhase, 0, 'pausing also freezes the propellers');
     document.hidden = false; document.dispatch('visibilitychange'); window.dispatch('focus');
     assert.equal(Game.mode, 'pause');
     press('fire');

@@ -3,6 +3,7 @@
 const assert=require('node:assert/strict'),http=require('node:http'),fs=require('node:fs'),path=require('node:path');
 const {chromium}=require('playwright');
 const {checkShipHulls}=require('./check-ship-hulls.cjs');
+const {checkFans}=require('./check-fans.cjs');
 const root=path.resolve(__dirname,'..');
 const mime={'.html':'text/html','.js':'text/javascript','.png':'image/png','.webp':'image/webp'};
 (async()=>{
@@ -46,6 +47,8 @@ const mime={'.html':'text/html','.js':'text/javascript','.png':'image/png','.web
   await page.screenshot({path:path.join(root,'test-output/station-console.png')});
   const hulls=await page.evaluate(checkShipHulls);
   assert.equal(hulls.checks,132);assert.deepEqual(hulls.failures,[]);assert.equal(hulls.error,0);
+  const fans=await page.evaluate(checkFans);
+  assert.equal(fans.checks,50);assert.deepEqual(fans.failures,[]);assert.equal(fans.error,0);
   await page.evaluate(()=>{
    const m=Game.MODELS.u0,distance=m.radius*2.65,angle=2.4;
    Gfx.clearGradient([23,57,67],[3,19,27],Gfx.H/2);Gfx.setFog(3,19,27,1e7,2e7);Gfx.setLamp(.2,distance);
@@ -65,7 +68,9 @@ const mime={'.html':'text/html','.js':'text/javascript','.png':'image/png','.web
   await page.evaluate(()=>Flight.render(Gfx.context()));
   const restoredHulls=await page.evaluate(checkShipHulls);
   assert.equal(restoredHulls.checks,132);assert.deepEqual(restoredHulls.failures,[]);assert.equal(restoredHulls.error,0);
+  const restoredFans=await page.evaluate(checkFans);
+  assert.equal(restoredFans.checks,50);assert.deepEqual(restoredFans.failures,[]);assert.equal(restoredFans.error,0);
   assert.equal(await page.evaluate(()=>sceneGL.getError()),0);assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({report,hulls,restoredHulls,contextRecovery:true,errors},null,2));
+  console.log(JSON.stringify({report,hulls,restoredHulls,fans,restoredFans,contextRecovery:true,errors},null,2));
  }finally{if(browser)await browser.close();server.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});
