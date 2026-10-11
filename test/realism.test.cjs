@@ -150,6 +150,19 @@ test('every station in the 200-station world resolves to a bounded design for ei
  assert.equal(designs.size,24);
 });
 
+test('civil and rebel stations share geometry at both detail levels while retaining their skins',async()=>{
+ const a=await ready(),api=a.run('StationModel');
+ for(let family=0;family<4;family++)for(let tier=0;tier<3;tier++){
+  const civil=a.models[api.key(false,{family,tier})],rebel=a.models[api.key(true,{family,tier})];
+  for(const [c,r] of [[civil,rebel],[civil.lod,rebel.lod]]){
+   assert.notEqual(c,r);assert.notEqual(c.name,r.name);assert.notEqual(c.texture,r.texture);
+   for(const field of ['V','N','tris','bbox','collision'])assert.equal(c[field],r[field],field+' must be shared');
+   assert.equal(c.count,r.count);assert.equal(c.radius,r.radius);
+  }
+ }
+ for(const rebel of [false,true])assert.equal(a.models[api.key(rebel)],a.models[api.key(rebel,{family:0,tier:1})]);
+});
+
 test('all ships and active props use complete replacement meshes and render from front and rear',async()=>{
  const a=await ready(),WorldAssets=a.run('WorldAssets'),g=a.Gfx,shapes=new Set();
  for(const name of [...a.GameData.ships.map(s=>s.model),...WorldAssets.PROPS]){

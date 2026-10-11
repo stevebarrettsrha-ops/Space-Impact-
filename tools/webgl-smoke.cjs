@@ -2,6 +2,7 @@
    context recovery. Run after installing Playwright and Chromium. */
 const assert=require('node:assert/strict'),http=require('node:http'),fs=require('node:fs'),path=require('node:path');
 const {chromium}=require('playwright');
+const {checkShipHulls}=require('./check-ship-hulls.cjs');
 const root=path.resolve(__dirname,'..');
 const mime={'.html':'text/html','.js':'text/javascript','.png':'image/png','.webp':'image/webp'};
 (async()=>{
@@ -43,6 +44,15 @@ const mime={'.html':'text/html','.js':'text/javascript','.png':'image/png','.web
   await page.screenshot({path:path.join(root,'test-output/gameplay-propulsion.png')});
   await page.evaluate(()=>{Station.open({undock(){},quit(){}});Gfx.pushPage();Station.render(Gfx.context());Gfx.pop();});
   await page.screenshot({path:path.join(root,'test-output/station-console.png')});
+  const hulls=await page.evaluate(checkShipHulls);
+  assert.equal(hulls.checks,132);assert.deepEqual(hulls.failures,[]);assert.equal(hulls.error,0);
+  await page.evaluate(()=>{
+   const m=Game.MODELS.u0,distance=m.radius*2.65,angle=2.4;
+   Gfx.clearGradient([23,57,67],[3,19,27],Gfx.H/2);Gfx.setFog(3,19,27,1e7,2e7);Gfx.setLamp(.2,distance);
+   Gfx.setCamera(Math.sin(angle)*distance,m.radius*.65,Math.cos(angle)*distance,angle+Math.PI,-Math.atan2(.65,2.65),0,1);
+   Gfx.drawModel(m,0,0,0,null,1,null,{ambient:.56,time:7,noFog:true});Gfx.flush();
+  });
+  await page.screenshot({path:path.join(root,'test-output/ship-hull.png')});
   await page.setViewportSize({width:390,height:844});
   await page.evaluate(()=>{Gfx.resize();Flight.render(Gfx.context());});
   assert.equal(await page.evaluate(()=>sceneGL.getError()),0);
@@ -53,7 +63,9 @@ const mime={'.html':'text/html','.js':'text/javascript','.png':'image/png','.web
   await page.evaluate(()=>sceneLoss.restoreContext());
   await page.waitForFunction(()=>Gfx.backend==='webgl',{},{polling:100});
   await page.evaluate(()=>Flight.render(Gfx.context()));
+  const restoredHulls=await page.evaluate(checkShipHulls);
+  assert.equal(restoredHulls.checks,132);assert.deepEqual(restoredHulls.failures,[]);assert.equal(restoredHulls.error,0);
   assert.equal(await page.evaluate(()=>sceneGL.getError()),0);assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({report,contextRecovery:true,errors},null,2));
+  console.log(JSON.stringify({report,hulls,restoredHulls,contextRecovery:true,errors},null,2));
  }finally{if(browser)await browser.close();server.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

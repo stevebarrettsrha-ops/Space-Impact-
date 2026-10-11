@@ -228,13 +228,17 @@ const StationModel = (() => {
     return base+'_'+a.family+'_'+a.tier;
   }
   function prepare(models,metal){
-    for(const rebel of [false,true]){
-      const skin=texture(metal,rebel);
-      for(let family=0;family<4;family++)for(let tier=0;tier<3;tier++){
-        models[key(rebel,{family,tier})]=build(metal,rebel,false,family,tier,skin);
-      }
-      models[key(rebel)]=models[key(rebel,{family:0,tier:1})];
+    const civilSkin=texture(metal,false),rebelSkin=texture(metal,true);
+    for(let family=0;family<4;family++)for(let tier=0;tier<3;tier++){
+      const civil=build(metal,false,false,family,tier,civilSkin);
+      const rebelName=key(true,{family,tier});
+      models[civil.name]=civil;
+      // Geometry and collision bounds are immutable after authoring. Factions
+      // need distinct skins/names, but can share every high- and low-detail array.
+      models[rebelName]={...civil,name:rebelName,texture:rebelSkin,
+        lod:{...civil.lod,name:rebelName,texture:rebelSkin}};
     }
+    for(const rebel of [false,true])models[key(rebel)]=models[key(rebel,{family:0,tier:1})];
   }
   function contact(model,x,y,z,radius) {
     let result=null;
