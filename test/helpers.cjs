@@ -61,7 +61,7 @@ async function game(options = {}) {
     setTimeout() { throw new Error('Gameplay must not schedule wall-clock timers'); }
   });
   const run = code => vm.runInContext(code, context);
-  for (const file of ['assets', 'station-model', 'realism', 'ui2d', 'data', 'world', 'campaign', 'flight']) run(source(`js/${file}.js`));
+  for (const file of ['assets', 'mesh-kit', 'station-model', 'world-assets', 'catalog', 'realism', 'ui2d', 'data', 'world', 'campaign', 'flight']) run(source(`js/${file}.js`));
   await run('Promise.all([GameData.load(), GameData.loadLang("en")])');
   // Expose state-machine entry points only in this isolated test context.
   // Production code and all behavior under test are executed unchanged.

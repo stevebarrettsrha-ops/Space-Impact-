@@ -27,7 +27,7 @@
      pixel lands on a whole number of screen pixels and nothing is resampled. */
   canvas#screen {
     display:block; background:#04121b; touch-action:none;
-    image-rendering:pixelated;
+    image-rendering:auto;
   }
 
   #fatal {
@@ -102,8 +102,11 @@
 
 <script src="js/assets.js"></script>
 <script src="js/model.js"></script>
+<script src="js/mesh-kit.js"></script>
 <script src="js/station-model.js"></script>
+<script src="js/world-assets.js"></script>
 <script src="js/realism.js"></script>
+<script src="js/gpu.js"></script>
 <script src="js/gfx.js"></script>
 <script src="js/ui2d.js"></script>
 <script src="js/data.js"></script>
@@ -112,6 +115,7 @@
 <script src="js/flight.js"></script>
 <script src="js/station.js"></script>
 <script src="js/campaign.js"></script>
+<script src="js/catalog.js"></script>
 <script src="js/main.js"></script>
 <script>
 /* ---- touch layer: a virtual stick plus the phone keys the game expects --- */

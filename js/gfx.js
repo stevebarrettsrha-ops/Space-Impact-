@@ -1,9 +1,5 @@
-/* ============================================================================
-   Software renderer: bitmap font, sprite blitting and a perspective correct
-   z-buffered triangle rasteriser with depth fog.  The framebuffer follows the
-   window rather than the other way round, and is presented with a whole
-   number block copy, so the picture fills the display and stays exact.
-   ========================================================================== */
+/* Scene rendering and native-resolution UI composition. WebGL is preferred;
+   the perspective-correct software rasteriser remains a compatibility path. */
 'use strict';
 
 /* The logical framebuffer.  On the handset this was a fixed 240x320; here it
@@ -27,7 +23,7 @@ const Gfx = (() => {
      resolution, so text is set by the browser at native size instead of being
      drawn into the low resolution surface and blown up with it.  sctx exists
      only to push the rasteriser's buffer into that surface. */
-  let view, ctx, surface, sctx, img, buf32, zbuf;
+  let view, ctx, surface, sctx, img, buf32, zbuf, gpu;
   /* Two grids, deliberately separate.  lw x lh is the layout grid the
      interface is placed on, and upscale turns it into device pixels.  W x H
      is what the rasteriser actually draws the sector at, which is picked from
@@ -50,6 +46,7 @@ const Gfx = (() => {
     /* both contexts are handed out once and kept for the life of the game;
        their canvases are only ever resized, never re-created */
     ctx = view.getContext('2d', { alpha: false });
+    gpu = typeof OceanGPU !== 'undefined' ? OceanGPU.create(document.createElement('canvas'),()=>{rk=1;allocRender(...devPix);}) : null;
     surface = document.createElement('canvas');
     surface.width = W; surface.height = H;
     sctx = surface.getContext('2d', { alpha: false });
@@ -67,6 +64,7 @@ const Gfx = (() => {
   }
 
   function alloc(w, h) {
+    if(gpu)gpu.resize(w,h);
     if (w === W && h === H && img) return;
     W = w; H = h;
     rsx = W / lw; rsy = H / lh;
@@ -129,11 +127,12 @@ const Gfx = (() => {
 
   function allocRender(dw, dh) {
     devPix = [dw, dh];
+    if(gpu?.available)rk=detail==='balanced'?Math.max(1,Math.sqrt(dw*dh/2000000)):1;
     rk = Math.min(rk, maxRenderK());
     alloc(Math.max(120, Math.ceil(dw / rk)), Math.max(120, Math.ceil(dh / rk)));
   }
   function maxRenderK() {
-    return Math.max(1,Math.min(K_MAX,Math.floor(Math.min(devPix[0],devPix[1])/120)));
+    return Math.max(1,Math.min(K_MAX,Math.floor(Math.min(devPix[0],devPix[1])/360)));
   }
 
   /* Frame interval is the honest signal - it takes in the compositor as well
@@ -154,7 +153,7 @@ const Gfx = (() => {
   }
 
   function autoScale(ms, frameMs) {
-    if (detail !== 'auto') return;
+    if (detail !== 'auto' || gpu?.available) return;
     costSum += ms; frameSum += frameMs || ms; costN++;
     if (costN < 30) return;
     const cost = costSum / costN, frame = frameSum / costN;
@@ -302,10 +301,12 @@ const Gfx = (() => {
 
   function setFog(r, g, b, near, far) {
     fogR = r; fogG = g; fogB = b; fogNear = near; fogFar = far; packFog();
+    if(gpu)gpu.fog(r,g,b,near,far);
   }
   function fogColour() { return fogPacked; }
 
   function clear3D() {
+    if(gpu?.available){gpu.clear([fogR,fogG,fogB]);return;}
     buf32.fill(fogPacked);
     zbuf.fill(1e30);
   }
@@ -318,6 +319,7 @@ const Gfx = (() => {
     if (b2 > a) buf32.fill(c, y * W + a, y * W + b2);
   }
   function clearTo(r, g, b) {
+    if(gpu?.available){gpu.clear([r,g,b]);return;}
     const c = (255 << 24) | (b << 16) | (g << 8) | r;
     if (region === 'page' && (pageW < lw || pageH < lh)) {
       /* the surround is the same water, further off: it falls away from the
@@ -346,6 +348,7 @@ const Gfx = (() => {
   }
   /* the water column: brighter towards the surface, black towards the abyss */
   function clearGradient(top, bot, horizon) {
+    if(gpu?.available){gpu.clear(top,bot);return;}
     const hz = horizon * rsy;
     for (let y = 0; y < H; y++) {
       let t = (y - hz) / H + 0.5;
@@ -362,6 +365,7 @@ const Gfx = (() => {
   /* Broad light shafts are a background effect: solid geometry is drawn over
      them, so they never shine through a hull. Sunlight disappears with depth. */
   function waterLight(time, depth, yaw, pitch) {
+    if(gpu?.available){gpu.water(time,depth,yaw,pitch);return;}
     const strength=Math.max(0,1-depth/450)*.16;
     if(!strength)return;
     const beams=new Float32Array(W),pan=Math.sin(yaw)*.5;
@@ -409,6 +413,7 @@ const Gfx = (() => {
     camM[7] = -(b[3] * x + b[4] * y + b[5] * z);
     camM[11] = -(b[6] * x + b[7] * y + b[8] * z);
     focal = (H / 2) / Math.tan((fov || 1.05) / 2);
+    if(gpu)gpu.camera(camM,focal);
   }
   function mul3(a, b) {
     const o = new Array(9);
@@ -446,6 +451,7 @@ const Gfx = (() => {
   function setLamp(strength, range) {
     lampK = strength || 0;
     lampR2 = (range || 1) * (range || 1);
+    if(gpu)gpu.lamp(strength,range||1);
   }
   let filter = true;                   /* bilinear sampling on solid surfaces */
   function setFilter(v) { filter = !!v; }
@@ -462,6 +468,7 @@ const Gfx = (() => {
       camM[4]*px+camM[5]*py+camM[6]*pz+camM[7],camM[8]*px+camM[9]*py+camM[10]*pz+camM[11]);
     if(model.lod && model.radius*s*focal/Math.max(1,distance)<36)model=model.lod;
     tex = model.texture || tex;
+    if(gpu?.available){gpu.draw(model,px,py,pz,rot,s,tex,opts);return;}
     const material=model.material, deform=opts.deform, time=opts.time||0;
     const n = model.count;
     ensure(n);
@@ -722,6 +729,7 @@ const Gfx = (() => {
      at the resolutions a modern display asks for they read as motes in the
      beam rather than as chunks of confetti. */
   function point(wx, wy, wz, size, r, g, b, fade, bubble) {
+    if(gpu?.available){gpu.point(wx,wy,wz,size,r,g,b,fade,bubble);return;}
     const m = camM;
     const X = m[0] * wx + m[1] * wy + m[2] * wz + m[3];
     const Y = m[4] * wx + m[5] * wy + m[6] * wz + m[7];
@@ -777,15 +785,14 @@ const Gfx = (() => {
      whole display - so the context is unwound and re-applied around it. */
   let framePending = false;
   function flush() {
-    sctx.putImageData(img, 0, 0);
+    if(gpu?.available)gpu.flush();else sctx.putImageData(img, 0, 0);
     const r = region;
     while (held > 0) { ctx.restore(); held--; }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    /* an exact k-by-k block copy; it may overshoot the canvas by up to k-1
-       device pixels, which the canvas clips */
+    /* GPU output is native-sized; balanced/fallback frames are smoothly resampled. */
     ctx.imageSmoothingEnabled = rk>1;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(surface, 0, 0, W, H, 0, 0, W * rk, H * rk);
+    ctx.drawImage(gpu?.available?gpu.canvas:surface, 0, 0, W, H, 0, 0, view.width, view.height);
     region = r;
     sync();
     if (framePending) { framePending = false; drawPageFrame(); }
@@ -811,6 +818,7 @@ const Gfx = (() => {
     init, resize, screenScale, screenLayout, context, flush, present, clear3D, clearTo, clearGradient, setCamera, setFog, fogColour,
     drawModel, point, project, rotMatrix, waterLight,
     pushPage, pushFull, pop, pageRect, setFilter, setLamp, autoScale, setDetail,
+    get backend() { return gpu?.available?'webgl':'software'; },
     get detail() { return detail; },
     get renderScale() { return 1 / rk; },
     get W() { return W; }, get H() { return H; },

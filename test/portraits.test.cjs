@@ -197,6 +197,7 @@ test('boot loads only realistic portrait assets and never requests the old face 
   context.Micro3D = {loadMBAC: () => ({}), classifyBlend() {}};
   Realism.load = async () => {};
   Realism.prepare = () => {};
+  require('node:vm').runInContext('Catalog.load = async () => {}', context);
   Assets.image = async path => { legacyRequests.push(path); return {width:40, height:40}; };
   Assets.raw = async () => new Uint8Array();
   Assets.texture = async () => ({});

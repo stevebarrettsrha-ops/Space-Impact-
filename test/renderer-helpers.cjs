@@ -13,7 +13,7 @@ async function renderer(){
  const context=vm.createContext({console,window,document,TextDecoder,CustomEvent:class {},getComputedStyle:()=>({}),
    fetch:async p=>({ok:true,arrayBuffer:async()=>Uint8Array.from(fs.readFileSync(root+'/'+p)).buffer})});
  const run=code=>vm.runInContext(code,context);
- for(const f of ['assets','model','station-model', 'realism','gfx','data'])run(source('js/'+f+'.js'));
+ for(const f of ['assets','model','mesh-kit', 'station-model', 'world-assets', 'realism','gfx','data'])run(source('js/'+f+'.js'));
  const api=run('({Assets,Micro3D,Realism,Gfx,GameData})');api.Gfx.init(canvas());
  await api.GameData.load();
  api.Assets.picture=async()=>({width:8,height:4});await api.Realism.load();

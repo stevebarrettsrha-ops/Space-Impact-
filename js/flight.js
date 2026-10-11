@@ -89,8 +89,8 @@ const Flight = (() => {
     if (cfg.station !== false) {
       S.station = ent({
         kind: 'station', x: 0, y: 0, z: 0, yaw: 0, pitch: 0,
-        scale: 1, hp: 1e9, r: 110 * U, id: st.id,
-        model: StationModel.key(World.isRebel(st.id))
+        scale: 1, hp: 1e9, r: M[StationModel.key(World.isRebel(st.id),st)]?.radius || 110 * U, id: st.id,
+        model: StationModel.key(World.isRebel(st.id),st)
       });
     }
     /* --- a S.T.R.E.A.M. gate --------------------------------------------- */
@@ -115,7 +115,7 @@ const Flight = (() => {
     for (let i = 0; i < 6; i++) {
       const a = rnd(0, TAU), d = rnd(150, 700) * U;
       ent({
-        kind: 'trash', model: 'trash', x: Math.cos(a) * d, y: rnd(-200, 120) * U, z: Math.sin(a) * d,
+        kind: 'trash', model: ['trash','trash1','trash2'][i%3], x: Math.cos(a) * d, y: rnd(-200, 120) * U, z: Math.sin(a) * d,
         yaw: rnd(0, TAU), pitch: rnd(0, TAU), scale: 1, r: 12 * U, hp: 3,
         spin: rnd(-0.4, 0.4)
       });
@@ -473,7 +473,9 @@ const Flight = (() => {
            sailing straight through the middle of it */
         if (!gone && S.station) {
           const st = S.station;
-          if (Math.hypot(st.x - s.x, st.y - s.y, st.z - s.z) < st.r * 0.78) {
+          const model=M[st.model];
+          if (model?.collision ? StationModel.contact(model,s.x-st.x,s.y-st.y,s.z-st.z,80) :
+              Math.hypot(st.x-s.x,st.y-s.y,st.z-s.z)<st.r*.78) {
             sparks(s.x, s.y, s.z); gone = true;
           }
         }
@@ -582,7 +584,11 @@ const Flight = (() => {
       if (!er) continue;
       const rr = er + PLAYER_R;
       let dx = S.px - e.x, dy = S.py - e.y, dz = S.pz - e.z;
-      const d2 = dx * dx + dy * dy + dz * dz;
+      let d2 = dx * dx + dy * dy + dz * dz;
+      const contact=e.kind==='station'&&M[e.model]?.collision?
+        StationModel.contact(M[e.model],dx,dy,dz,PLAYER_R):undefined;
+      if(contact===null){e.contact=false;continue;}
+      if(contact){[dx,dy,dz]=contact.normal;d2=1;}
       if (d2 >= rr * rr) { e.contact = false; continue; }
       const resting = e.contact === true;      /* already leaning on it */
       e.contact = true;
@@ -590,7 +596,8 @@ const Flight = (() => {
       if (d < 1e-3) { dx = 0; dy = 1; dz = 0; d = 1; }
       const nx = dx / d, ny = dy / d, nz = dz / d;
       /* put the boat back on the outside of the shell */
-      S.px = e.x + nx * rr; S.py = e.y + ny * rr; S.pz = e.z + nz * rr;
+      if(contact){S.px+=nx*contact.penetration;S.py+=ny*contact.penetration;S.pz+=nz*contact.penetration;}
+      else {S.px = e.x + nx * rr; S.py = e.y + ny * rr; S.pz = e.z + nz * rr;}
       /* how hard the nose was driving into it */
       const closing = -(S.vx * nx + S.vy * ny + S.vz * nz);
       /* everything but the station gives a little, so a shoal is shouldered
@@ -623,6 +630,11 @@ const Flight = (() => {
     for (let i = 0; i < S.ents.length; i++) {
       const e = S.ents[i];
       if (e.dead || e === st || (e.kind !== 'ship' && e.kind !== 'trash')) continue;
+      if(M[st.model]?.collision){
+        const hit=StationModel.contact(M[st.model],e.x-st.x,e.y-st.y,e.z-st.z,e.r||0);
+        if(hit){e.x+=hit.normal[0]*hit.penetration;e.y+=hit.normal[1]*hit.penetration;e.z+=hit.normal[2]*hit.penetration;}
+        continue;
+      }
       const rr = sr + (e.r || 0);
       const dx = e.x - st.x, dy = e.y - st.y, dz = e.z - st.z;
       const d2 = dx * dx + dy * dy + dz * dz;
@@ -924,12 +936,16 @@ const Flight = (() => {
     /* the player's own boat in chase view */
     if (S.camera === 0) {
       const m = M['u' + World.state().ship.type];
-      if (m) Gfx.drawModel(m, S.px, S.py, S.pz, Gfx.rotMatrix(S.yaw, S.pitch, S.roll * 0.5), 1, TEX.deep,
-        { ambient: 0.58, noFog: true, time:S.t/60 });
+      if (m) {
+        const rotation=Gfx.rotMatrix(S.yaw,S.pitch,S.roll*.5);
+        Gfx.drawModel(m,S.px,S.py,S.pz,rotation,1,TEX.deep,{ambient:.58,noFog:true,time:S.t/60});
+        WorldAssets.drawWake(m,S.px,S.py,S.pz,rotation,1,S.t/60,Math.min(1,S.throttle+(S.boost>0?.4:0)));
+      }
     }
 
     /* shots */
     for (const s of S.shots) {
+      if(s.kind==='bolt'){WorldAssets.drawBolt(s);continue;}
       const m = M[s.model];
       if (!m) continue;
       const yaw = Math.atan2(s.dx, s.dz), pitch = Math.atan2(s.dy, Math.hypot(s.dx, s.dz));
@@ -950,10 +966,9 @@ const Flight = (() => {
 
     /* explosions and sparks */
     for (const fx of S.fx) {
-      if (fx.kind === 'boom' && M.explosion) {
+      if (fx.kind === 'boom') {
         const k = fx.t / 42;
-        Gfx.drawModel(M.explosion, fx.x, fx.y, fx.z, Gfx.rotMatrix(fx.t * 0.05, fx.t * 0.03, 0),
-          fx.s * (0.4 + k * 1.5), TEX.fx, { additive: true, alpha: Math.max(0,1-k*2.4), ambient: 1 });
+        WorldAssets.drawFlash(fx);
         // A pressure pulse and expanding bubble cloud outlast the brief flash.
         for(let i=0;i<28;i++){
           const a=i*2.39996,v=1-2*(i+.5)/28,r=Math.sqrt(1-v*v),spread=(600+k*3200)*fx.s;
@@ -986,7 +1001,7 @@ const Flight = (() => {
         break;
       }
       case 'gate': {
-        if (M.stream) Gfx.drawModel(M.stream, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, 0, e.spin),
+        if (M.stream) Gfx.drawModel(M.stream, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, 0, 0),
           e.scale, TEX.deep, { ambient: 0.92 });
         break;
       }
@@ -1002,8 +1017,10 @@ const Flight = (() => {
       case 'ship': {
         const m = M[e.model];
         if (!m) return;
-        Gfx.drawModel(m, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, e.pitch, e.roll * 0.4), e.scale,
+        const rotation=Gfx.rotMatrix(e.yaw,e.pitch,e.roll*.4);
+        Gfx.drawModel(m, e.x, e.y, e.z, rotation, e.scale,
           TEX.deep, { tint: e.tint, ambient: 0.54,time:S.t/60 });
+        WorldAssets.drawWake(m,e.x,e.y,e.z,rotation,e.scale,S.t/60,.6);
         break;
       }
       case 'mine':
@@ -1017,7 +1034,7 @@ const Flight = (() => {
         if (M.kapsel) Gfx.drawModel(M.kapsel, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, 0, 0), e.scale, TEX.deep, { ambient: 0.74 });
         break;
       case 'trash':
-        if (M.trash) Gfx.drawModel(M.trash, e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, e.pitch, 0), e.scale, TEX.deep, { ambient: 0.74 });
+        if (M[e.model]) Gfx.drawModel(M[e.model], e.x, e.y, e.z, Gfx.rotMatrix(e.yaw, e.pitch, 0), e.scale, TEX.deep, { ambient: 0.74 });
         break;
       case 'waypoint':
         if (M.pfeil) Gfx.drawModel(M.pfeil, e.x, e.y + Math.sin(S.t * 0.04) * 6 * U, e.z,
